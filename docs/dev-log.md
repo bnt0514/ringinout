@@ -97,3 +97,40 @@ Flutter로 개발하는 위치 기반 스마트 알람 앱 “Ringinout”의 �
 - 위치 기반 포그라운드 서비스 로직 구체화
 - 퀵타일 활성화 상태에 따라 `GeofencingService` 유지 여부 제어
 
+## 2025-04-18
+
+- 알람 리스트 롱프레스 기능 추가
+  - 선택 모드 진입 후 다중 선택 가능
+  - 선택된 항목 삭제용 FloatingActionButton 추가
+- 알람 리스트 항목의 토글 버튼 디자인 통일 (AddAlarmPage와 동일한 스타일로)
+- 기본알람 탭 전환 후 다시 돌아올 때 리스트 초기화되는 버그 수정
+
+---
+
+## 2025-04-19
+
+- 불필요한 알람테스트 버튼 완전 제거
+  - location_alarm_list.dart, 기본알람 페이지, 선택모드 페이지에서 전부 삭제
+- 알람 리스트 숏프레스 시 수정 페이지로 진입하도록 설정
+- MyPlaces 페이지에 구분선 추가 (알람 리스트와 UI 통일)
+
+---
+
+## 2025-04-20
+
+- AddLocationAlarmPage 전체 코드 리팩토링
+  - 요일 선택 시 순서 강제 정렬 (일~토 순서)
+  - 저장 조건 추가: 알람 이름 필수, 진입 or 진출 중 하나 이상 필수
+  - MaterialLocalizations 에러 해결 → `GlobalMaterialLocalizations` import 추가 및 supportedLocales 설정
+- 저장 시 요일/날짜 선택 없을 경우 "알람 설정 후 최초 진입/진출 시" 문구 저장되도록 개선
+
+---
+
+## 2025-04-21
+
+- EditLocationAlarmPage 생성
+  - AddLocationAlarmPage 전체 복사 후 수정 기능 추가
+  - 기존 알람 데이터 반영, 저장/삭제 버튼 분리
+- LocationAlarmList에서 onTap 시 수정 페이지로 연결되도록 수정
+  - pushNamed 방식으로 alarm 데이터와 index 전달
+  - routes에 edit_location_alarm 등록 및 import 처리
