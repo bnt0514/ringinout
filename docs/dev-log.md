@@ -134,3 +134,31 @@ Flutter로 개발하는 위치 기반 스마트 알람 앱 “Ringinout”의 �
 - LocationAlarmList에서 onTap 시 수정 페이지로 연결되도록 수정
   - pushNamed 방식으로 alarm 데이터와 index 전달
   - routes에 edit_location_alarm 등록 및 import 처리
+
+## 🗓 2025-04-22 (화)
+
+- `AddLocationAlarmPage` 완성
+  - 저장 시 요일은 항상 `일~토` 순서로 정렬되도록 수정
+  - 요일/날짜 미선택 시 문구 자동 생성:  
+    - 진입 알람 → "알람 설정 후 최초 진입 시"  
+    - 진출 알람 → "알람 설정 후 최초 진출 시"
+- 알람 상세 진입용 수정 페이지 `EditLocationAlarmPage` 초안 작업 시작
+  - 기존 `AddLocationAlarmPage`를 기반으로 복사 후 수정 예정
+  - 수정 페이지에서는 기존 알람 데이터가 자동으로 불러와지도록 설계
+- Notification 클릭 시 전체화면 알람 페이지 띄우기 기능 검토 시작
+  - `AlarmFullScreenPage` 기획 논의는 있었으나 실제 구현 시작은 하지 않음
+  - Notification intent 처리 흐름, push 방식 검토 중
+
+---
+
+## 🗓 2025-04-23 (수)
+
+- 알람이 울릴 때 동작 관련 핵심 로직 정리
+  - 앱이 종료되었거나 백그라운드에 있어도 반드시 알림이 울리도록 설계 논의
+  - 화면이 꺼져 있을 경우 자동으로 켜지도록 구성 예정
+  - 첫 울림은 확인 버튼만, 반복 울림은 ‘확인 + 다시 울림’ 버튼 구성 예정
+- Notification 클릭 시 전체화면 페이지로 진입하는 방식 구체화 논의
+  - "어디든"이 아닌 정확한 파일명과 위치 안내가 필요함을 명시
+  - main.dart 또는 알람 초기화 파일 내에서 처리할 예정
+- AlarmFullScreenPage 설계 개시 예정 → 실제 코딩은 아직 착수하지 않음
+
