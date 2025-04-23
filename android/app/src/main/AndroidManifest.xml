@@ -1,0 +1,75 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools">
+
+        <!-- ✅ 위치 권한 -->
+        <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+        <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+        <!-- ✅ Foreground 서비스 및 알림 권한 -->
+        <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+        <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+        <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+        <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+        <uses-permission android:name="android.permission.WAKE_LOCK" />
+        <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+        <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
+        <application
+                android:label="ringinout"
+                android:name="${applicationName}"
+                android:icon="@mipmap/ic_launcher">
+
+                <!-- ✅ Flutter background service 선언 -->
+                <service
+                        android:name="id.flutter.flutter_background_service.BackgroundService"
+                        android:foregroundServiceType="location"
+                        android:exported="false"
+                        tools:replace="android:exported" />
+
+                <!-- ✅ 구글 지도 API 키 -->
+                <meta-data
+                        android:name="com.google.android.geo.API_KEY"
+                        android:value="AIzaSyCaqAvDbuHLP9YMUEl9nuJ4zpKowmTo7AE" />
+
+                <activity
+                        android:name=".MainActivity"
+                        android:exported="true"
+                        android:launchMode="singleTop"
+                        android:taskAffinity=""
+                        android:theme="@style/LaunchTheme"
+                        android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                        android:hardwareAccelerated="true"
+                        android:windowSoftInputMode="adjustResize">
+
+                        <!-- ✅ 알림 클릭 처리 -->
+                        <intent-filter>
+                                <action android:name="FLUTTER_NOTIFICATION_CLICK" />
+                                <category android:name="android.intent.category.DEFAULT" />
+                        </intent-filter>
+
+                        <!-- ✅ 앱 실행 메인 -->
+                        <intent-filter>
+                                <action android:name="android.intent.action.MAIN" />
+                                <category android:name="android.intent.category.LAUNCHER" />
+                        </intent-filter>
+                </activity>
+
+                <!-- ✅ Flutter 설정 -->
+                <meta-data
+                        android:name="io.flutter.embedding.android.NormalTheme"
+                        android:resource="@style/NormalTheme" />
+
+                <meta-data
+                        android:name="flutterEmbedding"
+                        android:value="2" />
+        </application>
+
+        <!-- ✅ 프로세스 텍스트 인텐트 쿼리 -->
+        <queries>
+                <intent>
+                        <action android:name="android.intent.action.PROCESS_TEXT" />
+                        <data android:mimeType="text/plain" />
+                </intent>
+        </queries>
+
+</manifest>
