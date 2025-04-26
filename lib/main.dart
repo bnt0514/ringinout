@@ -1,22 +1,33 @@
 // main.dart
+
+// Dart imports:
 import 'dart:async';
 import 'dart:ui';
-import 'package:flutter_background_service_android/flutter_background_service_android.dart';
+
+// Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+// Package imports:
+import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:flutter_background_service_android/flutter_background_service_android.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:ringinout/add_location_alarm_page.dart';
-import 'package:ringinout/alarm_notification_helper.dart';
-import 'package:ringinout/edit_location_alarm_page.dart';
-import 'package:ringinout/hive_helper.dart';
-import 'package:ringinout/location_monitor_service.dart';
-import 'package:ringinout/saved_locations_page.dart';
-import 'package:ringinout/location_alarm_list.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
+
+// Project imports:
+import 'package:ringinout/pages/add_location_alarm_page.dart';
+import 'package:ringinout/services/alarm_notification_helper.dart';
+import 'package:ringinout/pages/edit_location_alarm_page.dart';
+import 'package:ringinout/services/hive_helper.dart';
+import 'package:ringinout/pages/location_alarm_list.dart';
+import 'package:ringinout/services/location_monitor_service.dart';
+import 'package:ringinout/pages/saved_locations_page.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
@@ -124,6 +135,7 @@ class RinginoutApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'Ringinout',
       theme: ThemeData(primarySwatch: Colors.indigo),
       home: const MainNavigationPage(),
@@ -297,33 +309,62 @@ class AlarmPage extends StatefulWidget {
   State<AlarmPage> createState() => _AlarmPageState();
 }
 
+Future<void> requestDoNotDisturbPermission() async {
+  const platform = MethodChannel('ringinout/permissions');
+
+  try {
+    await platform.invokeMethod('requestDndPermission');
+  } on PlatformException catch (e) {
+    print('⚠️ DND 권한 요청 실패: $e');
+  }
+}
+
 class _AlarmPageState extends State<AlarmPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  static const platform = MethodChannel('com.example.ringinout/audio');
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
 
+    // ✅ 방해금지 모드 권한 요청
+    requestDoNotDisturbPermission();
+
+    // 🚀 위치 기반 알람 감시 시작
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // 🚀 위치 기반 알람 감시 시작
       LocationMonitorService().startMonitoring((type, alarm) async {
-        // ✅ Snackbar은 앱이 포그라운드 상태일 때만 보임
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('🔔 ${alarm['name']} - $type 알람 발생!')),
-          );
-        }
+        // 🔊 벨소리 강제 재생 시도
+        await forcePlayRingtone();
 
-        // ✅ 이제 context 넘길 필요 없이 그냥 호출하면 됨
+        // 🛎 알림 띄우기
         await showAlarmNotification(
-          alarm['name'],
-          alarm['message'],
+          alarm['name'] ?? '알람',
+          alarm['message'] ?? '알람이 감지되었습니다.',
           id: alarm['id'] ?? 0,
         );
       });
     });
+  }
+
+  /// ✅ 진동/무음 상태에서도 벨소리 강제 재생
+  Future<void> forcePlayRingtone() async {
+    try {
+      await platform.invokeMethod('playRingtoneLoud');
+    } catch (e) {
+      print('🔕 벨소리 강제 재생 실패: $e');
+    }
+  }
+
+  /// ✅ DND(방해금지 모드) 권한 요청
+  void requestDoNotDisturbPermission() async {
+    const platform = MethodChannel('ringinout/permissions');
+    try {
+      await platform.invokeMethod('requestDndPermission');
+    } on PlatformException catch (e) {
+      print('⚠️ DND 권한 요청 실패: $e');
+    }
   }
 
   void _showSortOptions() {
@@ -359,56 +400,21 @@ class _AlarmPageState extends State<AlarmPage>
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.only(
-            top: 40,
-            left: 16,
-            right: 16,
-            bottom: 12,
-          ),
-          color: Colors.indigo,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                '알람',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.sort, color: Colors.white),
-                onPressed: _showSortOptions,
-              ),
-            ],
-          ),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Ringinout 알람'),
+        actions: [
+          IconButton(icon: const Icon(Icons.sort), onPressed: _showSortOptions),
+        ],
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [Tab(text: '위치알람'), Tab(text: '기본알람')],
         ),
-        Container(
-          color: Colors.indigo.shade200,
-          child: TabBar(
-            controller: _tabController,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            indicatorColor: Colors.white,
-            tabs: const [Tab(text: '위치알람'), Tab(text: '기본알람')],
-          ),
-        ),
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            physics: const NeverScrollableScrollPhysics(),
-            children: const [
-              KeepAliveWidget(child: LocationAlarmList()),
-              Center(child: Text('위치알람 리스트')),
-              Center(child: Text('기본알람 리스트')),
-            ],
-          ),
-        ),
-      ],
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: const [LocationAlarmList(), Center(child: Text('기본알람 페이지'))],
+      ),
     );
   }
 }

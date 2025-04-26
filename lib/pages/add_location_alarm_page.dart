@@ -1,10 +1,15 @@
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:hive/hive.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:ringinout/alarm_sound_setting_page.dart';
-import 'package:ringinout/snooze_setting_page.dart';
-import 'package:ringinout/vibration_setting_page.dart';
-import 'package:ringinout/alarm_sound_player.dart';
+
+// Project imports:
+import 'package:ringinout/services/alarm_sound_player.dart';
+import 'package:ringinout/pages/alarm_sound_setting_page.dart';
+import 'package:ringinout/pages/snooze_setting_page.dart';
+import 'package:ringinout/pages/vibration_setting_page.dart';
 
 class AddLocationAlarmPage extends StatefulWidget {
   final Map<String, dynamic>? existingAlarm;
@@ -31,9 +36,9 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
   DateTime? selectedDate;
   bool excludeHolidays = false;
   String holidayBehavior = 'on';
-  String alarmSound = '기본 벨소리';
+  String alarmSound = 'thoughtfulringtone';
   String vibration = '짧은 진동';
-  String snooze = '3분, 1회';
+  String snooze = '5분';
   bool alarmSoundEnabled = true;
   bool vibrationEnabled = true;
   bool snoozeEnabled = true;
@@ -56,7 +61,8 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
 
   final List<String> exitKeywords = [
     '나가',
-    '나오',
+    '나오'
+        '나올',
     '출발',
     '나서',
     '떠나',
@@ -385,48 +391,33 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
               onTap: () async {
                 if (!alarmSoundEnabled) return;
 
-                setState(() => alarmSound = 'assets/sounds/1.mp3'); // 초기 설정
-
-                // 🔊 미리듣기
-                final player = AudioPlayer();
-                try {
-                  await player.setAsset('assets/sounds/1.mp3');
-                  await player.play();
-                } catch (e) {
-                  print('🔕 알람음 재생 실패: $e');
-                }
-
-                Navigator.push(
+                final selected = await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder:
                         (_) => AlarmSoundSettingPage(
                           currentPath: alarmSound,
-                          onSelected: (path) async {
+                          onSelected: (path) {
                             setState(() => alarmSound = path);
-
-                            // 🔊 새 소리도 미리듣기
-                            try {
-                              await player.setAsset(path);
-                              await player.play();
-                            } catch (e) {
-                              print('🔕 알람음 재생 실패: $e');
-                            }
-
-                            // Hive 저장
-                            final box = Hive.box('locationAlarms');
-                            if (widget.existingAlarm != null) {
-                              final key = widget.existingAlarm!['key'];
-                              final alarm = box.get(key);
-                              if (alarm != null) {
-                                alarm['sound'] = path;
-                                box.put(key, alarm);
-                              }
-                            }
                           },
                         ),
                   ),
                 );
+
+                if (selected != null && selected is String) {
+                  setState(() => alarmSound = selected);
+
+                  // Hive 저장
+                  final box = Hive.box('locationAlarms');
+                  if (widget.existingAlarm != null) {
+                    final key = widget.existingAlarm!['key'];
+                    final alarm = box.get(key);
+                    if (alarm != null) {
+                      alarm['sound'] = selected;
+                      box.put(key, alarm);
+                    }
+                  }
+                }
               },
             ),
 

@@ -1,8 +1,12 @@
 // location_picker_page.dart
+
+// Flutter imports:
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geolocator/geolocator.dart';
+
+// Package imports:
 import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class LocationPickerPage extends StatefulWidget {
   final void Function(double lat, double lng, String name, int radius)

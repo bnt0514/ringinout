@@ -1,6 +1,12 @@
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:ringinout/hive_helper.dart';
+
+// Project imports:
+import 'package:ringinout/services/hive_helper.dart';
+
 // ✨ 수정페이지 임포트
 
 class LocationAlarmList extends StatefulWidget {

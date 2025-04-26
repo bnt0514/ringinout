@@ -1,7 +1,10 @@
+// Flutter imports:
 import 'package:flutter/material.dart';
-import 'package:ringinout/location_picker_page.dart';
-import 'package:ringinout/add_alarm_page.dart';
-import 'package:ringinout/hive_helper.dart';
+
+// Project imports:
+import 'package:ringinout/pages/add_alarm_page.dart';
+import 'package:ringinout/services/hive_helper.dart';
+import 'package:ringinout/pages/location_picker_page.dart';
 
 class SavedLocationsPage extends StatefulWidget {
   const SavedLocationsPage({super.key});

@@ -13,6 +13,8 @@
         <uses-permission android:name="android.permission.WAKE_LOCK" />
         <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
         <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+        <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+        
 
         <application
                 android:label="ringinout"
@@ -31,28 +33,41 @@
                         android:name="com.google.android.geo.API_KEY"
                         android:value="AIzaSyCaqAvDbuHLP9YMUEl9nuJ4zpKowmTo7AE" />
 
+                                <!-- MainActivity (앱 실행 메인) -->
                 <activity
-                        android:name=".MainActivity"
-                        android:exported="true"
-                        android:launchMode="singleTop"
-                        android:taskAffinity=""
-                        android:theme="@style/LaunchTheme"
-                        android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-                        android:hardwareAccelerated="true"
-                        android:windowSoftInputMode="adjustResize">
+                                android:name=".MainActivity"
+                                android:exported="true"
+                                android:launchMode="singleTop"
+                                android:taskAffinity=""
+                                android:theme="@style/LaunchTheme"
+                                android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                                android:hardwareAccelerated="true"
+                                android:windowSoftInputMode="adjustResize">
 
-                        <!-- ✅ 알림 클릭 처리 -->
-                        <intent-filter>
-                                <action android:name="FLUTTER_NOTIFICATION_CLICK" />
-                                <category android:name="android.intent.category.DEFAULT" />
-                        </intent-filter>
+                                <!-- ✅ 알림 클릭 처리 -->
+                                <intent-filter>
+                                                <action android:name="FLUTTER_NOTIFICATION_CLICK" />
+                                                <category android:name="android.intent.category.DEFAULT" />
+                                </intent-filter>
 
-                        <!-- ✅ 앱 실행 메인 -->
-                        <intent-filter>
-                                <action android:name="android.intent.action.MAIN" />
-                                <category android:name="android.intent.category.LAUNCHER" />
-                        </intent-filter>
+                                <!-- ✅ 앱 실행 메인 -->
+                                <intent-filter>
+                                                <action android:name="android.intent.action.MAIN" />
+                                                <category android:name="android.intent.category.LAUNCHER" />
+                                </intent-filter>
                 </activity>
+
+                <!-- AlarmFullscreenActivity (전체화면 알람 페이지) -->
+                <activity
+                                android:name=".AlarmFullscreenActivity"
+                                android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"
+                                android:launchMode="singleTask"
+                                android:excludeFromRecents="true"
+                                android:showWhenLocked="true"
+                                android:turnScreenOn="true"
+                                android:taskAffinity=""
+                                android:exported="true" />
+
 
                 <!-- ✅ Flutter 설정 -->
                 <meta-data

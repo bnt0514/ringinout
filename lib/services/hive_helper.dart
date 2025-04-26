@@ -1,6 +1,10 @@
 // hive_helper.dart
-import 'package:hive/hive.dart';
+
+// Flutter imports:
 import 'package:flutter/material.dart';
+
+// Package imports:
+import 'package:hive/hive.dart';
 
 class HiveHelper {
   // 📦 MyPlaces 저장용 box

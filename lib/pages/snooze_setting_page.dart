@@ -1,3 +1,4 @@
+// Flutter imports:
 import 'package:flutter/material.dart';
 
 class SnoozeSettingPage extends StatelessWidget {
@@ -12,26 +13,49 @@ class SnoozeSettingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final snoozeOptions = ['5분 후 1회', '5분 후 2회', '10분 후 2회', '10분 후 3회'];
+    final snoozeOptions = ['1분 후', '3분 후', '5분 후', '10분 후', '30분 후'];
 
     return Scaffold(
       appBar: AppBar(title: const Text('다시 울림 설정')),
-      body: ListView.builder(
-        itemCount: snoozeOptions.length,
-        itemBuilder: (context, index) {
-          final option = snoozeOptions[index];
-          final isSelected = option == currentSnooze;
-
-          return ListTile(
-            title: Text(option),
-            trailing:
-                isSelected ? const Icon(Icons.check, color: Colors.blue) : null,
-            onTap: () {
-              onSelected(option);
-              Navigator.pop(context);
-            },
-          );
-        },
+      body: ListView(
+        children: [
+          ExpansionTile(
+            title: const Text(
+              '📌 필독* 위치알람 다시울림 상세설명',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.redAccent,
+              ),
+            ),
+            children: const [
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Text(
+                  '위치알람은 최소 2번 울립니다. 알람 본연 목적 달성 위함이니 양해 부탁 드립니다.\n'
+                  '\n'
+                  '* 첫 알람 이후 아래에서 선택한 시간에 맞춰 두 번째 알람이 울립니다.\n'
+                  '* 두 번째 알람부터는 사용자가 알람 종료 또는 다시 울림을 알람 화면에서 직접 선택 가능합니다.',
+                  style: TextStyle(fontSize: 14, color: Colors.black87),
+                ),
+              ),
+            ],
+          ),
+          const Divider(),
+          ...snoozeOptions.map((option) {
+            final isSelected = option == currentSnooze;
+            return ListTile(
+              title: Text(option),
+              trailing:
+                  isSelected
+                      ? const Icon(Icons.check, color: Colors.blue)
+                      : null,
+              onTap: () {
+                onSelected(option);
+                Navigator.pop(context);
+              },
+            );
+          }).toList(),
+        ],
       ),
     );
   }

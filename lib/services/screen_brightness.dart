@@ -1,3 +1,4 @@
+// Package imports:
 import 'package:screen_brightness/screen_brightness.dart';
 
 Future<void> increaseScreenBrightnessTemporarily() async {
