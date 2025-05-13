@@ -277,3 +277,43 @@ Flutter로 개발하는 위치 기반 스마트 알람 앱 “Ringinout”의 �
 - 전체화면 알람 페이지와 알림 간 충돌 여부 검토
 - `flutter_background_service` 안정성 테스트
 
+## 📅 2024-04-29 ~ 04-30 개발일지: Bluetooth 기반 위치 감지 기능 구현 시작
+
+### ✅ 주요 개발 내용
+
+- `ringinout_bluetooth_detector` 프로젝트 신규 생성 (경로: `C:/buildapp/`)
+- `flutter_blue_plus`, `permission_handler` 의존성 설치 및 충돌 해결
+- Android NDK 버전 불일치 및 `<uses-permission>` 위치 오류 해결
+- `BluetoothManager` 클래스 설계 및 리팩토링 진행:
+  - 이름 기반 매칭 방식으로 간소화
+  - 주기적 연결 확인 (`Timer.periodic`) + 앱 시작 시 1회 확인 포함
+- `bluetooth_test_page.dart` 생성 및 UI 테스트 구현
+  - 블루투스 기기명 입력 → 연결 여부 감지
+  - 실제 감지는 안 되는 이슈 발견 → 백엔드 로직 개선 착수
+- 실시간 감지를 위한 Stream API 시도 → `connectionState` 미지원 확인
+- 최종적으로 `FlutterBluePlus.connectedDevices`를 이용한 30초 단위 확인 로직으로 정리
+- 플랫폼 이름(`device.name`)은 `platformName`으로 변경하여 deprecated 경고 제거
+
+---
+
+### 🛠 수정된 주요 파일
+
+- `lib/bluetooth_manager.dart`
+- `lib/pages/bluetooth_test_page.dart`
+- `pubspec.yaml`
+- `main.dart`
+
+---
+
+### 🔁 다음 작업 예정
+
+- `MyPlaces`에서 블루투스 기기명 등록 기능 연동
+- 블루투스 기기 자동연결 시 알람 트리거 연결
+- 이후 GPS 및 Wi-Fi 감지 방식과 통합 예정
+
+---
+
+### 🧠 기타
+
+- `BluetoothManager`에 `startMonitoring()` / `stopMonitoring()` 완성
+- 연결된 블루투스 기기 이름이 매칭되면 콜백 실행되는 구조 설계
