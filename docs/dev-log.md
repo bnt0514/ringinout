@@ -196,3 +196,54 @@ Flutter로 개발하는 위치 기반 스마트 알람 앱 “Ringinout”의 �
 
 **기타 작업:**
 - **개발일지 업데이트 및 관리:** 4월 24일과 25일의 작업 내용을 깃허브에 기록하여 관리.
+
+# 📅 Ringinout 개발일지  
+## 기간: 2025년 4월 26일 ~ 4월 27일 (알람앱7 시작 시점)
+
+---
+
+## ✅ 2025-04-26 (금)
+
+### 📌 주요 작업
+- `알람앱7 시작` 선언, GitHub 프로젝트 공유 (`https://github.com/bnt0514/ringinout`)
+- 전체 프로젝트 코드 구조 빠르게 리뷰
+- 중복 벨소리 재생 이슈 확인
+  - 앱 내에서 설정한 mp3 벨소리와 시스템 기본 벨소리가 동시에 재생됨
+  - 벨소리 중복으로 앱 튕김 현상 발생 확인
+- `MainActivity.kt` 내 Notification 채널에서 `setSound(null, null)` 설정 확인
+- `playRingtoneLoud()` 메서드 확인: 시스템 기본 벨소리 강제 재생 구조 유지
+
+---
+
+## ✅ 2025-04-27 (토)
+
+### 📌 주요 작업
+
+#### 🔧 벨소리 구조 리팩토링
+- 전체 벨소리 로직을 **Flutter 내부 asset(mp3)** 기반 → **Native 기본 벨소리** 방식으로 변경
+- 모든 페이지에서 `just_audio` 제거 작업 시작
+  - `FullScreenAlarmPage`, `LocationMonitorService`, `AlarmPopupManager` 등 수정
+  - `soundPath` 인자 제거, MethodChannel을 통한 native 호출 방식 통일
+
+#### 🧹 정리 작업
+- `AlarmPopupManager` 삭제 결정
+  - ValueListenableBuilder 및 Stack 기반 상단 메시지 UI 제거
+  - `builder: (context, child)` 내부 간소화
+- Notification 클릭 시 전체화면 진입 로직 점검
+  - `.mp3.mp3` 오타 수정
+  - `FullScreenAlarmPage`에 더 이상 `soundPath` 넘기지 않도록 정리 예정
+
+---
+
+## 🔄 주요 이슈/논의
+- 앱 실행 시 위치 기반 알람이 잘못 울리는 문제 제기
+  - 진입/진출 상태 비교(`wasInside`, `isInside`)가 실행 시점에 따라 잘못 감지될 가능성 논의
+- 향후 음성 인식 기반 알람 생성이 메인 기능이라는 점 재확인
+
+---
+
+## 📌 TODO (다음 작업)
+- `flutter_local_notifications` 관련 코드 전체 리팩토링 (사운드 설정 제거 포함)
+- `LocationMonitorService`에서 완전한 just_audio 제거 + MethodChannel 전환
+- `AlarmNotificationHelper` 캔버스 코드 정리 (알람앱8에서 이어서)
+
