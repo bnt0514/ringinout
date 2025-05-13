@@ -247,3 +247,33 @@ Flutter로 개발하는 위치 기반 스마트 알람 앱 “Ringinout”의 �
 - `LocationMonitorService`에서 완전한 just_audio 제거 + MethodChannel 전환
 - `AlarmNotificationHelper` 캔버스 코드 정리 (알람앱8에서 이어서)
 
+## 📅 개발일지: 2025.04.27 ~ 2025.04.28
+
+### ✅ 주요 작업 요약
+
+- **전체화면 알람 분기 처리**
+  - 포그라운드 상태: Flutter `FullScreenAlarmPage`로 전환
+  - 백그라운드 상태: Android Native `AlarmFullscreenActivity` 실행
+
+- **MethodChannel 연결**
+  - Flutter → Native: `launchNativeAlarm`
+  - Native → Flutter: `navigateToFullScreenAlarm` (포그라운드 진입 시 사용)
+
+- **백그라운드 감시 서비스 확장**
+  - `onStart()` 내에서 위치 감지 및 Native 알람 호출 로직 포함
+  - showAlarmNotification 병행 호출로 알림도 함께 표시
+
+- **알람 벨소리 처리 변경**
+  - 앱 내 mp3 대신 Android 기본 벨소리만 사용
+  - `soundPath`는 포맷 유지만 하고 실제로는 사용하지 않음
+
+- **기타 이슈**
+  - Notification 클릭 시 전체화면 전환은 정상 작동 확인
+  - Flutter 포그라운드 상태에서의 전체화면 진입 실패 → 원인 분석 필요
+  - Kotlin 빌드 시 `source 8` 관련 경고 다수 발생 (기능에는 영향 없음)
+
+### 🧪 다음 작업 예정
+- 포그라운드 진입 실패 원인 추적 및 해결
+- 전체화면 알람 페이지와 알림 간 충돌 여부 검토
+- `flutter_background_service` 안정성 테스트
+
