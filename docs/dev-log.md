@@ -357,3 +357,32 @@ Flutter로 개발하는 위치 기반 스마트 알람 앱 “Ringinout”의 �
 - context 사용 시 async gap 문제 발생 → `if (mounted)` 또는 `Future.microtask` 활용해 해결
 
 ---
+### 📅 2025-05-07 개발일지
+
+#### ✅ 주요 작업 내역
+
+- **Flutter `PlatformException(ACTIVITY_NOT_ATTACHED)` 오류 해결**
+  - `flutterEngine`이 attach되기 전에 `MethodChannel.invokeMethod()` 호출되는 구조를 개선
+  - `MainActivity.kt`에서 알람 intent 관련 처리 코드를 `configureFlutterEngine()` 안으로 안전하게 이동
+  - `onCreate()`에선 알람 intent를 받아서 `companion object`에 임시 저장 후, Flutter attach 이후에 전달되도록 수정
+
+- **`MainActivity.kt` 전체 리팩토링**
+  - 지저분하게 분산된 `MethodChannel` 초기화 정리
+  - `pendingTitle`, `navigateToFullscreen` 전역 변수로 전달 상태 관리
+  - `flutterEngine!!.dartExecutor` 접근 시점 안정화
+
+- **Flutter 앱에서 알람 페이지 강제 호출 로직 재정비**
+  - `setupMethodChannel()` → `RinginoutApp` 안에서 Flutter attach 이후 안전하게 실행되도록 구조화
+  - `FullScreenAlarmPage`로 `Navigator.push()` 호출 시점 보장
+
+- **지오펜스 구조 점검 및 전략 논의**
+  - 현재 `geofence_service`가 위치 감지를 놓치는 문제 확인
+  - 배터리 절약을 위한 `geolocator` 기반 수동 감지 로직을 백업으로 사용할 수 있는 하이브리드 전략 구상
+  - “지오3 시작하자!” 구문으로 이후 전략 구현 시작 신호 설정
+
+---
+
+#### 🧠 개발 인사이트
+
+- 지오펜스는 감지가 누락될 수 있으므로, `geolocator` 백업 감시는 실전 앱에 매우 유용한 보완 수단
+- `PlatformException(ACTIVITY_NOT_ATTACHED)` 오류는 대부분 `flutterEngine` 미연결 시 발생하므로, 타이밍 제어가 중요함
