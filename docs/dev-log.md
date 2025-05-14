@@ -277,7 +277,7 @@ Flutter로 개발하는 위치 기반 스마트 알람 앱 “Ringinout”의 �
 - 전체화면 알람 페이지와 알림 간 충돌 여부 검토
 - `flutter_background_service` 안정성 테스트
 
-## 📅 2024-04-29 ~ 04-30 개발일지: Bluetooth 기반 위치 감지 기능 구현 시작
+## 📅 2025-04-29 ~ 04-30 개발일지: Bluetooth 기반 위치 감지 기능 구현 시작
 
 ### ✅ 주요 개발 내용
 
@@ -318,7 +318,7 @@ Flutter로 개발하는 위치 기반 스마트 알람 앱 “Ringinout”의 �
 - `BluetoothManager`에 `startMonitoring()` / `stopMonitoring()` 완성
 - 연결된 블루투스 기기 이름이 매칭되면 콜백 실행되는 구조 설계
 
-## 📆 2024-05-01 ~ 2024-05-02 Bluetooth 감지 기반 알람 기능 개발
+## 📆 2025-05-01 ~ 2025-05-02 Bluetooth 감지 기반 알람 기능 개발
 
 ### ✅ 주요 작업 내용
 - BLE와 클래식 블루투스를 구분하여 감지 로직 분리
@@ -336,3 +336,24 @@ Flutter로 개발하는 위치 기반 스마트 알람 앱 “Ringinout”의 �
 ### ⚙️ 추가 확인 사항
 - 사용 기기: Galaxy Z Flip6 (Android 14)
 - BLE는 현재 보류, 클래식 블루투스 연결 기반으로 진입/진출 감지 우선 구현 중
+
+# 📅 개발일지 (2025.05.03 ~ 2025.05.04)
+
+## ✅ Geofence 기반 위치 감지 구조 리팩터링
+- 기존 Geolocator 기반 감지 로직을 완전히 제거하고 Geofence 기반으로 전환
+- `LocationMonitorService`에서 `GeofenceService.instance.addGeofenceStatusChangeListener`를 사용하여 감지 이벤트 처리
+- 이벤트 핸들러는 `(Geofence geofence, GeofenceStatus status, Location location)` 형식으로 구현
+- `GeofenceStatus.ENTER`, `GeofenceStatus.EXIT` 값을 이용해 진입/진출 트리거 분기
+- `navigatorKey`를 사용해 포그라운드에서는 Flutter 페이지 이동, 백그라운드에서는 Native 알람 호출 처리
+- `GeofenceEvent`, `GeofenceTransitionType` 등 미사용/오류 타입 제거 후 정상 빌드 완료
+
+## ✅ MyPlaces와 Geofence 연동 설계
+- 위치 등록 페이지(`location_picker_page.dart`)를 `add_myplaces_page.dart`로 개편
+- 저장 시 Hive 저장과 동시에 Geofence 반경 100m 등록
+- 저장된 위치는 `SavedLocationsPage`에서 관리되고, 알람 설정 시 해당 장소 기준으로 트리거 감지 가능
+
+## 🐛 주요 이슈 해결
+- Geofence 관련 클래스/이벤트명 오타 및 잘못된 타입 정의로 인한 컴파일 에러 수정
+- context 사용 시 async gap 문제 발생 → `if (mounted)` 또는 `Future.microtask` 활용해 해결
+
+---
