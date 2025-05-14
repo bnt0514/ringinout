@@ -503,6 +503,23 @@ Flutter로 개발하는 위치 기반 스마트 알람 앱 “Ringinout”의 �
 ### ✏️ 향후 작업 예정
 - 리스트 항목 우측 옵션 버튼으로 `편집/삭제` 기능 추가
 - `편집` 버튼 클릭 시 위치 편집 전용 페이지로 이동 (명칭, 반경, 좌표 수정 가능)
-- 해당 작업은 `지오펜스8 시작하자!`에서 별도 페이지로 개발 예정
+
+---
+## 📅 2025-05-13 (월)
+
+### 🚀 MyPlacesPage 개선
+- `bottomNavigationBar` 방식 → `FloatingActionButton` 방식으로 전환
+  - FAB 위치 드래그 가능하게 구현
+  - FAB 위치를 Hive에 저장 (`Offset`)하고 불러오는 구조 완료
+  - `Icons.add_location_alt` 아이콘 사용, 위치 저장 시 구글맵으로 이동
+- `PopupMenuButton` 항목 일부 누락 이슈 해결
+  - `const` 위치 조정하여 메뉴 항목 3개 모두 정상 출력되도록 수정
+- 버튼이 안 보이던 이슈 디버깅
+  - `Scaffold` 내에 Positioned 위젯을 `floatingActionButton`에 잘못 적용한 문제 식별
+  - 추후 해결을 위한 `지오펜스9 시작` 키워드 등록
+
+### 🛠 LocationAlarmList 탭 스와이프 비활성화
+- `TabBarView`에 `NeverScrollableScrollPhysics()` 적용하여 스와이프 차단
+- 오직 탭 클릭으로만 페이지 전환되도록 UX 개선
 
 ---
