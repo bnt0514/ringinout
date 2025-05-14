@@ -490,3 +490,19 @@ Flutter로 개발하는 위치 기반 스마트 알람 앱 “Ringinout”의 �
 - `myplaces`에 장소를 저장해도 리스트에 표시되지 않는 문제 확인 (해결은 별도 이슈로 이관 예정)
 
 ---
+## ✅ 2025-05-12 개발일지 (MyPlaces 리스트 표시 문제 해결)
+
+### 🔧 주요 수정 사항
+- `MyPlacesPage` 위젯이 `StatelessWidget`이면서 `body: const MyPlacesPage()` 구조로 자기 자신을 무한 재귀 호출 → 앱 실행 불가 현상 발생
+- 이 문제를 해결하기 위해 껍데기용 `MyPlacesCall` 클래스 신설하고, 실제 리스트 표시 로직은 `MyPlacesPage`로 분리
+- `MyPlacesPage`는 Stateful 구조로 유지하며 Hive 박스 초기화 및 ValueListenableBuilder로 리스트 실시간 표시 처리
+- 결국 `main.dart`에는 `MyPlacesCall`만 남기고, `MyPlacesPage`는 별도 파일에서 로직 담당
+- `MyPlacesPage`에서 Hive 저장된 데이터 정상적으로 리스트뷰에 표시되는 문제 해결됨
+- 각 리스트 항목의 `onTap` 동작, 옵션 메뉴(`⋮`) 표시 기능 재도입 예정
+
+### ✏️ 향후 작업 예정
+- 리스트 항목 우측 옵션 버튼으로 `편집/삭제` 기능 추가
+- `편집` 버튼 클릭 시 위치 편집 전용 페이지로 이동 (명칭, 반경, 좌표 수정 가능)
+- 해당 작업은 `지오펜스8 시작하자!`에서 별도 페이지로 개발 예정
+
+---
