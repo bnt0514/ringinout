@@ -472,3 +472,21 @@ Flutter로 개발하는 위치 기반 스마트 알람 앱 “Ringinout”의 �
 - 지오펜스 트리거 시 알람 노티 + 벨소리 울리지 않는 원인 조사
 
 ---
+## 📅 2025-05-11 개발일지
+
+### 🔔 알림(Notification) 기능 점검 및 개선
+
+- 지오펜스 이벤트 발생 시 알림(Notification)이 울리지 않는 문제 발생
+- `showAlarmNotification()` 호출은 되었으나, 채널 미생성으로 인해 알림이 표시되지 않음 확인
+- 해결 조치:
+  - `alarm_notification_helper.dart` 내 `createNotificationChannel()` 함수 작성
+  - `initializeNotifications()` 내에서 `createNotificationChannel()` 함수 호출 추가
+  - `main.dart`에 별도 호출 없이 `initializeNotifications()`에서 자동 등록되도록 수정
+  - Android에서 알림 채널 누락 시 노티가 보이지 않는 문제 해결됨
+
+### 🐞 기타 이슈 및 조치
+
+- `await HiveHelper.getAlarmSound()` 등의 코드는 `Future<String>`이 아닌 `String` 리턴이므로 `await` 제거
+- `myplaces`에 장소를 저장해도 리스트에 표시되지 않는 문제 확인 (해결은 별도 이슈로 이관 예정)
+
+---
