@@ -386,3 +386,23 @@ Flutter로 개발하는 위치 기반 스마트 알람 앱 “Ringinout”의 �
 
 - 지오펜스는 감지가 누락될 수 있으므로, `geolocator` 백업 감시는 실전 앱에 매우 유용한 보완 수단
 - `PlatformException(ACTIVITY_NOT_ATTACHED)` 오류는 대부분 `flutterEngine` 미연결 시 발생하므로, 타이밍 제어가 중요함
+
+## 📅 2025-05-08 개발일지
+
+### 📌 MyPlacesPage UI 구조 리팩토링 및 FAB 표시 오류 해결
+
+- 기존 `MyPlacesPage`의 FAB(새 위치 추가 버튼)가 리스트가 비어있을 때 보이지 않는 문제 발생.
+- 원인 분석:
+  - `floatingActionButton`은 `MyPlacesPage`에 존재하지만, `MyPlacesBody`에서 리스트가 비어있을 때 `Center`만 반환되어 FAB가 보이지 않음.
+  - 즉, `Scaffold` 레이아웃 내에 FAB가 있어도 `body`가 `Center`로만 구성될 경우 FAB가 시각적으로 가려짐.
+- 해결 방법:
+  - `MyPlacesBody` 내에서 빈 리스트 메시지를 보여주되, `Column`으로 감싸고 `Expanded` + `Align` 등을 통해 FAB가 가려지지 않도록 구조 조정.
+  - `MyPlacesPage`에 `floatingActionButtonLocation`을 명시적으로 설정하여 우측 하단 고정.
+  - 버튼이 항상 보이도록 `MyPlacesPage` 레벨에서 일관되게 관리.
+
+### ✅ 주요 수정 사항
+- `MyPlacesPage` 클래스 내 `floatingActionButton` 항상 유지.
+- `MyPlacesBody`는 장소가 없을 경우에도 FAB를 가리지 않는 구조로 수정.
+- 리스트가 비었을 때도 `MyPlacesBody`가 `Text` 대신 `Column`을 반환하여 FAB 영역 확보.
+
+---
