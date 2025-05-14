@@ -317,3 +317,22 @@ Flutter로 개발하는 위치 기반 스마트 알람 앱 “Ringinout”의 �
 
 - `BluetoothManager`에 `startMonitoring()` / `stopMonitoring()` 완성
 - 연결된 블루투스 기기 이름이 매칭되면 콜백 실행되는 구조 설계
+
+## 📆 2024-05-01 ~ 2024-05-02 Bluetooth 감지 기반 알람 기능 개발
+
+### ✅ 주요 작업 내용
+- BLE와 클래식 블루투스를 구분하여 감지 로직 분리
+  - `BleBluetoothManager` / `ClassicBluetoothManager` 클래스 작성 완료
+  - BLE는 `flutter_blue_plus`, 클래식은 `flutter_bluetooth_serial` 사용
+- BluetoothTestPage에서 BLE + 클래식 감지 테스트용 UI 구성
+  - 연결 시: 🟢 "BLE/클래식 블루투스 연결됨" 상태 표시
+  - 끊김 시: 🔴 "클래식 블루투스 끊어짐" 상태 표시
+- Android 12 이상 대응을 위한 권한 요청 로직 추가 (`permission_handler`)
+  - `BluetoothTestPage`에서 앱 실행 시 권한 자동 요청
+  - AndroidManifest에 `BLUETOOTH_CONNECT`, `BLUETOOTH_SCAN`, `FOREGROUND_SERVICE` 등 권한 명시
+- `getBondedDevices()` 및 `device.isConnected` 기반 클래식 연결 여부 탐지 로직 구현
+- 디버깅 중 `getBondedDevices()` 결과값이 나오지 않는 문제 확인 → Android 12+ 권한 설정 이슈로 추정, 해결
+
+### ⚙️ 추가 확인 사항
+- 사용 기기: Galaxy Z Flip6 (Android 14)
+- BLE는 현재 보류, 클래식 블루투스 연결 기반으로 진입/진출 감지 우선 구현 중
