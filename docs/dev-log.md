@@ -443,3 +443,32 @@ Flutter로 개발하는 위치 기반 스마트 알람 앱 “Ringinout”의 �
    - 신규 알람 생성 시에는 기본적으로 활성화 상태로 생성되고 `triggerCount`는 0으로 시작됨
 
 ---
+## 📅 2025-05-10 (토) - MyPlaces 문제 해결 & 정리
+
+### ✅ 주요 작업 내용
+- **MyPlacesPage 정리**:
+  - 기존 MyPlacesPage 구조가 불안정했음
+  - `MyPlacesPage`에서 리스트가 보이지 않는 문제를 해결하기 위해 `ValueListenableBuilder`를 기반으로 `MyPlacesCall` 구조로 전면 리팩토링
+  - 기존 페이지에 있던 setState 방식 삭제 및 `HiveHelper.getSavedLocations()` 동기화 방식 제거
+
+- **FloatingActionButton 적용**:
+  - `MyPlacesPage`에 새 위치 추가용 FAB(플로팅 버튼) 정상 적용 확인
+  - 버튼 누르면 `AddMyPlacePage`로 이동하여 장소 추가 가능
+
+- **데이터 저장 확인**:
+  - 새 장소 저장 시 `📦 Hive 상태 (저장 후)` 로그 출력 확인
+  - 저장 완료 후 Snackbar는 정상 출력되나, **페이지가 이전으로 돌아가지 않음**
+  - 저장 후 자동 페이지 pop 처리가 필요함
+
+- **지오펜스 트리거 확인**:
+  - 장소 저장 후 즉시 지오펜스 감지 발생 확인 (`📍 지오펜스 이벤트 발생: 집3 / 상태: GeofenceStatus.ENTER`)
+  - 하지만 **노티피케이션 및 벨소리 울리지 않음** → 이후 디버깅 필요
+
+---
+
+### 🔧 다음 작업 예정
+- 저장 완료 후 페이지 자동 pop 추가
+- 저장 후 리스트 실시간 반영 안 되는 문제 해결
+- 지오펜스 트리거 시 알람 노티 + 벨소리 울리지 않는 원인 조사
+
+---
