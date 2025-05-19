@@ -548,3 +548,31 @@ Flutter로 개발하는 위치 기반 스마트 알람 앱 “Ringinout”의 �
   - 100만 → 1,000만 사용자 확대 시 Firestore 비용 분석
 - Freemium, 구독 모델, 보상형 광고 등 수익화 전략 논의
 
+# 📆 2025-05-15 ~ 2025-05-19 개발일지
+
+## ✅ 알람 시스템 구조 통합 및 최적화
+
+### 🔧 알람 동작 구조 재설계
+- 포그라운드: Flutter에서 절반 팝업 알람, Native에서 기본 벨소리 호출
+- 백그라운드: Native에서 화면만 깨운 후 Flutter로 진입 → 동일한 알람 페이지 표시
+- 플랫폼 상관없이 `triggerCount`는 SharedPreferences로 동기화
+
+### 🔁 알람 진입 방식 개선
+- 기존 `title` 기반 전달에서 `alarmId` 기반 전달로 구조 변경
+- `MainActivity.kt`에서 `pendingAlarmId`를 기반으로 Flutter MethodChannel 호출
+- Flutter `main()` 내부에서 `navigateToFullScreenAlarm` 처리 → Hive에서 알람 정보 로드 후 알람 페이지 진입
+
+### 🔊 벨소리 일원화
+- Flutter → Native `SystemRingtone.play()`로 벨소리 통합
+- 포그라운드/백그라운드 모두 동일하게 기본 벨소리 재생
+
+### 📱 전체화면 알람 페이지 개선
+- `AlarmFullscreenActivity.kt`는 이제 화면만 깨우고 `MainActivity`를 호출하는 역할로 축소
+- Native와 Flutter 알람 동작을 하나의 알람 페이지로 통일
+
+### 🐛 기타 처리 및 최적화
+- `firstWhere`의 null 반환 문제 해결 → `collection` 패키지의 `firstWhereOrNull()` 사용
+- `FullScreenAlarmPage`에 `alarmData` 옵셔널 추가로 모든 호출부 오류 제거
+- `late final` 대신 `final Map<String, dynamic>?` 사용하여 null-safe 처리
+
+---
