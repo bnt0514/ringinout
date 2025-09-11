@@ -1,14 +1,175 @@
 // Flutter imports:
 import 'package:flutter/material.dart';
-
-// Package imports:
+import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-
-// Project imports:
 import 'package:ringinout/services/hive_helper.dart';
+import 'package:ringinout/services/smart_location_monitor.dart';
 
-// ✨ 수정페이지 임포트
+// 컨트롤러
+class AlarmListController {
+  final ValueNotifier<bool> isSelectionMode = ValueNotifier(false);
+  final ValueNotifier<Set<int>> selectedIndexes = ValueNotifier({});
 
+  void toggleSelection(int index) {
+    final newSet = Set<int>.from(selectedIndexes.value);
+    if (newSet.contains(index)) {
+      newSet.remove(index);
+    } else {
+      newSet.add(index);
+    }
+    selectedIndexes.value = newSet;
+    isSelectionMode.value = newSet.isNotEmpty;
+  }
+
+  void toggleAll(int totalCount) {
+    if (selectedIndexes.value.length == totalCount) {
+      selectedIndexes.value = {};
+    } else {
+      selectedIndexes.value = Set<int>.from(
+        List.generate(totalCount, (index) => index),
+      );
+    }
+  }
+
+  Future<void> deleteSelected() async {
+    final box = HiveHelper.alarmBox;
+    final keys = box.keys.toList();
+
+    for (int i in selectedIndexes.value) {
+      await HiveHelper.deleteAlarmById(keys[i]);
+    }
+
+    selectedIndexes.value = {};
+    isSelectionMode.value = false;
+  }
+}
+
+// 알람 아이템 위젯
+class AlarmListItem extends StatelessWidget {
+  final Map<String, dynamic> alarm;
+  final int index;
+  final bool isSelected;
+  final bool isSelectionMode;
+  final Function(int) onSelect;
+  final Function(int) onTap;
+
+  const AlarmListItem({
+    super.key,
+    required this.alarm,
+    required this.index,
+    required this.isSelected,
+    required this.isSelectionMode,
+    required this.onSelect,
+    required this.onTap,
+  });
+
+  String _getSubtitle() {
+    final repeat = alarm['repeat'];
+    if (repeat is String) return repeat;
+    if (repeat is List && repeat.isNotEmpty) return '매주 ${repeat.join(', ')}';
+    return alarm['trigger'] == 'entry' ? '알람 설정 후 최초 진입 시' : '알람 설정 후 최초 진출 시';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onLongPress: () => onSelect(index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        transform:
+            isSelectionMode
+                ? Matrix4.translationValues(20, 0, 0)
+                : Matrix4.identity(),
+        margin:
+            isSelectionMode ? const EdgeInsets.only(top: 30) : EdgeInsets.zero,
+        child: Column(
+          children: [
+            Row(
+              children: [
+                if (isSelectionMode)
+                  Checkbox(
+                    value: isSelected,
+                    onChanged: (bool? checked) => onSelect(index),
+                  ),
+                Expanded(
+                  child: ListTile(
+                    leading: const Icon(Icons.place),
+                    title: Text(alarm['name'] ?? '이름 없음'),
+                    subtitle: Text(_getSubtitle()),
+                    onTap: () => onTap(index),
+                  ),
+                ),
+                if (!isSelectionMode) _buildEnableSwitch(),
+              ],
+            ),
+            Divider(color: Colors.grey.shade300, height: 1),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEnableSwitch() {
+    return Container(
+      width: 48,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        border: Border(left: BorderSide(color: Colors.grey)),
+      ),
+      child: GestureDetector(
+        onTap: () async {
+          final updatedAlarm = Map<String, dynamic>.from(alarm);
+          final willEnable = !(alarm['enabled'] ?? false);
+          updatedAlarm['enabled'] = willEnable;
+
+          if (willEnable) {
+            updatedAlarm['triggerCount'] = 0;
+          }
+
+          await HiveHelper.updateLocationAlarm(index, updatedAlarm);
+
+          // ✅ 알람 상태 변경 시 모니터링 재시작
+          await _updateMonitoringService();
+
+          print('🔄 알람 ${willEnable ? '활성화' : '비활성화'}: ${alarm['name']}');
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: (alarm['enabled'] ?? false) ? Colors.blue : Colors.grey[300],
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: (alarm['enabled'] ?? false) ? 20 : 12,
+              height: (alarm['enabled'] ?? false) ? 20 : 12,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ✅ 올바른 모니터링 서비스 업데이트 메서드
+  Future<void> _updateMonitoringService() async {
+    try {
+      // 스마트 모니터링 재시작
+      await SmartLocationMonitor.startSmartMonitoring();
+      print('🔄 스마트 모니터링 서비스 재시작 완료');
+    } catch (e) {
+      print('❌ 모니터링 서비스 재시작 실패: $e');
+    }
+  }
+}
+
+// 메인 위젯
 class LocationAlarmList extends StatefulWidget {
   const LocationAlarmList({super.key});
 
@@ -17,304 +178,175 @@ class LocationAlarmList extends StatefulWidget {
 }
 
 class _LocationAlarmListState extends State<LocationAlarmList> {
-  bool isSelectionMode = false;
-  Set<int> selectedIndexes = {};
+  final _controller = AlarmListController();
+  final _platform = const MethodChannel('ringinout_channel');
+  Offset fabPosition = const Offset(160, 400);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setupMethodChannel();
+      _loadFabPosition();
+    });
+  }
+
+  Future<void> _loadFabPosition() async {
+    try {
+      final position = await HiveHelper.getFabPosition();
+      setState(() {
+        fabPosition = position;
+      });
+    } catch (e) {
+      print('FAB 위치 로드 실패: $e');
+    }
+  }
+
+  void _setupMethodChannel() {
+    _platform.setMethodCallHandler((call) async {
+      if (call.method == 'navigateToFullScreenAlarm') {
+        Navigator.of(context).pushNamed('/fullScreenAlarm');
+      }
+    });
+  }
+
+  void _handleAlarmTap(int index) {
+    if (_controller.isSelectionMode.value) {
+      _controller.toggleSelection(index);
+    } else {
+      final alarmRaw = HiveHelper.alarmBox.getAt(index);
+      final alarm = Map<String, dynamic>.from(alarmRaw as Map);
+      Navigator.pushNamed(
+        context,
+        '/edit_location_alarm',
+        arguments: {'index': index, 'existingAlarmData': alarm},
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Offset>(
-      future: HiveHelper.getFabPosition(),
-      builder: (context, snapshot) {
-        Offset fabPosition = snapshot.data ?? const Offset(160, 580);
-
-        return WillPopScope(
-          onWillPop: () async {
-            if (isSelectionMode) {
-              setState(() {
-                isSelectionMode = false;
-                selectedIndexes.clear();
-              });
-              return false;
+    return ValueListenableBuilder(
+      valueListenable: _controller.isSelectionMode,
+      builder: (context, isSelectionMode, _) {
+        return PopScope(
+          canPop: !isSelectionMode,
+          onPopInvoked: (didPop) {
+            if (!didPop && isSelectionMode) {
+              _controller.isSelectionMode.value = false;
+              _controller.selectedIndexes.value = {};
             }
-            return true;
           },
-          child: StatefulBuilder(
-            builder: (context, setInnerState) {
-              return Stack(
-                children: [
-                  ValueListenableBuilder(
-                    valueListenable: Hive.box('locationAlarms').listenable(),
-                    builder: (context, Box box, _) {
-                      final alarms = box.values.toList();
-
-                      if (alarms.isEmpty) {
-                        return const Center(child: Text('저장된 알람이 없습니다.'));
-                      }
-
-                      return ListView.builder(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        itemCount: alarms.length,
-                        itemBuilder: (context, index) {
-                          final alarm = Map<String, dynamic>.from(
-                            alarms[index],
-                          );
-                          final name = alarm['name'] ?? '이름 없음';
-                          final repeat = alarm['repeat'];
-                          String subtitle;
-
-                          if (repeat is String) {
-                            subtitle = repeat;
-                          } else if (repeat is List && repeat.isNotEmpty) {
-                            subtitle = '매주 ${repeat.join(', ')}';
-                          } else {
-                            subtitle =
-                                alarm['trigger'] == 'entry'
-                                    ? '알람 설정 후 최초 진입 시'
-                                    : '알람 설정 후 최초 진출 시';
-                          }
-
-                          final isSelected = selectedIndexes.contains(index);
-
-                          return GestureDetector(
-                            onLongPress: () {
-                              setState(() {
-                                isSelectionMode = true;
-                                selectedIndexes.add(index);
-                              });
-                            },
-
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              transform:
-                                  isSelectionMode
-                                      ? Matrix4.translationValues(20, 0, 0)
-                                      : Matrix4.identity(),
-                              child: Column(
-                                children: [
-                                  Row(
-                                    children: [
-                                      if (isSelectionMode)
-                                        Checkbox(
-                                          value: isSelected,
-                                          onChanged: (bool? checked) {
-                                            setState(() {
-                                              if (checked == true) {
-                                                selectedIndexes.add(index);
-                                              } else {
-                                                selectedIndexes.remove(index);
-                                              }
-                                            });
-                                          },
-                                        ),
-                                      Expanded(
-                                        child: ListTile(
-                                          leading: const Icon(Icons.place),
-                                          title: Text(name),
-                                          subtitle: Text(subtitle),
-                                          onTap: () {
-                                            if (isSelectionMode) {
-                                              setState(() {
-                                                if (isSelected) {
-                                                  selectedIndexes.remove(index);
-                                                } else {
-                                                  selectedIndexes.add(index);
-                                                }
-                                              });
-                                            } else {
-                                              Navigator.pushNamed(
-                                                context,
-                                                '/edit_location_alarm',
-                                                arguments: {
-                                                  'alarm':
-                                                      Map<String, dynamic>.from(
-                                                        alarm,
-                                                      ),
-                                                  'index': index,
-                                                },
-                                              );
-                                            }
-                                          },
-                                        ),
-                                      ),
-
-                                      if (!isSelectionMode)
-                                        Container(
-                                          width: 48,
-                                          alignment: Alignment.center,
-                                          decoration: const BoxDecoration(
-                                            border: Border(
-                                              left: BorderSide(
-                                                color: Colors.grey,
-                                              ),
-                                            ),
-                                          ),
-                                          child: GestureDetector(
-                                            onTap: () async {
-                                              final updatedAlarm =
-                                                  Map<String, dynamic>.from(
-                                                    alarm,
-                                                  );
-                                              updatedAlarm['enabled'] =
-                                                  !(alarm['enabled'] ?? false);
-                                              await HiveHelper.updateLocationAlarm(
-                                                index,
-                                                updatedAlarm,
-                                              );
-                                            },
-                                            child: AnimatedContainer(
-                                              duration: const Duration(
-                                                milliseconds: 200,
-                                              ),
-                                              width: 32,
-                                              height: 32,
-                                              decoration: BoxDecoration(
-                                                color:
-                                                    (alarm['enabled'] ?? false)
-                                                        ? Colors.blue
-                                                        : Colors.grey[300],
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: Center(
-                                                child: AnimatedContainer(
-                                                  duration: const Duration(
-                                                    milliseconds: 200,
-                                                  ),
-                                                  width:
-                                                      (alarm['enabled'] ??
-                                                              false)
-                                                          ? 20
-                                                          : 12,
-                                                  height:
-                                                      (alarm['enabled'] ??
-                                                              false)
-                                                          ? 20
-                                                          : 12,
-                                                  decoration:
-                                                      const BoxDecoration(
-                                                        color: Colors.white,
-                                                        shape: BoxShape.circle,
-                                                      ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                  Divider(
-                                    color: Colors.grey.shade300,
-                                    height: 1,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                  if (isSelectionMode)
-                    Positioned(
-                      top: 0,
-                      left: -10,
-                      child: Row(
-                        children: [
-                          TextButton(
-                            onPressed: () {
-                              setState(() {
-                                if (selectedIndexes.length ==
-                                    Hive.box('locationAlarms').length) {
-                                  selectedIndexes.clear();
-                                } else {
-                                  selectedIndexes = Set<int>.from(
-                                    List.generate(
-                                      Hive.box('locationAlarms').length,
-                                      (index) => index,
-                                    ),
-                                  );
-                                }
-                              });
-                            },
-                            child: Row(
-                              children: [
-                                Checkbox(
-                                  value:
-                                      selectedIndexes.length ==
-                                      Hive.box('locationAlarms').length,
-                                  onChanged: (bool? value) {
-                                    setState(() {
-                                      if (value == true) {
-                                        selectedIndexes = Set<int>.from(
-                                          List.generate(
-                                            Hive.box('locationAlarms').length,
-                                            (index) => index,
-                                          ),
-                                        );
-                                      } else {
-                                        selectedIndexes.clear();
-                                      }
-                                    });
-                                  },
-                                ),
-                                const Text('전체'),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (isSelectionMode)
-                    Positioned(
-                      bottom: 20,
-                      right: 20,
-                      child: FloatingActionButton(
-                        backgroundColor: Colors.grey[500],
-                        onPressed: () async {
-                          final box = Hive.box('locationAlarms');
-                          final keys = box.keys.toList();
-                          for (int i in selectedIndexes) {
-                            await box.delete(keys[i]);
-                          }
-                          setState(() {
-                            selectedIndexes.clear();
-                            isSelectionMode = false;
-                          });
-                        },
-                        child: const Icon(Icons.delete),
-                      ),
-                    ),
-                  if (!isSelectionMode)
-                    Positioned(
-                      left: fabPosition.dx,
-                      top: fabPosition.dy,
-                      child: GestureDetector(
-                        onPanUpdate: (details) {
-                          setInnerState(() {
-                            fabPosition += details.delta;
-                          });
-                        },
-                        onPanEnd: (details) async {
-                          await HiveHelper.saveFabPosition(
-                            fabPosition.dx,
-                            fabPosition.dy,
-                          );
-                        },
-                        child: FloatingActionButton(
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/add_location_alarm');
-                          },
-                          backgroundColor: Colors.blue,
-                          tooltip: '알람 추가',
-                          child: const Icon(Icons.alarm_add),
-                        ),
-                      ),
-                    ),
-                ],
-              );
-            },
+          child: Stack(
+            children: [
+              _buildAlarmList(),
+              if (isSelectionMode) _buildSelectionHeader(),
+              if (isSelectionMode) _buildDeleteButton(),
+              if (!isSelectionMode) _buildDraggableFAB(fabPosition),
+            ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildAlarmList() {
+    return ValueListenableBuilder(
+      valueListenable: HiveHelper.alarmBox.listenable(),
+      builder: (context, Box box, _) {
+        final alarms = box.values.toList();
+        if (alarms.isEmpty) {
+          return const Center(child: Text('저장된 알람이 없습니다.'));
+        }
+
+        return ValueListenableBuilder(
+          valueListenable: _controller.selectedIndexes,
+          builder: (context, selectedIndexes, _) {
+            return ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: alarms.length,
+              itemBuilder:
+                  (context, index) => AlarmListItem(
+                    alarm: Map<String, dynamic>.from(alarms[index]),
+                    index: index,
+                    isSelected: selectedIndexes.contains(index),
+                    isSelectionMode: _controller.isSelectionMode.value,
+                    onSelect: _controller.toggleSelection,
+                    onTap: _handleAlarmTap,
+                  ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildSelectionHeader() {
+    return Positioned(
+      top: 0,
+      left: -10,
+      child: TextButton(
+        onPressed: () => _controller.toggleAll(HiveHelper.alarmBox.length),
+        child: Row(
+          children: [
+            ValueListenableBuilder(
+              valueListenable: _controller.selectedIndexes,
+              builder: (context, selectedIndexes, _) {
+                return Checkbox(
+                  value: selectedIndexes.length == HiveHelper.alarmBox.length,
+                  onChanged:
+                      (value) =>
+                          _controller.toggleAll(HiveHelper.alarmBox.length),
+                );
+              },
+            ),
+            const Text('전체'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeleteButton() {
+    return Positioned(
+      bottom: 20,
+      right: 20,
+      child: FloatingActionButton(
+        heroTag: 'delete_button',
+        backgroundColor: Colors.grey[500],
+        onPressed: _controller.deleteSelected,
+        child: const Icon(Icons.delete),
+      ),
+    );
+  }
+
+  Widget _buildDraggableFAB(Offset position) {
+    return Positioned(
+      left: position.dx,
+      top: position.dy,
+      child: GestureDetector(
+        onPanUpdate: (details) {
+          setState(() {
+            fabPosition += details.delta;
+          });
+        },
+        onPanEnd: (_) async {
+          await HiveHelper.saveFabPosition(fabPosition.dx, fabPosition.dy);
+        },
+        child: FloatingActionButton(
+          heroTag: 'location_alarm', // MyPlaces와 다른 heroTag
+          shape: const CircleBorder(),
+          elevation: 4,
+          mini: true, // MyPlaces와 동일한 크기
+          backgroundColor: const Color.fromARGB(255, 0, 15, 150), // 동일한 색상
+          foregroundColor: Colors.white, // 동일한 색상
+          onPressed:
+              () =>
+                  Navigator.pushNamed(context, '/add_location_alarm'), // 다른 페이지
+          tooltip: '알람 추가', // 다른 툴팁
+          child: const Icon(Icons.alarm_add), // 다른 아이콘
+        ),
+      ),
     );
   }
 }

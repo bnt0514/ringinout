@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:ringinout/services/alarm_sound_player.dart';
+import 'package:ringinout/services/hive_helper.dart';
 
 class AlarmSoundSettingPage extends StatefulWidget {
   final String? currentPath;
@@ -116,7 +117,7 @@ class _AlarmSoundSettingPageState extends State<AlarmSoundSettingPage> {
                     await _playSound(path);
 
                     // 💾 Hive 저장 (수정 페이지에서 key가 전달된 경우에만)
-                    final box = Hive.box('locationAlarms');
+                    final box = HiveHelper.alarmBox;
                     final settings = ModalRoute.of(context)?.settings;
                     if (settings != null && settings.arguments is String) {
                       final alarmKey = settings.arguments as String;

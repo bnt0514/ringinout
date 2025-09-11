@@ -1,90 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          xmlns:tools="http://schemas.android.com/tools">
+          xmlns:tools="http://schemas.android.com/tools"
+          package="com.example.ringinout">
+    
+    <!-- 위치 관련 권한 -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    
+    <!-- 백그라운드 서비스 관련 권한 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    
+    <!-- 알림 관련 권한 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    
+    <!-- 오디오 관련 권한 -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    
+    <!-- 활동 인식 권한 -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
 
-        <!-- ✅ 위치 권한 -->
-        <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-        <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <application
+        android:label="ringinout"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher">
 
-        <!-- ✅ Foreground 서비스 및 알림 권한 -->
-        <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-        <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-        <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-        <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-        <uses-permission android:name="android.permission.WAKE_LOCK" />
-        <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-        <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
-        <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
-        
+        <!-- Flutter background service 선언 -->
+        <service
+            android:name="id.flutter.flutter_background_service.BackgroundService"
+            android:foregroundServiceType="location"
+            android:exported="false"
+            android:stopWithTask="false"
+            tools:replace="android:exported" />
 
-        <application
-                android:label="ringinout"
-                android:name="${applicationName}"
-                android:icon="@mipmap/ic_launcher">
+        <!-- 구글 지도 API 키 -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyCaqAvDbuHLP9YMUEl9nuJ4zpKowmTo7AE" />
 
-                <!-- ✅ Flutter background service 선언 -->
-                <service
-                        android:name="id.flutter.flutter_background_service.BackgroundService"
-                        android:foregroundServiceType="location"
-                        android:exported="false"
-                        tools:replace="android:exported" />
+        <!-- MainActivity (앱 실행 메인) -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="false">
 
-                <!-- ✅ 구글 지도 API 키 -->
-                <meta-data
-                        android:name="com.google.android.geo.API_KEY"
-                        android:value="AIzaSyCaqAvDbuHLP9YMUEl9nuJ4zpKowmTo7AE" />
+            <!-- 알림 클릭 처리 -->
+            <intent-filter>
+                <action android:name="FLUTTER_NOTIFICATION_CLICK" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
 
-                                <!-- MainActivity (앱 실행 메인) -->
-                <activity
-                                android:name=".MainActivity"
-                                android:exported="true"
-                                android:launchMode="singleTop"
-                                android:taskAffinity=""
-                                android:theme="@style/LaunchTheme"
-                                android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-                                android:hardwareAccelerated="true"
-                                android:windowSoftInputMode="adjustResize">
+            <!-- 앱 실행 메인 -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
 
-                                <!-- ✅ 알림 클릭 처리 -->
-                                <intent-filter>
-                                                <action android:name="FLUTTER_NOTIFICATION_CLICK" />
-                                                <category android:name="android.intent.category.DEFAULT" />
-                                </intent-filter>
+        <!-- AlarmFullscreenActivity (전체화면 알람 페이지) -->
+        <activity
+            android:name=".AlarmFullscreenActivity"
+            android:showWhenLocked="true"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"
+            android:launchMode="singleInstance"
+            android:excludeFromRecents="true"
+            android:turnScreenOn="true"
+            android:taskAffinity=""
+            android:exported="true" />
 
-                                <!-- ✅ 앱 실행 메인 -->
-                                <intent-filter>
-                                                <action android:name="android.intent.action.MAIN" />
-                                                <category android:name="android.intent.category.LAUNCHER" />
-                                </intent-filter>
-                </activity>
+        <!-- Flutter 설정 -->
+        <meta-data
+            android:name="io.flutter.embedding.android.NormalTheme"
+            android:resource="@style/NormalTheme" />
 
-                <!-- AlarmFullscreenActivity (전체화면 알람 페이지) -->
-                <activity
-                                android:name=".AlarmFullscreenActivity"
-                                android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"
-                                android:launchMode="singleTask"
-                                android:excludeFromRecents="true"
-                                android:showWhenLocked="true"
-                                android:turnScreenOn="true"
-                                android:taskAffinity=""
-                                android:exported="true" />
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
 
-
-                <!-- ✅ Flutter 설정 -->
-                <meta-data
-                        android:name="io.flutter.embedding.android.NormalTheme"
-                        android:resource="@style/NormalTheme" />
-
-                <meta-data
-                        android:name="flutterEmbedding"
-                        android:value="2" />
-        </application>
-
-        <!-- ✅ 프로세스 텍스트 인텐트 쿼리 -->
-        <queries>
-                <intent>
-                        <action android:name="android.intent.action.PROCESS_TEXT" />
-                        <data android:mimeType="text/plain" />
-                </intent>
-        </queries>
+    <!-- 프로세스 텍스트 인텐트 쿼리 -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT" />
+            <data android:mimeType="text/plain" />
+        </intent>
+    </queries>
 
 </manifest>

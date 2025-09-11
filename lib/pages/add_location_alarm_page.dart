@@ -3,25 +3,24 @@ import 'package:flutter/material.dart';
 
 // Package imports:
 import 'package:hive/hive.dart';
-import 'package:just_audio/just_audio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 // Project imports:
-import 'package:ringinout/services/alarm_sound_player.dart';
-import 'package:ringinout/pages/alarm_sound_setting_page.dart';
 import 'package:ringinout/pages/snooze_setting_page.dart';
 import 'package:ringinout/pages/vibration_setting_page.dart';
+import 'package:geofence_service/geofence_service.dart';
+import 'package:ringinout/services/hive_helper.dart';
+import 'package:ringinout/services/location_monitor_service.dart';
 
 class AddLocationAlarmPage extends StatefulWidget {
-  final Map<String, dynamic>? existingAlarm;
-  final int? alarmIndex;
-
-  final dynamic editingAlarmKey;
+  final Map<String, dynamic>? existingAlarmData; // ✅ 이름 통일
+  final String? editingAlarmId; // ✅ id 기반 수정용 (nullable)
 
   const AddLocationAlarmPage({
     super.key,
-    this.existingAlarm,
-    this.alarmIndex,
-    this.editingAlarmKey, // ✅ 여기도 꼭 추가!
+    this.existingAlarmData,
+    this.editingAlarmId,
   });
 
   @override
@@ -80,7 +79,7 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
   @override
   void initState() {
     super.initState();
-    final box = Hive.box('locations');
+    final box = HiveHelper.placeBox;
     places = box.values.map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
@@ -353,7 +352,7 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
                             selected
                                 ? BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: Colors.blue.withOpacity(0.3),
+                                  color: Colors.blue,
                                 )
                                 : null,
                         child: Text(
@@ -385,42 +384,11 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
             const SizedBox(height: 20),
             _buildOptionTile(
               title: '알람음',
-              subtitle: alarmSound ?? '기본 알람음',
-              enabled: alarmSoundEnabled,
-              onToggle: (val) => setState(() => alarmSoundEnabled = val),
-              onTap: () async {
-                if (!alarmSoundEnabled) return;
-
-                final selected = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder:
-                        (_) => AlarmSoundSettingPage(
-                          currentPath: alarmSound,
-                          onSelected: (path) {
-                            setState(() => alarmSound = path);
-                          },
-                        ),
-                  ),
-                );
-
-                if (selected != null && selected is String) {
-                  setState(() => alarmSound = selected);
-
-                  // Hive 저장
-                  final box = Hive.box('locationAlarms');
-                  if (widget.existingAlarm != null) {
-                    final key = widget.existingAlarm!['key'];
-                    final alarm = box.get(key);
-                    if (alarm != null) {
-                      alarm['sound'] = selected;
-                      box.put(key, alarm);
-                    }
-                  }
-                }
-              },
+              subtitle: '각 사용자 폰 기본 벨소리',
+              enabled: false,
+              onToggle: (val) {},
+              onTap: () {},
             ),
-
             _buildOptionTile(
               title: '진동',
               subtitle: vibration,
@@ -442,7 +410,6 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
                 );
               },
             ),
-
             _buildOptionTile(
               title: '다시 울림',
               subtitle: snooze,
@@ -470,26 +437,88 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
                   (alarmName.trim().isEmpty ||
                           (!triggerOnEntry && !triggerOnExit))
                       ? null
-                      : () async {
-                        final sortedWeekdays =
-                            weekdays
-                                .where((d) => selectedWeekdays.contains(d))
-                                .toList();
-                        final alarm = {
-                          'name': alarmName,
-                          'place': selectedPlace?['name'] ?? '',
-                          'trigger': triggerOnEntry ? 'entry' : 'exit',
-                          'repeat':
-                              selectedDate != null
-                                  ? selectedDate!.toIso8601String()
-                                  : (sortedWeekdays.isNotEmpty
-                                      ? sortedWeekdays
-                                      : null),
-                          'enabled': true,
-                        };
+                      : () {
+                        if (mounted) {
+                          Navigator.pop(context); // ✅ 먼저 pop
+                        }
 
-                        await Hive.box('locationAlarms').add(alarm);
-                        Navigator.pop(context);
+                        () async {
+                          final sortedWeekdays =
+                              weekdays
+                                  .where((d) => selectedWeekdays.contains(d))
+                                  .toList();
+
+                          final id = const Uuid().v4();
+                          final alarm = {
+                            'id': id,
+                            'name': alarmName,
+                            'place': selectedPlace?['name'] ?? '',
+                            'trigger': triggerOnEntry ? 'entry' : 'exit',
+                            'repeat':
+                                selectedDate != null
+                                    ? selectedDate!.toIso8601String()
+                                    : (sortedWeekdays.isNotEmpty
+                                        ? sortedWeekdays
+                                        : null),
+                            'enabled': true,
+                            'triggerCount': 0,
+                          };
+
+                          await HiveHelper.alarmBox.put(
+                            id,
+                            alarm,
+                          ); // ✅ put 사용! (id가 key 역할)
+
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setString(
+                            'alarm_name_$id',
+                            alarm['name'],
+                          );
+                          if (selectedPlace != null) {
+                            final latitude =
+                                (selectedPlace?['latitude'] as double?) ?? 0.0;
+                            final longitude =
+                                (selectedPlace?['longitude'] as double?) ?? 0.0;
+
+                            final geofence = Geofence(
+                              id: alarmName,
+                              latitude: latitude,
+                              longitude: longitude,
+                              radius: [
+                                GeofenceRadius(id: 'default', length: 100),
+                              ],
+                            );
+
+                            GeofenceService.instance.addGeofence(geofence);
+                            debugPrint('✅ 지오펜스 등록됨!');
+                            debugPrint('ID: \${geofence.id}');
+                            debugPrint('위도: \${geofence.latitude}');
+                            debugPrint('경도: \${geofence.longitude}');
+                            debugPrint('반경: \${geofence.radius.first.length}m');
+
+                            // ✅ 모니터링 재시작 추가
+                            final monitorService = LocationMonitorService();
+                            monitorService.stopMonitoring();
+
+                            Future.delayed(
+                              const Duration(milliseconds: 300),
+                              () {
+                                monitorService.prepareMonitoringOnly((
+                                  type,
+                                  alarm,
+                                ) {
+                                  // 필요 시 트리거 처리
+                                });
+
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) {
+                                  monitorService.startServiceIfSafe();
+                                });
+                              },
+                            );
+                          }
+                        }();
                       },
               child: const Center(child: Text('저장')),
             ),

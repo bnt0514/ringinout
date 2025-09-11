@@ -5,8 +5,8 @@ plugins {
 }
 
 android {
-    namespace = "com.example.ringinout"  // ✅ 여기에만 선언!
-
+    namespace = "com.example.ringinout"
+    
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
 
@@ -17,7 +17,7 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = "17" // 🔧 문자열로 직접 지정 (JavaVersion.VERSION_17.toString() 대체)
+        jvmTarget = "17"
     }
 
     defaultConfig {
@@ -29,7 +29,22 @@ android {
     }
 
     buildTypes {
+        debug {
+            // ✅ 올바른 Kotlin 문법
+            manifestPlaceholders += mapOf(
+                "dartObfuscation" to "false",
+                "enableDebugging" to "true"
+            )
+            isDebuggable = true
+        }
         release {
+            // ✅ 올바른 Kotlin 문법
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            isShrinkResources = false
+            isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("debug")
         }
     }
@@ -43,7 +58,7 @@ flutter {
     source = "../.."
 }
 
-// ✅ photo_manager 등 모든 하위 모듈에도 강제 적용
+// ✅ 하위 모듈 설정
 subprojects {
     afterEvaluate {
         extensions.findByType<org.jetbrains.kotlin.gradle.dsl.KotlinJvmOptions>()?.apply {

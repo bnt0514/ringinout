@@ -3,12 +3,17 @@ import 'package:flutter/material.dart';
 
 // Package imports:
 import 'package:hive/hive.dart';
+import 'package:ringinout/services/hive_helper.dart';
 
 class EditLocationAlarmPage extends StatefulWidget {
-  final Map<String, dynamic>? existingAlarm;
   final int? alarmIndex;
+  final Map<String, dynamic> existingAlarmData;
 
-  const EditLocationAlarmPage({super.key, this.existingAlarm, this.alarmIndex});
+  const EditLocationAlarmPage({
+    super.key,
+    this.alarmIndex,
+    required this.existingAlarmData,
+  });
 
   @override
   State<EditLocationAlarmPage> createState() => _EditLocationAlarmPageState();
@@ -37,24 +42,50 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
   @override
   void initState() {
     super.initState();
-    final alarm = widget.existingAlarm ?? {};
-    alarmName = alarm['name'] ?? '';
-    triggerOnEntry = alarm['trigger'] == 'entry';
-    triggerOnExit = alarm['trigger'] == 'exit';
+    final alarmData = widget.existingAlarmData; // ✅ alarm 대신 alarmData 사용
+    alarmName = alarmData['name'] ?? '';
+    triggerOnEntry = alarmData['trigger'] == 'entry';
+    triggerOnExit = alarmData['trigger'] == 'exit';
 
-    final repeat = alarm['repeat'];
+    final repeat = alarmData['repeat'];
     if (repeat is String) {
       selectedDate = DateTime.tryParse(repeat);
     } else if (repeat is List) {
       selectedWeekdays = Set<String>.from(repeat);
     }
 
-    final box = Hive.box('locations');
-    places = box.values.map((e) => Map<String, dynamic>.from(e)).toList();
-    selectedPlace = places.firstWhere(
-      (e) => e['name'] == alarm['place'],
-      orElse: () => {},
-    );
+    // 장소 목록 로드
+    _loadPlaces(alarmData['place']); // ✅ alarm 대신 alarmData 사용
+  }
+
+  void _loadPlaces(String? currentPlace) {
+    try {
+      final box = HiveHelper.placeBox;
+      places = box.values.map((e) => Map<String, dynamic>.from(e)).toList();
+
+      print('📍 로드된 장소 목록: ${places.map((p) => p['name']).toList()}');
+      print('🎯 현재 알람의 장소: $currentPlace');
+
+      // 현재 장소 찾기
+      if (currentPlace != null) {
+        selectedPlace =
+            places
+                .where((e) => e['name'] == currentPlace)
+                .firstOrNull; // ✅ alarm 대신 currentPlace 사용
+      }
+
+      // 장소를 못 찾았거나 없으면 첫 번째 장소 선택
+      if (selectedPlace == null && places.isNotEmpty) {
+        selectedPlace = places.first;
+        print('⚠️ 현재 장소를 찾을 수 없어 첫 번째 장소로 설정: ${selectedPlace!['name']}');
+      }
+
+      print('✅ 선택된 장소: ${selectedPlace?['name']}');
+    } catch (e) {
+      print('❌ 장소 로드 실패: $e');
+      places = [];
+      selectedPlace = null;
+    }
   }
 
   void _toggleExclusive(bool isEntry) {
@@ -215,6 +246,7 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
             const SizedBox(height: 16),
             DropdownButtonFormField<Map<String, dynamic>>(
               value: selectedPlace,
+              hint: const Text('장소를 선택하세요'), // ✅ hint 추가
               items:
                   places.map((place) {
                     return DropdownMenuItem(
@@ -222,8 +254,19 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
                       child: Text(place['name'] ?? '이름 없음'),
                     );
                   }).toList(),
-              onChanged: (place) => setState(() => selectedPlace = place),
+              onChanged: (place) {
+                setState(() {
+                  selectedPlace = place;
+                });
+                print('📍 장소 변경: ${place?['name']}');
+              },
               decoration: const InputDecoration(labelText: '장소 선택'),
+              validator: (value) {
+                if (value == null) {
+                  return '장소를 선택해주세요';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 20),
             _buildToggleRow(
@@ -353,9 +396,9 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () async {
-                      final box = Hive.box('locationAlarms');
-                      await box.deleteAt(widget.alarmIndex!);
-                      Navigator.pop(context);
+                      final id = widget.existingAlarmData['id']; // ✅ 고유 ID 확보
+                      await HiveHelper.deleteAlarmById(id); // ✅ ID 기반 통합 삭제
+                      Navigator.pop(context); // ✅ 뒤로 가기
                     },
                     child: const Text('삭제'),
                   ),
@@ -368,28 +411,62 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
                                 (!triggerOnEntry && !triggerOnExit))
                             ? null
                             : () async {
-                              final sortedWeekdays =
-                                  weekdays
-                                      .where(
-                                        (d) => selectedWeekdays.contains(d),
-                                      )
-                                      .toList();
-                              final updatedAlarm = {
-                                'name': alarmName,
-                                'place': selectedPlace?['name'] ?? '',
-                                'trigger': triggerOnEntry ? 'entry' : 'exit',
-                                'repeat':
-                                    selectedDate != null
-                                        ? selectedDate!.toIso8601String()
-                                        : (sortedWeekdays.isNotEmpty
-                                            ? sortedWeekdays
-                                            : null),
-                                'enabled': true,
-                              };
+                              try {
+                                final alarmId = widget.existingAlarmData['id'];
+                                final sortedWeekdays =
+                                    weekdays
+                                        .where(
+                                          (d) => selectedWeekdays.contains(d),
+                                        )
+                                        .toList();
 
-                              final box = Hive.box('locationAlarms');
-                              await box.putAt(widget.alarmIndex!, updatedAlarm);
-                              Navigator.pop(context);
+                                final updatedAlarm = {
+                                  'id': alarmId, // 기존 ID 유지
+                                  'name': alarmName.trim(),
+                                  'place': selectedPlace?['name'] ?? '',
+                                  'trigger': triggerOnEntry ? 'entry' : 'exit',
+                                  'repeat':
+                                      selectedDate != null
+                                          ? selectedDate!.toIso8601String()
+                                          : (sortedWeekdays.isNotEmpty
+                                              ? sortedWeekdays
+                                              : null),
+                                  'enabled':
+                                      widget.existingAlarmData['enabled'] ??
+                                      true, // 기존 enabled 상태 유지
+                                  'triggerCount':
+                                      widget
+                                          .existingAlarmData['triggerCount'] ??
+                                      0, // 기존 카운트 유지
+                                  'createdAt':
+                                      widget.existingAlarmData['createdAt'] ??
+                                      DateTime.now().millisecondsSinceEpoch,
+                                  'updatedAt':
+                                      DateTime.now()
+                                          .millisecondsSinceEpoch, // 수정 시간 추가
+                                };
+
+                                // Hive에서 ID로 업데이트
+                                await HiveHelper.updateLocationAlarm(
+                                  alarmId,
+                                  updatedAlarm,
+                                );
+                                print('✅ 알람 업데이트 완료: ${updatedAlarm['name']}');
+
+                                if (mounted) {
+                                  Navigator.pop(context);
+                                }
+                              } catch (e) {
+                                print('❌ 알람 저장 실패: $e');
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('알람 저장에 실패했습니다: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
                             },
                     child: const Text('저장'),
                   ),

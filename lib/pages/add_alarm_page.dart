@@ -1,8 +1,7 @@
-// Flutter imports:
 import 'package:flutter/material.dart';
-
-// Project imports:
 import 'package:ringinout/services/hive_helper.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 class AddAlarmPage extends StatefulWidget {
   final Map<String, dynamic> location;
@@ -15,7 +14,8 @@ class AddAlarmPage extends StatefulWidget {
 }
 
 class _AddAlarmPageState extends State<AddAlarmPage> {
-  String alarmName = '';
+  final TextEditingController _nameController = TextEditingController();
+
   bool triggerOnEntry = false;
   bool triggerOnExit = false;
   Set<String> selectedWeekdays = {};
@@ -62,9 +62,10 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
   @override
   void initState() {
     super.initState();
+
     if (widget.alarm != null) {
       final alarm = widget.alarm!;
-      alarmName = alarm['name'] ?? '';
+      _nameController.text = alarm['name'] ?? '';
       triggerOnEntry = alarm['triggerOnEntry'] ?? false;
       triggerOnExit = alarm['triggerOnExit'] ?? false;
       selectedWeekdays = Set<String>.from(alarm['repeat'] ?? []);
@@ -256,7 +257,7 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
   }
 
   bool _validateFields() {
-    if (alarmName.trim().isEmpty) return false;
+    if (_nameController.text.trim().isEmpty) return false;
     if (!triggerOnEntry && !triggerOnExit) return false;
     if (!alarmSoundEnabled && !vibrationEnabled) return false;
     if (!snoozeEnabled) return false;
@@ -273,12 +274,18 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextField(
+              controller: _nameController,
               decoration: const InputDecoration(labelText: '알람 이름'),
               onChanged: (val) {
-                setState(() => alarmName = val);
                 _checkAlarmConditionFromName(val);
               },
-              controller: TextEditingController(text: alarmName),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(Icons.place),
+              title: Text(widget.location['name'] ?? '장소 없음'),
+              subtitle: const Text('이 알람은 해당 장소에 고정됩니다'),
+              tileColor: Colors.grey.shade100,
             ),
             const SizedBox(height: 20),
             _buildToggleRow(
@@ -399,7 +406,7 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
                 }
 
                 final newAlarm = {
-                  'name': alarmName,
+                  'name': _nameController.text.trim(),
                   'triggerOnEntry': triggerOnEntry,
                   'triggerOnExit': triggerOnExit,
                   'repeat': selectedWeekdays.toList(),
@@ -422,7 +429,13 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
                   );
                   await HiveHelper.updateLocationAlarm(index, newAlarm);
                 } else {
-                  await HiveHelper.saveLocationAlarm(newAlarm);
+                  final alarmId = await HiveHelper.saveLocationAlarm(newAlarm);
+
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString(
+                    'alarm_name_$alarmId',
+                    (newAlarm['name'] ?? '') as String,
+                  );
                 }
 
                 Navigator.pop(context);

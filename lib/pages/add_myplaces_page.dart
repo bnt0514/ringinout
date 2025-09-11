@@ -1,24 +1,25 @@
-// location_picker_page.dart
+// add_myplaces_page.dart
 
-// Flutter imports:
 import 'package:flutter/material.dart';
-
-// Package imports:
 import 'package:geocoding/geocoding.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:geofence_service/geofence_service.dart' as fence;
+import 'package:geofence_service/models/geofence.dart';
+import 'package:geofence_service/models/geofence_radius.dart';
+import 'package:geolocator/geolocator.dart' as geo;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:ringinout/services/hive_helper.dart';
 
-class LocationPickerPage extends StatefulWidget {
-  final void Function(double lat, double lng, String name, int radius)
+class AddMyPlacesPage extends StatefulWidget {
+  final Future<void> Function(double lat, double lng, String name, int radius)
   onLocationSelected;
 
-  const LocationPickerPage({super.key, required this.onLocationSelected});
+  const AddMyPlacesPage({super.key, required this.onLocationSelected});
 
   @override
-  State<LocationPickerPage> createState() => _LocationPickerPageState();
+  State<AddMyPlacesPage> createState() => _AddMyPlacesPageState();
 }
 
-class _LocationPickerPageState extends State<LocationPickerPage> {
+class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
   GoogleMapController? _mapController;
   LatLng? _selectedLatLng;
   String _address = '';
@@ -30,16 +31,14 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
   }
 
   Future<void> _determinePosition() async {
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
+    geo.LocationPermission permission = await geo.Geolocator.checkPermission();
+    if (permission == geo.LocationPermission.denied) {
+      permission = await geo.Geolocator.requestPermission();
     }
-
-    if (permission == LocationPermission.deniedForever) {
+    if (permission == geo.LocationPermission.deniedForever) {
       return;
     }
-
-    Position position = await Geolocator.getCurrentPosition();
+    geo.Position position = await geo.Geolocator.getCurrentPosition();
     _moveCamera(position.latitude, position.longitude);
   }
 
@@ -77,11 +76,15 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
   }
 
   void _saveLocation() async {
-    if (_selectedLatLng == null) return;
+    debugPrint('🚀 _saveLocation 진입');
+    if (_selectedLatLng == null) {
+      debugPrint('⚠️ _selectedLatLng is null, 저장 중단됨');
+      return;
+    }
 
     final TextEditingController nameController = TextEditingController();
 
-    showDialog(
+    await showDialog(
       context: context,
       builder:
           (context) => AlertDialog(
@@ -96,22 +99,34 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                 child: const Text('취소'),
               ),
               ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
                   final name = nameController.text.trim();
                   if (name.isNotEmpty) {
-                    widget.onLocationSelected(
-                      _selectedLatLng!.latitude,
-                      _selectedLatLng!.longitude,
-                      name,
-                      100,
-                    );
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('위치가 저장되었습니다. (반경 100m, 추후 수정 가능)'),
+                    await HiveHelper.addLocation({
+                      'name': name,
+                      'lat': _selectedLatLng!.latitude,
+                      'lng': _selectedLatLng!.longitude,
+                      'radius': 100,
+                    });
+
+                    fence.GeofenceService.instance.addGeofence(
+                      Geofence(
+                        id: name,
+                        latitude: _selectedLatLng!.latitude,
+                        longitude: _selectedLatLng!.longitude,
+                        radius: [GeofenceRadius(id: 'default', length: 100)],
                       ),
                     );
-                    Navigator.pop(context);
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('✅ 장소가 저장되었습니다'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                      Navigator.pop(context, 'location_saved');
+                    }
                   }
                 },
                 child: const Text('저장'),
@@ -161,7 +176,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
             child: GoogleMap(
               onMapCreated: (controller) => _mapController = controller,
               initialCameraPosition: const CameraPosition(
-                target: LatLng(37.5665, 126.9780), // 서울 기준 초기 위치
+                target: LatLng(37.5665, 126.9780),
                 zoom: 12,
               ),
               onTap: _onMapTapped,
