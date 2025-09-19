@@ -39,6 +39,8 @@ class MainActivity : FlutterActivity() {
         pendingAlarmId = intent.getIntExtra("alarmId", -1)
     }
 
+    
+
     // ✅ 최적화된 위치 알림 (한 번만 표시, 조용함)
     private fun createOptimizedLocationNotification() {
         try {
@@ -185,7 +187,8 @@ class MainActivity : FlutterActivity() {
         }
 
         // Flutter로 알람 페이지 진입 요청
-        if (navigateToFullscreen && pendingAlarmId != null && pendingAlarmId != -1) {
+        if (intent?.getBooleanExtra("fromAlarm", false) == true &&
+           navigateToFullscreen && pendingAlarmId != null && pendingAlarmId != -1) {
             Handler(Looper.getMainLooper()).post {
                 Log.d("Ringinout", "📨 Flutter invokeMethod 준비됨: navigateToFullScreenAlarm")
                 MethodChannel(
@@ -312,24 +315,68 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+        // 기존 두 함수만 교체
+    
     private fun playDefaultRingtone(context: Context) {
         try {
-            val alarmUri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            // ✅ 중복 재생 방지 - 이미 울리고 있으면 무시
+            if (flutterRingtone?.isPlaying == true) {
+                Log.d("MainActivity", "⚠️ 벨소리가 이미 재생 중 - 중복 재생 방지")
+                return
+            }
+            
+            // ✅ 기존 벨소리 정리 (안전을 위해)
+            stopDefaultRingtone()
+            
+            val alarmUri: Uri = RingtoneManager.getActualDefaultRingtoneUri(
+                context,
+                RingtoneManager.TYPE_ALARM
+            ) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+    
             flutterRingtone = RingtoneManager.getRingtone(context, alarmUri)
+    
+            // 🔁 루프 재생 강제
+            flutterRingtone?.isLooping = true
+    
+            // 🔊 무음/방해금지 모드 무시하고 강제 울리도록 설정
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                val attrs = android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_ALARM) // 알람 용도
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .setFlags(android.media.AudioAttributes.FLAG_BYPASS_INTERRUPTION_POLICY) // DND 무시
+                    .build()
+                flutterRingtone?.audioAttributes = attrs
+            }
+    
             flutterRingtone?.play()
-            Log.d("MainActivity", "🔔 시스템 벨소리 재생 시작")
+            Log.d("MainActivity", "🔔 무한 알람 벨소리 재생 시작 (루프: ${flutterRingtone?.isLooping})")
+            
+            // ✅ 재생 상태 확인 로그
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                if (flutterRingtone?.isPlaying == true) {
+                    Log.d("MainActivity", "✅ 벨소리 정상 재생 중 - 무한 루프 활성")
+                } else {
+                    Log.e("MainActivity", "❌ 벨소리 재생 실패 또는 정지됨")
+                }
+            }, 2000)
+            
         } catch (e: Exception) {
             Log.e("MainActivity", "❌ 벨소리 재생 실패: ${e.message}")
         }
     }
-
+    
     private fun stopDefaultRingtone() {
         try {
-            flutterRingtone?.stop()
+            if (flutterRingtone?.isPlaying == true) {
+                flutterRingtone?.stop()
+                Log.d("MainActivity", "🔕 무한 벨소리 정지 완료")
+            } else {
+                Log.d("MainActivity", "🔕 정지할 벨소리 없음")
+            }
             flutterRingtone = null
-            Log.d("MainActivity", "🔕 시스템 벨소리 정지")
         } catch (e: Exception) {
             Log.e("MainActivity", "⚠️ 벨소리 정지 실패: ${e.message}")
+            flutterRingtone = null // 강제 초기화
         }
     }
-}
+} // ✅ 이 괄호는 그대로 유지 (MainActivity 클래스의 끝)

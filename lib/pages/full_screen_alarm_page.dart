@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive/hive.dart';
 import 'package:ringinout/services/hive_helper.dart';
+import 'package:ringinout/services/alarm_notification_helper.dart'; // cancelAllAlarmNotifications() 사용
 
 class FullScreenAlarmPage extends StatefulWidget {
   final String alarmTitle;
@@ -32,12 +33,42 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
     _increaseAndLoadTriggerCount();
   }
 
+  Future<void> _exitAlarmPageCompletely() async {
+    // 1) 소리/벨/콜백 모두 정지
+    try {
+      await _stopAllSounds();
+    } catch (_) {}
+    try {
+      await cancelAllAlarmNotifications();
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    // 2) 루트 네비게이터 기준으로 겹쳐진 다이얼로그/시트/페이지 정리
+    final rootNav = Navigator.of(context, rootNavigator: true);
+
+    // 다이얼로그/바텀시트 등 겹친 것들 최대 5번까지 닫기
+    int guard = 0;
+    while (rootNav.canPop() && guard < 5) {
+      rootNav.pop();
+      guard++;
+    }
+  }
+
   Future<void> _increaseAndLoadTriggerCount() async {
     final id = widget.alarmData?['id'];
     if (id != null) {
       final box = await Hive.openBox('trigger_counts');
-      final current = box.get(id, defaultValue: 0);
+      final currentRaw = box.get(id, defaultValue: 0);
+
+      // ✅ 강제 변환
+      final current =
+          (currentRaw is int)
+              ? currentRaw
+              : int.tryParse(currentRaw.toString()) ?? 0;
+
       await box.put(id, current + 1);
+
       setState(() {
         _triggerCount = current + 1;
       });
@@ -177,7 +208,7 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
       print("⏰ $selectedMinutes분 후 다시 울림 예약됨");
     }
 
-    Navigator.of(context).pop();
+    await _exitAlarmPageCompletely();
   }
 
   Future<void> _onConfirm() async {
@@ -230,7 +261,7 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
 
     if (goalAchieved != null) {
       await _disableAlarm(widget.alarmTitle);
-      Navigator.of(context).pop();
+      await _exitAlarmPageCompletely();
     }
   }
 

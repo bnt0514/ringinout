@@ -2,6 +2,7 @@
 // Flutter imports:
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:convert';
 
 // Package imports:
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -38,14 +39,35 @@ Future<void> initializeNotifications() async {
     android: initializationSettingsAndroid,
   );
 
-  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  // ✅ 알림 터치 콜백 추가
+  await flutterLocalNotificationsPlugin.initialize(
+    initializationSettings,
+    onDidReceiveNotificationResponse: _onNotificationTapped,
+  );
+}
+
+// ✅ 알림 터치 시 전체화면으로 이동
+Future<void> _onNotificationTapped(NotificationResponse response) async {
+  if (response.payload != null) {
+    try {
+      final alarmData = jsonDecode(response.payload!);
+      print('📱 푸쉬 알림 터치됨: ${alarmData['name']}');
+
+      // 전체화면 알람으로 이동
+      AlarmNotificationHelper._showFullScreenAlarm(
+        title: alarmData['name'] ?? '위치 알람',
+        message: '알람을 확인하세요',
+        alarmData: alarmData,
+      );
+    } catch (e) {
+      print('❌ 알림 터치 처리 실패: $e');
+    }
+  }
 }
 
 Future<void> cancelAllAlarmNotifications() async {
   await flutterLocalNotificationsPlugin.cancelAll();
 }
-
-// lib/services/alarm_notification_helper.dart
 
 class AlarmNotificationHelper {
   static GlobalKey<NavigatorState>? _navigatorKey;
@@ -54,7 +76,7 @@ class AlarmNotificationHelper {
     _navigatorKey = key;
   }
 
-  // ✅ 메인 진입점 - 순서 수정
+  // ✅ 기존 메인 진입점 (테스트용)
   static Future<void> showNativeAlarm({
     required String title,
     required String message,
@@ -71,7 +93,12 @@ class AlarmNotificationHelper {
       await _playSystemRingtone();
 
       // 3. Flutter 전체화면 알람 표시 (백업용)
-      _showFullScreenAlarm(title: title, message: message, sound: sound);
+      _showFullScreenAlarm(
+        title: title,
+        message: message,
+        sound: sound,
+        alarmData: {'name': title},
+      );
 
       // 4. 네이티브 안드로이드 알림 (사운드 없이)
       await _showNativeAndroidAlarm(title, message, vibrate);
@@ -80,7 +107,89 @@ class AlarmNotificationHelper {
     }
   }
 
-  // ✅ 새로 추가할 메서드 (여기에 추가!)
+  // ✅ 🌟 새로 추가: 영구 푸쉬 알림 (핵심 기능)
+  static Future<void> showPersistentAlarmNotification({
+    required String title,
+    required String body,
+    required Map<String, dynamic> alarmData,
+  }) async {
+    try {
+      await initializeNotifications();
+
+      print('📢 영구 푸쉬 알림 생성 시작: $title');
+
+      const androidDetails = AndroidNotificationDetails(
+        'persistent_alarm_channel',
+        'Persistent Location Alarms',
+        channelDescription: '영구 위치 알람 (터치 시 전체화면)',
+        importance: Importance.max,
+        priority: Priority.high,
+
+        // ✅ 영구 알림 설정
+        ongoing: true, // 지속적 알림 (스와이프로 삭제 불가)
+        autoCancel: false, // 자동 삭제 불가
+        // ✅ 알람 특성
+        category: AndroidNotificationCategory.alarm,
+        fullScreenIntent: true, // 전체화면 시도
+        visibility: NotificationVisibility.public,
+
+        // ✅ 사운드/진동 (별도로 처리하므로 false)
+        playSound: false, // 사운드는 _triggerAlarm에서 처리
+        enableVibration: false, // 진동도 _triggerAlarm에서 처리
+        // ✅ 액션 버튼들
+        actions: [
+          AndroidNotificationAction(
+            'open_alarm',
+            '알람 확인',
+            cancelNotification: false, // 알림 유지
+          ),
+          AndroidNotificationAction(
+            'dismiss_alarm',
+            '끄기',
+            cancelNotification: true, // 알림 제거
+          ),
+        ],
+
+        // ✅ 스타일링
+        icon: '@mipmap/ic_launcher',
+        color: Color(0xFF2196F3),
+        ledColor: Color(0xFFFF0000),
+        ledOnMs: 1000,
+        ledOffMs: 500,
+      );
+
+      const notificationDetails = NotificationDetails(android: androidDetails);
+
+      // ✅ 고정 ID 사용 (기존 알람 덮어쓰기)
+      const persistentAlarmId = 999;
+
+      await flutterLocalNotificationsPlugin.show(
+        persistentAlarmId,
+        title,
+        body,
+        notificationDetails,
+        payload: jsonEncode(alarmData), // ✅ 터치 시 전달할 데이터
+      );
+
+      print('✅ 영구 푸쉬 알림 생성 완료: $title');
+      print('📝 페이로드: ${jsonEncode(alarmData)}');
+    } catch (e) {
+      print('❌ 영구 푸쉬 알림 생성 실패: $e');
+      rethrow;
+    }
+  }
+
+  // ✅ 영구 알림 제거
+  static Future<void> dismissPersistentAlarm() async {
+    try {
+      await flutterLocalNotificationsPlugin.cancel(999);
+      print('✅ 영구 푸쉬 알림 제거됨');
+    } catch (e) {
+      print('❌ 영구 푸쉬 알림 제거 실패: $e');
+    }
+  }
+
+  // ✅ 네이티브 전체화면
   static Future<void> _showNativeFullScreenAlarm(
     String title,
     String message,
@@ -97,7 +206,7 @@ class AlarmNotificationHelper {
     }
   }
 
-  // ✅ 기존 flutter.bell 채널 사용
+  // ✅ 시스템 벨소리 재생
   static Future<void> _playSystemRingtone() async {
     try {
       const platform = MethodChannel('flutter.bell');
@@ -108,7 +217,7 @@ class AlarmNotificationHelper {
     }
   }
 
-  // ✅ 벨소리 정지 메서드
+  // ✅ 벨소리 정지
   static Future<void> _stopSystemRingtone() async {
     try {
       const platform = MethodChannel('flutter.bell');
@@ -119,7 +228,7 @@ class AlarmNotificationHelper {
     }
   }
 
-  // ✅ 네이티브 안드로이드 알림만 처리 (사운드 제거)
+  // ✅ 네이티브 안드로이드 알림 (기존 테스트용)
   static Future<void> _showNativeAndroidAlarm(
     String title,
     String message,
@@ -136,19 +245,14 @@ class AlarmNotificationHelper {
       channelDescription: '네이티브 알람 채널',
       importance: Importance.max,
       priority: Priority.high,
-
       category: AndroidNotificationCategory.alarm,
       fullScreenIntent: true,
       visibility: NotificationVisibility.public,
-
-      // ✅ 사운드 제거 (벨소리는 별도 재생)
       playSound: false,
-
       enableVibration: vibrate,
       vibrationPattern: vibrationPattern,
       ongoing: true,
       autoCancel: false,
-
       actions: [
         AndroidNotificationAction(
           'stop_alarm',
@@ -156,7 +260,6 @@ class AlarmNotificationHelper {
           cancelNotification: true,
         ),
       ],
-
       icon: '@mipmap/ic_launcher',
     );
 
@@ -176,28 +279,31 @@ class AlarmNotificationHelper {
     });
   }
 
-  // ✅ 전체화면 알람 (벨소리 정지 추가)
+  // ✅ 전체화면 알람 (수정됨)
   static void _showFullScreenAlarm({
     required String title,
     required String message,
     String sound = 'default',
+    required Map<String, dynamic> alarmData,
   }) {
     try {
-      _navigatorKey?.currentState?.push(
+      _navigatorKey?.currentState?.pushAndRemoveUntil(
         MaterialPageRoute(
           builder:
               (context) => FullScreenAlarmPage(
                 alarmTitle: title,
-                alarmData: {'id': DateTime.now().millisecondsSinceEpoch},
+                alarmData: alarmData,
                 soundPath: sound,
                 onDismiss: () async {
-                  // ✅ 알람 끄기 시 벨소리도 정지
+                  // ✅ 알람 끄기 시 모든 관련 요소 정지
                   await _stopSystemRingtone();
+                  await dismissPersistentAlarm(); // ✅ 영구 알림도 제거
                   await cancelAllAlarmNotifications();
-                  print('🔕 전체화면 알람 + 벨소리 정지');
+                  print('🔕 전체화면 알람 + 벨소리 + 영구알림 모두 정지');
                 },
               ),
         ),
+        (route) => false, // ✅ 모든 기존 화면 제거
       );
 
       print('📱 전체화면 알람 표시: $title');
@@ -205,10 +311,6 @@ class AlarmNotificationHelper {
       print('❌ 전체화면 알람 실패: $e');
     }
   }
-
-  // ✅ 불필요한 메서드들 제거
-  // _playSystemAlarmSound() - 삭제 (중복)
-  // showFullScreenAlarm() - _showFullScreenAlarm()으로 통합
 }
 
 // ✅ 기존 테스트용 알림 표시 (그대로 유지)

@@ -32,6 +32,7 @@ class AlarmFullscreenActivity : Activity() {
         val flutterIntent = Intent(this, MainActivity::class.java).apply {
             putExtra("alarmId", alarmId)
             putExtra("navigate_to_fullscreen", true)
+            putExtra("fromAlarm", true)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         }
         startActivity(flutterIntent)
