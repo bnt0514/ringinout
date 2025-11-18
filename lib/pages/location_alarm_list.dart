@@ -35,7 +35,24 @@ class AlarmListController {
     final box = HiveHelper.alarmBox;
     final keys = box.keys.toList();
 
+    // ✅ 스누즈 박스와 트리거 카운트 박스 열기
+    final snoozeBox = await Hive.openBox('snoozeSchedules');
+    final triggerBox = await Hive.openBox('trigger_counts_v2');
+
     for (int i in selectedIndexes.value) {
+      final alarm = box.getAt(i);
+      if (alarm != null) {
+        final alarmId = alarm['id'];
+
+        // ✅ 알람 ID로 스누즈 스케줄과 트리거 카운트 삭제
+        if (alarmId != null) {
+          await snoozeBox.delete(alarmId);
+          await triggerBox.delete(alarmId);
+          print('🗑️ 알람 관련 데이터 삭제: $alarmId');
+        }
+      }
+
+      // ✅ 알람 삭제
       await HiveHelper.deleteAlarmById(keys[i]);
     }
 
@@ -122,8 +139,32 @@ class AlarmListItem extends StatelessWidget {
           final willEnable = !(alarm['enabled'] ?? false);
           updatedAlarm['enabled'] = willEnable;
 
+          final alarmId = alarm['id'];
+
           if (willEnable) {
+            // ✅ 알람 활성화 시: 트리거 카운트 초기화 + 상태 초기화
             updatedAlarm['triggerCount'] = 0;
+
+            // ✅ trigger_counts_v2 박스도 초기화
+            if (alarmId != null) {
+              final triggerBox = await Hive.openBox('trigger_counts_v2');
+              await triggerBox.delete(alarmId);
+              print('🗑️ 트리거 카운트 초기화: $alarmId');
+            }
+
+            // ✅ LocationMonitorService에 상태 초기화 요청
+            await _resetAlarmState(alarm['name'] ?? '');
+          } else {
+            // ✅ 알람 비활성화 시: 스누즈 스케줄과 트리거 카운트 삭제
+            if (alarmId != null) {
+              final snoozeBox = await Hive.openBox('snoozeSchedules');
+              await snoozeBox.delete(alarmId);
+              print('🗑️ 스누즈 스케줄 삭제 (비활성화): $alarmId');
+
+              final triggerBox = await Hive.openBox('trigger_counts_v2');
+              await triggerBox.delete(alarmId);
+              print('🗑️ 트리거 카운트 삭제 (비활성화): $alarmId');
+            }
           }
 
           await HiveHelper.updateLocationAlarm(index, updatedAlarm);
@@ -155,6 +196,17 @@ class AlarmListItem extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  // ✅ 알람 상태 초기화 메서드 추가
+  Future<void> _resetAlarmState(String placeName) async {
+    try {
+      // LocationMonitorService의 상태 초기화 호출
+      await SmartLocationMonitor.resetPlaceState(placeName);
+      print('🔄 알람 상태 초기화: $placeName');
+    } catch (e) {
+      print('❌ 알람 상태 초기화 실패: $e');
+    }
   }
 
   // ✅ 올바른 모니터링 서비스 업데이트 메서드
@@ -205,7 +257,23 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
   void _setupMethodChannel() {
     _platform.setMethodCallHandler((call) async {
       if (call.method == 'navigateToFullScreenAlarm') {
-        Navigator.of(context).pushNamed('/fullScreenAlarm');
+        print('📨 navigateToFullScreenAlarm 수신: ${call.arguments}');
+
+        // ✅ alarmId를 arguments에서 가져오기
+        final args = call.arguments as Map?;
+        final alarmId = args?['alarmId'] ?? -1;
+
+        print('🔔 전체화면 알람 페이지로 이동 (alarmId: $alarmId)');
+
+        // ✅ alarmId를 포함하여 전달
+        Navigator.of(context).pushNamed(
+          '/fullScreenAlarm',
+          arguments: {
+            'alarmTitle': 'Ringinout 알람',
+            'id': alarmId,
+            'soundPath': 'assets/sounds/thoughtfulringtone.mp3',
+          },
+        );
       }
     });
   }

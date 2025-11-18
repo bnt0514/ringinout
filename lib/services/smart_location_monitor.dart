@@ -251,4 +251,18 @@ class SmartLocationMonitor {
     print('   - 일반 모드: ${status['normalModeActive']}');
     print('   - 위치 서비스: ${status['locationServiceActive']}');
   }
+
+  // ✅ 장소별 상태 초기화 메서드 추가
+  static Future<void> resetPlaceState(String placeName) async {
+    try {
+      if (_locationService != null) {
+        await _locationService!.resetPlaceState(placeName);
+        print('✅ 장소 상태 초기화 완료: $placeName');
+      } else {
+        print('⚠️ LocationMonitorService가 초기화되지 않음 - 서비스 시작 시 자동 초기화됨');
+      }
+    } catch (e) {
+      print('❌ 장소 상태 초기화 실패: $e');
+    }
+  }
 }

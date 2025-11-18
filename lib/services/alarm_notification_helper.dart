@@ -82,12 +82,13 @@ class AlarmNotificationHelper {
     required String message,
     String sound = 'default',
     bool vibrate = true,
+    Map<String, dynamic>? alarmData, // ✅ alarmData 추가
   }) async {
     try {
       print('🔔 네이티브 알람 시작: $title');
 
       // 1. 즉시 네이티브 전체화면 (최우선)
-      await _showNativeFullScreenAlarm(title, message);
+      await _showNativeFullScreenAlarm(title, message, alarmData);
 
       // 2. 기존 벨소리 채널로 사운드 재생
       await _playSystemRingtone();
@@ -97,17 +98,18 @@ class AlarmNotificationHelper {
         title: title,
         message: message,
         sound: sound,
-        alarmData: {'name': title},
+        alarmData: alarmData ?? {'name': title},
       );
 
-      // 4. 네이티브 안드로이드 알림 (사운드 없이)
-      await _showNativeAndroidAlarm(title, message, vibrate);
+      // ✅ 4. 네이티브 안드로이드 알림 제거 (이미 영구 푸쉬 알림이 있으므로 불필요)
+      // await _showNativeAndroidAlarm(title, message, vibrate);
     } catch (e) {
       print('❌ 네이티브 알람 실패: $e');
     }
   }
 
-  // ✅ 🌟 새로 추가: 영구 푸쉬 알림 (핵심 기능)
+  // showPersistentAlarmNotification 메서드 수정
+
   static Future<void> showPersistentAlarmNotification({
     required String title,
     required String body,
@@ -136,19 +138,8 @@ class AlarmNotificationHelper {
         // ✅ 사운드/진동 (별도로 처리하므로 false)
         playSound: false, // 사운드는 _triggerAlarm에서 처리
         enableVibration: false, // 진동도 _triggerAlarm에서 처리
-        // ✅ 액션 버튼들
-        actions: [
-          AndroidNotificationAction(
-            'open_alarm',
-            '알람 확인',
-            cancelNotification: false, // 알림 유지
-          ),
-          AndroidNotificationAction(
-            'dismiss_alarm',
-            '끄기',
-            cancelNotification: true, // 알림 제거
-          ),
-        ],
+        // ❌ 액션 버튼 제거 (터치만으로 전체화면 이동)
+        // actions: [], // 완전히 제거
 
         // ✅ 스타일링
         icon: '@mipmap/ic_launcher',
@@ -171,7 +162,7 @@ class AlarmNotificationHelper {
         payload: jsonEncode(alarmData), // ✅ 터치 시 전달할 데이터
       );
 
-      print('✅ 영구 푸쉬 알림 생성 완료: $title');
+      print('✅ 영구 푸쉬 알림 생성 완료 (버튼 없음, 터치로 전체화면): $title');
       print('📝 페이로드: ${jsonEncode(alarmData)}');
     } catch (e) {
       print('❌ 영구 푸쉬 알림 생성 실패: $e');
@@ -193,14 +184,20 @@ class AlarmNotificationHelper {
   static Future<void> _showNativeFullScreenAlarm(
     String title,
     String message,
+    Map<String, dynamic>? alarmData, // ✅ alarmData 추가
   ) async {
     try {
       const platform = MethodChannel('com.example.ringinout/alarm');
+
+      // ✅ alarmId 추출
+      final alarmId = alarmData?['id'] ?? -1;
+
       await platform.invokeMethod('showFullScreenAlarm', {
         'title': title,
         'message': message,
+        'alarmId': alarmId, // ✅ alarmId 전달
       });
-      print('📱 네이티브 전체화면 알람 요청 완료');
+      print('📱 네이티브 전체화면 알람 요청 완료 (ID: $alarmId)');
     } catch (e) {
       print('❌ 네이티브 전체화면 실패: $e');
     }

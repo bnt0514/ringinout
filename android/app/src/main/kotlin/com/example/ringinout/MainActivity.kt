@@ -18,6 +18,7 @@ import android.media.RingtoneManager
 import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import android.media.AudioAttributes
 
 var flutterRingtone: Ringtone? = null
 
@@ -32,16 +33,73 @@ class MainActivity : FlutterActivity() {
         super.onCreate(savedInstanceState)
         Log.d("MainActivity", "🔥 onCreate 호출됨")
 
-        // ✅ 앱 시작 시 한 번만 알림 생성 (5초 후 조용하게)
-        createOptimizedLocationNotification()
+        // ✅ 앱 시작 시 포그라운드 알림 생성 (삭제 불가능)
+        createPersistentForegroundNotification()
 
         navigateToFullscreen = intent.getBooleanExtra("navigate_to_fullscreen", false)
         pendingAlarmId = intent.getIntExtra("alarmId", -1)
     }
 
-    
+    override fun onDestroy() {
+        Log.d("MainActivity", "⚠️ MainActivity onDestroy - 앱이 종료되려고 합니다")
+        // ✅ Activity가 종료되어도 Flutter 엔진과 서비스는 계속 유지
+        super.onDestroy()
+    }
 
-    // ✅ 최적화된 위치 알림 (한 번만 표시, 조용함)
+    // ✅ 뒤로가기 버튼 - 백그라운드로 이동 (종료 안 함)
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        Log.d("MainActivity", "🔙 뒤로가기 버튼 클릭 - 백그라운드로 이동")
+        moveTaskToBack(true) // 백그라운드로 보내기
+        // super.onBackPressed() 호출하지 않음 = 앱 종료 안 함
+    }
+
+    // ✅ 포그라운드 알림 생성 (삭제 불가능, 앱 종료 방지)
+    private fun createPersistentForegroundNotification() {
+        try {
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val channelId = "location_alarm_foreground"
+            
+            // ✅ 포그라운드 알림 채널 생성
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(
+                    channelId,
+                    "위치 알람 서비스 (상시 실행)",
+                    NotificationManager.IMPORTANCE_LOW
+                ).apply {
+                    description = "위치 알람이 백그라운드에서 계속 실행됩니다"
+                    setSound(null, null)
+                    enableLights(false)
+                    enableVibration(false)
+                    setShowBadge(false)
+                    lockscreenVisibility = NotificationCompat.VISIBILITY_SECRET
+                }
+                notificationManager.createNotificationChannel(channel)
+            }
+            
+            // ✅ 삭제 불가능한 포그라운드 알림 생성
+            val notification = NotificationCompat.Builder(this, channelId)
+                .setContentTitle("Ringinout 위치 알람")
+                .setContentText("백그라운드에서 위치를 모니터링하고 있습니다")
+                .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+                .setOngoing(true) // ✅ 삭제 불가능
+                .setAutoCancel(false)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+                .setShowWhen(false)
+                .setSilent(true)
+                .build()
+            
+            notificationManager.notify(999, notification)
+            Log.d("MainActivity", "✅ 포그라운드 알림 생성 완료 (ID: 999)")
+            
+        } catch (e: Exception) {
+            Log.e("MainActivity", "❌ 포그라운드 알림 생성 실패: ${e.message}")
+        }
+    }
+
+    // ✅ 최적화된 위치 알림 (한 번만 표시, 조용함) - 제거 예정
     private fun createOptimizedLocationNotification() {
         try {
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -59,6 +117,7 @@ class MainActivity : FlutterActivity() {
                     enableLights(false)  // LED 끄기
                     enableVibration(false)  // 진동 끄기
                     setShowBadge(false)  // 배지 끄기
+                    lockscreenVisibility = NotificationCompat.VISIBILITY_SECRET // ✅ 잠금 화면에서 숨김
                 }
                 notificationManager.createNotificationChannel(channel)
             }
@@ -72,8 +131,9 @@ class MainActivity : FlutterActivity() {
                 .setAutoCancel(true)  // ✅ 터치하면 사라짐
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setCategory(NotificationCompat.CATEGORY_SERVICE)
-                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setVisibility(NotificationCompat.VISIBILITY_SECRET) // ✅ 잠금 화면에서 완전히 숨김
                 .setShowWhen(false)
+                .setSilent(true) // ✅ 완전히 조용하게
                 .build()
             
             // 알림 표시
@@ -161,7 +221,16 @@ class MainActivity : FlutterActivity() {
                 "showFullScreenAlarm" -> {
                     val title = call.argument<String>("title") ?: "알람"
                     val message = call.argument<String>("message") ?: "위치 알람"
-                    showBackgroundFullScreenAlarm(title, message)
+                    val alarmIdRaw = call.argument<Any>("alarmId") // ✅ Any로 받아서 변환
+                    
+                    // ✅ String UUID를 hashCode로 변환
+                    val alarmId = when (alarmIdRaw) {
+                        is Int -> alarmIdRaw
+                        is String -> alarmIdRaw.hashCode()
+                        else -> -1
+                    }
+                    
+                    showBackgroundFullScreenAlarm(title, message, alarmId)
                     result.success(true)
                 }
                 else -> result.notImplemented()
@@ -291,13 +360,19 @@ class MainActivity : FlutterActivity() {
     }
 
     // ✅ 백그라운드 전체화면 알람 표시
-    private fun showBackgroundFullScreenAlarm(title: String, message: String) {
+    private fun showBackgroundFullScreenAlarm(title: String, message: String, alarmId: Int) {
         try {
-            Log.d("MainActivity", "📱 백그라운드 전체화면 알람 표시: $title")
+            Log.d("MainActivity", "📱 백그라운드 전체화면 알람 표시: $title (ID: $alarmId)")
+            
+            // ✅ SharedPreferences에서 triggerCount 가져오기
+            val prefs = applicationContext.getSharedPreferences("ringinout", Context.MODE_PRIVATE)
+            val count = prefs.getInt("trigger_count_$alarmId", 0) + 1
+            prefs.edit().putInt("trigger_count_$alarmId", count).apply()
             
             val intent = Intent(applicationContext, AlarmFullscreenActivity::class.java).apply {
                 putExtra("title", title)
                 putExtra("message", message)
+                putExtra("alarmId", alarmId) // ✅ alarmId 전달
                 putExtra("isBackgroundAlarm", true)
                 addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK or 
@@ -308,7 +383,7 @@ class MainActivity : FlutterActivity() {
             }
             
             applicationContext.startActivity(intent)
-            Log.d("MainActivity", "✅ 백그라운드 전체화면 알람 시작")
+            Log.d("MainActivity", "✅ 백그라운드 전체화면 알람 시작 (triggerCount: $count)")
             
         } catch (e: Exception) {
             Log.e("MainActivity", "❌ 백그라운드 전체화면 알람 실패: ${e.message}")
@@ -316,6 +391,8 @@ class MainActivity : FlutterActivity() {
     }
 
         // 기존 두 함수만 교체
+    
+        // MainActivity.kt의 playDefaultRingtone 메서드에서 수정
     
     private fun playDefaultRingtone(context: Context) {
         try {
@@ -343,7 +420,7 @@ class MainActivity : FlutterActivity() {
                 val attrs = android.media.AudioAttributes.Builder()
                     .setUsage(android.media.AudioAttributes.USAGE_ALARM) // 알람 용도
                     .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .setFlags(android.media.AudioAttributes.FLAG_BYPASS_INTERRUPTION_POLICY) // DND 무시
+                    // ✅ FLAG_BYPASS_INTERRUPTION_POLICY 제거 (호환성 문제)
                     .build()
                 flutterRingtone?.audioAttributes = attrs
             }

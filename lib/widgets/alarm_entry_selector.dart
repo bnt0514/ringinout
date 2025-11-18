@@ -143,6 +143,8 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                         : {},
                 myLocationEnabled: true,
                 myLocationButtonEnabled: false,
+                mapType: MapType.normal, // ✅ 일반 지도 (건물 표시)
+                buildingsEnabled: true, // ✅ 건물 3D 표시 활성화
               ),
     );
   }

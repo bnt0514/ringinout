@@ -446,8 +446,8 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
                                           .millisecondsSinceEpoch, // 수정 시간 추가
                                 };
 
-                                // Hive에서 ID로 업데이트
-                                await HiveHelper.updateLocationAlarm(
+                                // ✅ ID 기반 업데이트 메서드 사용
+                                await HiveHelper.updateLocationAlarmById(
                                   alarmId,
                                   updatedAlarm,
                                 );

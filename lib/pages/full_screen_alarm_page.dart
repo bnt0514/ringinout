@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:hive/hive.dart';
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/alarm_notification_helper.dart'; // cancelAllAlarmNotifications() 사용
+import 'package:ringinout/features/navigation/main_navigation.dart'; // ✅ 홈 화면 import
 
 class FullScreenAlarmPage extends StatefulWidget {
   final String alarmTitle;
@@ -23,7 +24,6 @@ class FullScreenAlarmPage extends StatefulWidget {
 }
 
 class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
-  static const platform = MethodChannel('com.example.ringinout/audio');
   static const bellPlatform = MethodChannel('flutter.bell');
   int _triggerCount = 0;
 
@@ -37,56 +37,65 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
     // 1) 소리/벨/콜백 모두 정지
     try {
       await _stopAllSounds();
-    } catch (_) {}
+    } catch (e) {
+      print('❌ 사운드 정지 실패: $e');
+    }
+
     try {
       await cancelAllAlarmNotifications();
-    } catch (_) {}
+    } catch (e) {
+      print('❌ 알림 취소 실패: $e');
+    }
 
     if (!mounted) return;
 
-    // 2) 루트 네비게이터 기준으로 겹쳐진 다이얼로그/시트/페이지 정리
-    final rootNav = Navigator.of(context, rootNavigator: true);
+    // 2) ✅ 홈화면으로 완전 교체 (Navigator 스택 초기화)
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const MainNavigationPage()),
+      (route) => false,
+    );
 
-    // 다이얼로그/바텀시트 등 겹친 것들 최대 5번까지 닫기
-    int guard = 0;
-    while (rootNav.canPop() && guard < 5) {
-      rootNav.pop();
-      guard++;
-    }
+    print('✅ 전체알람화면 종료 - 홈화면으로 복귀');
   }
+  // _increaseAndLoadTriggerCount 메서드 수정
 
   Future<void> _increaseAndLoadTriggerCount() async {
     final id = widget.alarmData?['id'];
     if (id != null) {
-      final box = await Hive.openBox('trigger_counts');
-      final currentRaw = box.get(id, defaultValue: 0);
+      // ✅ v2로 변경
+      final box = await Hive.openBox('trigger_counts_v2');
 
-      // ✅ 강제 변환
+      final currentRaw = box.get(id, defaultValue: 0);
       final current =
           (currentRaw is int)
               ? currentRaw
               : int.tryParse(currentRaw.toString()) ?? 0;
 
-      await box.put(id, current + 1);
+      final newCount = current + 1;
+      await box.put(id, newCount);
 
-      setState(() {
-        _triggerCount = current + 1;
-      });
+      if (mounted) {
+        setState(() {
+          _triggerCount = newCount;
+        });
+      }
+
+      print('🔢 트리거 카운트: $newCount (알람 ID: $id)');
+      print('📊 trigger_counts_v2[$id] = $newCount');
+    } else {
+      if (mounted) {
+        setState(() {
+          _triggerCount = 1;
+        });
+      }
+      print('⚠️ alarmData가 없어 triggerCount를 1로 설정');
     }
   }
 
   // ✅ 모든 사운드 정지 메서드
   Future<void> _stopAllSounds() async {
     try {
-      // 1. 기존 네이티브 벨소리 정지
-      await platform.invokeMethod('stopRingtone');
-      print('🔕 네이티브 벨소리 정지 완료');
-    } catch (e) {
-      print('❌ 네이티브 벨소리 정지 실패: $e');
-    }
-
-    try {
-      // 2. flutter.bell 채널 벨소리 정지
+      // ✅ flutter.bell 채널 벨소리 정지
       await bellPlatform.invokeMethod('stopSystemRingtone');
       print('🔕 시스템 벨소리 정지 완료');
     } catch (e) {
@@ -94,7 +103,7 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
     }
 
     try {
-      // 3. AlarmNotificationHelper의 정지 메서드도 호출
+      // ✅ AlarmNotificationHelper의 정지 메서드도 호출
       await widget.onDismiss();
       print('🔕 알람 정지 콜백 완료');
     } catch (e) {
@@ -124,18 +133,54 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
   }
 
   Future<void> _disableAlarm(String alarmTitle) async {
-    final box = HiveHelper.alarmBox;
-    final alarms = box.values;
-    for (var alarm in alarms) {
-      if (alarm['name'] == alarmTitle && alarm['enabled'] == true) {
-        alarm['enabled'] = false;
-        alarm.delete('triggerCount');
-        await alarm.save();
-        final triggerBox = await Hive.openBox('trigger_counts');
-        await triggerBox.delete(alarm['id']);
-        print('🔕 알람 비활성화 완료 + triggerCount 제거');
-        break;
+    try {
+      print('🔕 알람 비활성화 시작: $alarmTitle');
+
+      final box = HiveHelper.alarmBox;
+      final alarmsList = box.values.toList();
+
+      for (var i = 0; i < alarmsList.length; i++) {
+        final alarm = alarmsList[i];
+
+        if (alarm['name'] == alarmTitle && alarm['enabled'] == true) {
+          // ✅ Map을 복사하여 수정
+          final updatedAlarm = Map<String, dynamic>.from(alarm);
+          updatedAlarm['enabled'] = false;
+
+          // ✅ alarmId 가져오기
+          final alarmId = updatedAlarm['id'];
+          if (alarmId == null) {
+            print('❌ 알람 ID가 없음');
+            continue;
+          }
+
+          // ✅ Hive 박스에서 해당 id를 키로 찾아서 업데이트
+          final keys = box.keys.toList();
+          for (var key in keys) {
+            final item = box.get(key);
+            if (item != null && item['id'] == alarmId) {
+              await box.put(key, updatedAlarm);
+              print('✅ 알람 비활성화 완료 (key: $key, id: $alarmId)');
+
+              // ✅ 트리거 카운트 제거
+              final triggerBox = await Hive.openBox('trigger_counts_v2');
+              await triggerBox.delete(alarmId);
+              print('🗑️ 트리거 카운트 제거: $alarmId');
+
+              // ✅ 스누즈 스케줄도 제거 (ID로 삭제)
+              final snoozeBox = await Hive.openBox('snoozeSchedules');
+              await snoozeBox.delete(alarmId);
+              print('🗑️ 스누즈 스케줄 제거 (ID): $alarmId');
+
+              break;
+            }
+          }
+          break;
+        }
       }
+    } catch (e) {
+      print('❌ 알람 비활성화 실패: $e');
+      print('스택 트레이스: ${StackTrace.current}');
     }
   }
 
@@ -149,12 +194,45 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
     }
   }
 
+  // ✅ 스누즈 알람 스케줄링 추가 (알람 ID를 키로 사용)
+  Future<void> _scheduleSnoozeAlarm(int minutes) async {
+    try {
+      final snoozeTime = DateTime.now().add(Duration(minutes: minutes));
+
+      // ✅ 알람 ID 추출
+      final alarmId = widget.alarmData?['id'];
+      if (alarmId == null) {
+        print('❌ 알람 ID 없음 - 스누즈 스케줄링 불가');
+        return;
+      }
+
+      // Hive에 스케줄 저장 (키를 ID로 변경)
+      var box = await Hive.openBox('snoozeSchedules');
+      await box.put(alarmId, {
+        'alarmId': alarmId,
+        'alarmTitle': widget.alarmTitle,
+        'scheduledTime': snoozeTime.millisecondsSinceEpoch,
+        'alarmData': widget.alarmData,
+      });
+
+      print(
+        '⏰ 스누즈 알람 스케줄됨: ${widget.alarmTitle} (ID: $alarmId) at $snoozeTime',
+      );
+    } catch (e) {
+      print('❌ 스누즈 알람 스케줄링 실패: $e');
+    }
+  }
+
   Future<void> _onSnooze() async {
-    // 즉시 모든 사운드 정지
+    print('🔵 다시 울림 버튼 클릭');
+
+    // ✅ 즉시 모든 사운드 정지
     await _stopAllSounds();
 
+    // ✅ 사용자에게 시간 선택 다이얼로그 표시
     int? selectedMinutes = await showDialog<int>(
       context: context,
+      barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
           title: const Text("다시 울림 시간 선택"),
@@ -167,102 +245,45 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
                   onTap: () => Navigator.pop(context, m),
                 ),
               ),
-              ListTile(
-                title: const Text("직접 입력"),
-                onTap: () async {
-                  final controller = TextEditingController();
-                  final result = await showDialog<int>(
-                    context: context,
-                    builder:
-                        (context) => AlertDialog(
-                          title: const Text("다시 울림 시간 (분)"),
-                          content: TextField(
-                            controller: controller,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(hintText: "예: 7"),
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () {
-                                final input = int.tryParse(controller.text);
-                                Navigator.pop(context, input);
-                              },
-                              child: const Text("확인"),
-                            ),
-                          ],
-                        ),
-                  );
-                  if (result != null && result > 0) {
-                    Navigator.pop(context, result);
-                  }
-                },
-              ),
             ],
           ),
         );
       },
     );
 
+    // ✅ 시간을 선택한 경우에만 처리
     if (selectedMinutes != null && selectedMinutes > 0) {
       await _saveSnoozeTime(selectedMinutes);
+      await _scheduleSnoozeAlarm(selectedMinutes);
+
       print("⏰ $selectedMinutes분 후 다시 울림 예약됨");
+    } else {
+      print("! 다시 울림 취소됨");
     }
 
+    // ✅ 선택 완료 후 알람 페이지 종료
+    if (!mounted) return;
     await _exitAlarmPageCompletely();
   }
 
   Future<void> _onConfirm() async {
-    // 즉시 모든 사운드 정지
+    print('🔴 알람 종료 버튼 클릭');
+
+    // ✅ 즉시 모든 사운드 정지
     await _stopAllSounds();
 
-    final reallyExit = await showDialog<bool>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text("알람을 종료하시겠습니까?"),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text("아니오"),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text("예"),
-              ),
-            ],
-          ),
-    );
+    // ✅ 다이얼로그 없이 즉시 처리
+    // 목표 달성은 true로 기록
+    await _recordGoalAchieved(true);
 
-    if (reallyExit != true) return;
+    print('✅ 목표 달성으로 기록');
 
-    final goalAchieved = await showDialog<bool>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text("알람 목표를 달성하셨습니까?"),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  _recordGoalAchieved(false);
-                  Navigator.pop(context, false);
-                },
-                child: const Text("아니오"),
-              ),
-              TextButton(
-                onPressed: () {
-                  _recordGoalAchieved(true);
-                  Navigator.pop(context, true);
-                },
-                child: const Text("예"),
-              ),
-            ],
-          ),
-    );
+    // 알람 비활성화
+    await _disableAlarm(widget.alarmTitle);
 
-    if (goalAchieved != null) {
-      await _disableAlarm(widget.alarmTitle);
-      await _exitAlarmPageCompletely();
-    }
+    // ✅ 즉시 알람 페이지 종료
+    if (!mounted) return;
+    await _exitAlarmPageCompletely();
   }
 
   @override
@@ -275,49 +296,39 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
   Widget build(BuildContext context) {
     final Size screenSize = MediaQuery.of(context).size;
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Positioned(
-              top: screenSize.height * 0.1,
-              left: 20,
-              right: 20,
-              child: Text(
-                widget.alarmTitle,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: screenSize.height * (_triggerCount < 2 ? 0.2 : 0.4),
-              left: 0,
-              right: 0,
-              child: Center(
-                child: SizedBox(
-                  width: 250,
-                  height: 60,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                    ),
-                    onPressed: _onSnooze,
-                    child: const Text(
-                      "다시 울림",
-                      style: TextStyle(fontSize: 20, color: Colors.white),
-                    ),
+    // ✅ PopScope로 Scaffold 전체를 감싸기
+    return PopScope(
+      canPop: true, // ✅ true = 뒤로가기 허용
+      onPopInvokedWithResult: (bool didPop, dynamic result) async {
+        if (didPop) {
+          // ✅ 뒤로가기로 닫힐 때 알람 정지
+          print('🔙 뒤로가기 버튼 - 알람 정지');
+          await _stopAllSounds();
+          await cancelAllAlarmNotifications();
+          print('✅ 알람 정지 완료');
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Stack(
+            children: [
+              Positioned(
+                top: screenSize.height * 0.1,
+                left: 20,
+                right: 20,
+                child: Text(
+                  widget.alarmTitle,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
-            ),
-            if (_triggerCount >= 2)
               Positioned(
-                bottom: screenSize.height * 0.2,
+                bottom: screenSize.height * (_triggerCount < 2 ? 0.2 : 0.4),
                 left: 0,
                 right: 0,
                 child: Center(
@@ -326,20 +337,43 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
                     height: 60,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
+                        backgroundColor: Colors.blue,
                       ),
-                      onPressed: _onConfirm,
+                      onPressed: _onSnooze,
                       child: const Text(
-                        "알람 종료",
+                        "다시 울림",
                         style: TextStyle(fontSize: 20, color: Colors.white),
                       ),
                     ),
                   ),
                 ),
               ),
-          ],
+              if (_triggerCount >= 2)
+                Positioned(
+                  bottom: screenSize.height * 0.2,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: SizedBox(
+                      width: 250,
+                      height: 60,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                        ),
+                        onPressed: _onConfirm,
+                        child: const Text(
+                          "알람 종료",
+                          style: TextStyle(fontSize: 20, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
-}
+} // ✅ _FullScreenAlarmPageState 클래스 끝

@@ -5,8 +5,10 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:geolocator/geolocator.dart' hide LocationAccuracy, ActivityType;
-import 'package:geofence_service/geofence_service.dart';
+// ✅ LocationAccuracy 타입 충돌 해결: geolocator만 사용
+import 'package:geolocator/geolocator.dart'; // ✅ 이게 우선
+import 'package:geofence_service/geofence_service.dart'
+    hide LocationAccuracy; // ✅ LocationAccuracy만 숨김
 import 'package:hive/hive.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -186,16 +188,17 @@ class LocationMonitorService {
     GeofenceStatus status,
     void Function(String type, Map<String, dynamic> alarm) onTrigger,
   ) async {
-    // ✅ 마지막 이벤트 시간 업데이트
     _lastGeofenceEvent = DateTime.now();
     print('📍 지오펜스 이벤트: ${geofence.id} / 상태: $status');
 
-    // ✅ 초기 ENTER 무시 로직 추가
-    // 만약 앱 시작 직후, 이미 반경 안에 있었던 장소라면 첫 ENTER 이벤트는 무시
+    // ✅ 초기 ENTER 무시 (하지만 상태는 업데이트!)
+    bool isInitialEnter = false;
     if (status == GeofenceStatus.ENTER &&
         (_alreadyInside[geofence.id] ?? false)) {
       print('⏭️ 초기 ENTER 무시: 이미 ${geofence.id} 내부에 있음');
-      return;
+      _alreadyInside[geofence.id] = false;
+      isInitialEnter = true;
+      // ✅ 상태 업데이트는 계속 진행 (return 안 함!)
     }
 
     try {
@@ -205,38 +208,46 @@ class LocationMonitorService {
               .map((e) => Map<String, dynamic>.from(e))
               .toList();
 
-      print('🔍 해당 장소 알람 개수: ${alarms.length}'); // ✅ 로그 추가
+      print('🔍 해당 장소 알람 개수: ${alarms.length}');
 
       for (int i = 0; i < alarms.length; i++) {
         final alarmData = alarms[i];
         final trigger = alarmData['trigger'] ?? 'entry';
 
-        print('🔄 알람 $i 확인: ${alarmData['name']} (트리거: $trigger)'); // ✅ 로그 추가
+        print('🔄 알람 $i 확인: ${alarmData['name']} (트리거: $trigger)');
 
-        final placeId = geofence.id; // 장소 ID
-        if (_shouldTriggerAlarm(trigger, status, placeId)) {
-          print('🔔 알람 조건 만족: ${alarmData['name']} (트리거: $trigger)');
+        final placeId = geofence.id;
 
-          try {
-            await _triggerAlarm(alarmData, trigger, onTrigger);
-            print(
-              '✅ 알람 ${i + 1}/${alarms.length} 트리거 완료: ${alarmData['name']}',
-            ); // ✅ 로그 추가
-          } catch (e) {
-            print('❌ 알람 트리거 실패: ${alarmData['name']} - $e'); // ✅ 에러 로그
-          }
+        // ✅ 초기 ENTER는 알람 트리거 안 함
+        if (!isInitialEnter && _shouldTriggerAlarm(trigger, status, placeId)) {
+          print('✅ 알람 트리거: ${alarmData['name']} (트리거: $trigger)');
+          await _triggerAlarm(alarmData, trigger, onTrigger);
         } else {
-          print(
-            '⏭️ 알람 조건 불만족: ${alarmData['name']} (트리거: $trigger, 상태: $status)',
-          );
+          if (isInitialEnter) {
+            print('⏭️ 초기 ENTER 알람 스킵: ${alarmData['name']}');
+          } else {
+            print(
+              '⏭️ 알람 조건 불만족: ${alarmData['name']} (트리거: $trigger, 상태: $status)',
+            );
+          }
         }
+      }
+
+      // ✅ 알람 처리 후 상태 업데이트 (초기 ENTER도 포함)
+      if (status == GeofenceStatus.ENTER) {
+        _lastInside[geofence.id] = true;
+        print('📝 상태 업데이트: ${geofence.id} = inside (true)');
+      } else if (status == GeofenceStatus.EXIT) {
+        _lastInside[geofence.id] = false;
+        _alreadyInside[geofence.id] = false;
+        print('📝 상태 업데이트: ${geofence.id} = outside (false)');
       }
     } catch (e) {
       print('❌ 지오펜스 이벤트 처리 실패: $e');
     }
   }
 
-  // 알람 트리거 조건 체크 (초기 이벤트 무시 + 상태 변화 기반)
+  // 243줄 _shouldTriggerAlarm 수정 (상태 업데이트 제거)
   @pragma('vm:entry-point')
   bool _shouldTriggerAlarm(
     String trigger,
@@ -244,24 +255,33 @@ class LocationMonitorService {
     String placeId,
   ) {
     final wasInside = _lastInside[placeId] ?? false;
+
+    print('🔍 _shouldTriggerAlarm:');
+    print('   - placeId: $placeId');
+    print('   - trigger: $trigger');
+    print('   - status: $status');
+    print('   - wasInside: $wasInside');
+
     bool shouldTrigger = false;
 
-    if (status == GeofenceStatus.ENTER) {
-      if (!wasInside && trigger == 'entry') {
-        shouldTrigger = true; // 밖에 있다가 처음 들어온 경우만 발동
-      }
-      _lastInside[placeId] = true; // 상태 갱신
-    } else if (status == GeofenceStatus.EXIT) {
+    if (status == GeofenceStatus.EXIT) {
       if (wasInside && trigger == 'exit') {
-        shouldTrigger = true; // 안에 있다가 나간 경우만 발동
+        shouldTrigger = true;
+        print('✅ EXIT 알람 조건 만족');
       }
-      _lastInside[placeId] = false; // 상태 갱신
+      // ❌ 여기서 상태 업데이트 안 함! (_handleGeofenceEvent에서 처리)
+    } else if (status == GeofenceStatus.ENTER) {
+      if (!wasInside && trigger == 'entry') {
+        shouldTrigger = true;
+        print('✅ ENTER 알람 조건 만족');
+      }
+      // ❌ 여기서 상태 업데이트 안 함!
     }
 
     return shouldTrigger;
   }
 
-  // 알람 실행 - 푸쉬 알림 기반으로 완전 교체
+  // 303줄 _triggerAlarm 수정 (triggerCount 타입 안전 처리)
   @pragma('vm:entry-point')
   Future<void> _triggerAlarm(
     Map<String, dynamic> alarmData,
@@ -277,6 +297,7 @@ class LocationMonitorService {
       dynamic currentCount = alarmData['triggerCount'];
       int triggerCount = 0;
 
+      // ✅ 타입 안전 변환
       if (currentCount == null) {
         triggerCount = 0;
       } else if (currentCount is int) {
@@ -286,15 +307,16 @@ class LocationMonitorService {
       } else if (currentCount is String) {
         triggerCount = int.tryParse(currentCount) ?? 0;
       } else {
-        triggerCount = int.tryParse(currentCount.toString()) ?? 0;
+        print('⚠️ 알 수 없는 타입: ${currentCount.runtimeType}');
+        triggerCount = 0;
       }
 
-      // 새로운 Map 생성하여 업데이트 (타입 안전성 보장)
+      // ✅ 새로운 Map 생성하여 업데이트 (int 타입 보장!)
       final updatedAlarmData = Map<String, dynamic>.from(alarmData);
-      updatedAlarmData['triggerCount'] = triggerCount + 1;
+      updatedAlarmData['triggerCount'] = triggerCount + 1; // ✅ int로 저장!
 
       await HiveHelper.updateLocationAlarm(alarmData['id'], updatedAlarmData);
-      alarmData['triggerCount'] = triggerCount + 1;
+      alarmData['triggerCount'] = triggerCount + 1; // ✅ 현재 Map도 업데이트
 
       print('✅ 트리거 카운트 업데이트 완료: ${triggerCount + 1}');
     } catch (e) {
@@ -303,7 +325,7 @@ class LocationMonitorService {
     }
 
     try {
-      // 2. 시스템 벨소리 재생 (백그라운드에서도 작동)
+      // 2. 시스템 벨소리 재생
       print('🔊 시스템 벨소리 재생 시작');
       await SystemRingtone.play();
       print('✅ 시스템 벨소리 재생 완료');
@@ -321,22 +343,25 @@ class LocationMonitorService {
     }
 
     try {
-      // 4. 영구 푸쉬 알림 표시 (핵심 기능)
+      // 4. 영구 푸쉬 알림 표시 (항상!)
       print('📢 영구 푸쉬 알림 표시 시작');
       await _showPersistentAlarmNotification(alarmData);
       print('✅ 영구 푸쉬 알림 표시 완료');
     } catch (e) {
       print('❌ 푸쉬 알림 표시 실패: $e');
-      // 실패 시 대체 방법으로 기존 화면 전환 시도
-      try {
-        await _handleAlarmDisplay(alarmData);
-      } catch (fallbackError) {
-        print('❌ 대체 화면 전환도 실패: $fallbackError');
-      }
     }
 
     try {
-      // 5. 콜백 호출
+      // 5. Native 전체화면 알람 표시
+      print('📱 Native 전체화면 알람 표시 시작');
+      await _handleAlarmDisplay(alarmData);
+      print('✅ Native 전체화면 알람 표시 완료');
+    } catch (e) {
+      print('❌ Native 전체화면 알람 표시 실패: $e');
+    }
+
+    try {
+      // 6. 콜백 호출
       print('📞 onTrigger 콜백 호출');
       onTrigger(trigger, alarmData);
       print('✅ onTrigger 콜백 완료');
@@ -346,7 +371,6 @@ class LocationMonitorService {
 
     print('🎯 _triggerAlarm 메서드 완료: ${alarmData['name']}');
   }
-
   // 영구 푸쉬 알림 표시 함수 추가
   // _showPersistentAlarmNotification 메서드 수정
 
@@ -399,20 +423,18 @@ class LocationMonitorService {
   @pragma('vm:entry-point')
   Future<void> _handleAlarmDisplay(Map<String, dynamic> alarmData) async {
     try {
-      // Navigator가 있으면 포그라운드, 없으면 백그라운드로 판단
-      if (navigatorKey.currentState != null) {
-        // 포그라운드: Flutter 화면
-        print('📱 포그라운드 - Flutter 알람 화면 표시');
-        _showFullScreenAlarmFlutter(alarmData);
-      } else {
-        // 백그라운드: Native 전체화면 알람
-        print('📱 백그라운드 - Native 전체화면 알람 시도');
-        await _showNativeFullScreenAlarm(alarmData);
-      }
-    } catch (e) {
-      print('❌ 화면 전환 실패: $e');
-      // 실패 시 Native로 대체
+      // ✅ 백그라운드에서도 작동하는 Native 전체화면 표시
+      print('📱 Native 전체화면 알람 표시 시작');
       await _showNativeFullScreenAlarm(alarmData);
+      print('✅ Native 전체화면 알람 표시 완료');
+    } catch (e) {
+      print('❌ Native 전체화면 표시 실패: $e');
+      // Native 실패 시 Flutter 전체화면으로 폴백 (포그라운드일 때만 작동)
+      try {
+        _showFullScreenAlarmFlutter(alarmData);
+      } catch (e2) {
+        print('❌ Flutter 전체화면도 실패: $e2');
+      }
     }
   }
 
@@ -430,6 +452,7 @@ class LocationMonitorService {
                 : '지정 장소에 도착했습니다',
         sound: alarmData['sound'] ?? 'assets/sounds/thoughtfulringtone.mp3',
         vibrate: (alarmData['vibrate'] ?? true) == true,
+        alarmData: alarmData, // ✅ alarmData 전달
       );
 
       // 소리 보장
@@ -585,7 +608,14 @@ class LocationMonitorService {
   // 서비스 시작 (알람 기반으로 최적화)
   Future<void> startServiceIfSafe() async {
     try {
-      // 1. 활성 알람 확인
+      // ✅ 1. 권한 체크 추가
+      final hasPermission = await _checkPermissionsSafely();
+      if (!hasPermission) {
+        print('⚠️ 위치 권한 없음 - 지오펜스 서비스 시작 불가');
+        return;
+      }
+
+      // 2. 활성 알람 확인
       final activeAlarms = await _getActiveAlarms();
 
       if (activeAlarms.isEmpty) {
@@ -596,11 +626,11 @@ class LocationMonitorService {
 
       print('🔔 활성 알람 ${activeAlarms.length}개 발견 - 지오펜스 서비스 시작');
 
-      // 2. 알람이 있는 장소만 추출
+      // 3. 알람이 있는 장소만 추출
       final alarmedPlaces = _extractAlarmedPlaces(activeAlarms);
       print('📍 지오펜스 필요한 장소: ${alarmedPlaces.map((p) => p['name']).toList()}');
 
-      // 3. 해당 장소들만 지오펜스 생성
+      // 4. 해당 장소들만 지오펜스 생성
       final geofences = await _createGeofencesForPlaces(alarmedPlaces);
 
       if (geofences.isEmpty) {
@@ -608,7 +638,7 @@ class LocationMonitorService {
         return;
       }
 
-      // 4. 지오펜스 서비스 시작
+      // 5. 지오펜스 서비스 시작
       await _startGeofenceService(geofences);
       print('🚀 지오펜스 감지 시작 완료 - ${geofences.length}개 장소 모니터링');
     } catch (e) {
@@ -624,9 +654,11 @@ class LocationMonitorService {
     try {
       print('🌙 백그라운드 지오펜스 모니터링 시작');
 
-      _isRunning = true; // ✅ 상태 업데이트
+      _isRunning = true;
 
-      // 기존 startServiceIfSafe와 유사하지만 백그라운드용 콜백 사용
+      // ✅ 스누즈 알람 체크 시작
+      _startSnoozeChecker(onTrigger);
+
       final activeAlarms = await _getActiveAlarms();
 
       if (activeAlarms.isEmpty) {
@@ -648,28 +680,115 @@ class LocationMonitorService {
         return;
       }
 
-      // 백그라운드용 지오펜스 시작 (기존 메서드 재활용)
-      prepareMonitoringOnly(onTrigger); // 기존 메서드 사용
+      // ✅ 콜백 등록
+      prepareMonitoringOnly(onTrigger);
       _ensureStatusChangeListenerAttached(onTrigger);
-      await _geofenceService.start(geofences);
 
-      // 지오펜스 등록
-      for (final geofence in geofences) {
-        try {
-          _geofenceService.addGeofence(geofence);
-          print('✅ 백그라운드 지오펜스 등록: ${geofence.id}');
-        } catch (e) {
-          print('⚠️ 백그라운드 지오펜스 등록 실패: ${geofence.id} - $e');
-          // ACTIVITY_NOT_ATTACHED 오류는 백그라운드에서 정상
-          if (!e.toString().contains('ACTIVITY_NOT_ATTACHED')) {
-            print('❌ 심각한 오류: $e');
-          }
-        }
-      }
+      // ✅ _startGeofenceService 호출 (초기 위치 확인 포함)
+      await _startGeofenceService(geofences);
 
       print('🚀 백그라운드 지오펜스 서비스 시작 완료');
     } catch (e) {
       print('❌ 백그라운드 지오펜스 서비스 시작 실패: $e');
+    }
+  }
+
+  // ✅ 스누즈 알람 체크 시작
+  Timer? _snoozeCheckTimer;
+
+  void _startSnoozeChecker(
+    void Function(String type, Map<String, dynamic> alarm) onTrigger,
+  ) {
+    // 기존 타이머 정리
+    _snoozeCheckTimer?.cancel();
+
+    // 30초마다 스누즈 알람 체크
+    _snoozeCheckTimer = Timer.periodic(Duration(seconds: 30), (timer) async {
+      await _checkSnoozeAlarms(onTrigger);
+    });
+
+    print('⏰ 스누즈 알람 체커 시작됨');
+  }
+
+  // ✅ 모든 스누즈 스케줄 삭제 (디버그용)
+  static Future<void> clearAllSnoozeSchedules() async {
+    try {
+      final box = await Hive.openBox('snoozeSchedules');
+      await box.clear();
+      print('🗑️ 모든 스누즈 스케줄 삭제 완료');
+    } catch (e) {
+      print('❌ 스누즈 스케줄 삭제 실패: $e');
+    }
+  }
+
+  // ✅ 스누즈 알람 체크
+  Future<void> _checkSnoozeAlarms(
+    void Function(String type, Map<String, dynamic> alarm) onTrigger,
+  ) async {
+    try {
+      var box = await Hive.openBox('snoozeSchedules');
+      final now = DateTime.now().millisecondsSinceEpoch;
+
+      // 🐛 디버그: 현재 스누즈 스케줄 개수 확인
+      if (box.keys.isNotEmpty) {
+        print(
+          '🔍 스누즈 스케줄 체크 중: ${box.keys.length}개 / 현재 시각: ${DateTime.fromMillisecondsSinceEpoch(now)}',
+        );
+      }
+
+      final keysToRemove = <String>[];
+
+      for (var key in box.keys) {
+        final schedule = box.get(key);
+        if (schedule == null) continue;
+
+        final scheduledTime = schedule['scheduledTime'] as int?;
+        if (scheduledTime == null) continue;
+
+        // 🐛 디버그: 예정 시간 출력
+        final scheduledDateTime = DateTime.fromMillisecondsSinceEpoch(
+          scheduledTime,
+        );
+        final remainingSeconds = ((scheduledTime - now) / 1000).round();
+        print(
+          '📅 스케줄: ${schedule['alarmTitle']} - 예정: $scheduledDateTime (${remainingSeconds}초 후)',
+        );
+
+        // 예정 시간이 되었는지 체크
+        if (now >= scheduledTime) {
+          print('⏰ 스누즈 알람 트리거: ${schedule['alarmTitle']}');
+
+          // ✅ 타입 안전 변환
+          final dynamic alarmDataRaw = schedule['alarmData'];
+          Map<String, dynamic>? alarmData;
+
+          if (alarmDataRaw is Map<String, dynamic>) {
+            alarmData = alarmDataRaw;
+          } else if (alarmDataRaw is Map) {
+            alarmData = Map<String, dynamic>.from(alarmDataRaw);
+          }
+
+          if (alarmData != null) {
+            // 알람 트리거
+            await _triggerAlarm(
+              alarmData,
+              alarmData['trigger'] ?? 'entry',
+              onTrigger,
+            );
+          }
+
+          // 스케줄 삭제
+          keysToRemove.add(key);
+        }
+      }
+
+      // 만료된 스케줄 삭제
+      for (var key in keysToRemove) {
+        await box.delete(key);
+        print('🗑️ 스누즈 스케줄 삭제: $key');
+      }
+    } catch (e) {
+      print('❌ 스누즈 알람 체크 실패: $e');
     }
   }
 
@@ -749,27 +868,33 @@ class LocationMonitorService {
   @pragma('vm:entry-point')
   Future<void> _startGeofenceService(List<Geofence> geofences) async {
     try {
-      // 1) 상태변화 리스너 보장(어느 경로로 시작하든 항상 붙도록)
+      // 1) 상태변화 리스너 보장
       _ensureStatusChangeListenerAttached((type, alarm) {
         print('🔔 geofence status change -> $type : ${alarm['name'] ?? ''}');
       });
 
-      // 2) 지오펜스 시작
-      await _geofenceService.start(geofences).catchError((e) {
-        print('❌ 지오펜스 시작 실패: $e');
-        // 백그라운드에서 Activity가 없어 실패할 수 있음 - 해당 경우는 무시
-        if (e.toString().contains('ACTIVITY_NOT_ATTACHED')) {
-          print('ℹ️ 백그라운드 실행으로 인한 실패 - 정상적인 상황');
-          return;
-        }
-        throw e;
-      });
+      // ✅ 추가: 위치 변경 리스너 등록
+      _geofenceService.addLocationChangeListener(_onLocationChanged);
+      _geofenceService.addLocationServicesStatusChangeListener(
+        _onLocationServicesStatusChanged,
+      );
+      _geofenceService.addActivityChangeListener(_onActivityChanged);
+      _geofenceService.addStreamErrorListener(_onError);
 
-      // 3) 초기 inside 기준값 "단발" 시딩 (트리거 없이 현재 안/밖 상태만 기록)
+      // ✅ 2) 초기 위치 확인 및 상태 설정 (트리거 없이)
       try {
-        final pos = await Geolocator.getCurrentPosition(); // 단발 조회(스트림 아님)
+        print('📍 초기 위치 기반 상태 설정 시작');
+
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 0,
+          ),
+        );
         final currLat = pos.latitude;
         final currLng = pos.longitude;
+
+        print('📍 현재 위치: $currLat, $currLng');
 
         final activeAlarms = await _getActiveAlarms();
         final places = _extractAlarmedPlaces(activeAlarms);
@@ -780,15 +905,44 @@ class LocationMonitorService {
           final lng = (p['lng'] ?? 0.0).toDouble();
           final radius = (p['radius'] ?? 100).toDouble();
 
-          final d = Geolocator.distanceBetween(currLat, currLng, lat, lng);
-          final insideNow = d <= radius;
+          final distance = Geolocator.distanceBetween(
+            currLat,
+            currLng,
+            lat,
+            lng,
+          );
+          final insideNow = distance <= radius;
 
-          _lastInside[name] = insideNow; // ★ 기준만 기록, 즉시 트리거는 하지 않음
+          // ✅ 초기 상태 기록 (트리거는 하지 않음)
+          _lastInside[name] = insideNow;
+          _alreadyInside[name] = insideNow; // ✅ 초기 진입 무시용 플래그
+
+          if (insideNow) {
+            print(
+              '🏠 "$name" - 이미 지오펜스 내부 (거리: ${distance.toInt()}m) - 알람 트리거 안함',
+            );
+          } else {
+            print('🚶 "$name" - 지오펜스 외부 (거리: ${distance.toInt()}m) - 진입 시 알람');
+          }
         }
-        print('🧭 초기 inside 기준값 시딩(단발): $_lastInside');
+
+        print('✅ 초기 상태 설정 완료');
+        print('  - _lastInside: $_lastInside');
+        print('  - _alreadyInside: $_alreadyInside');
       } catch (e) {
-        print('⚠️ 초기 inside 시딩 실패: $e');
+        print('⚠️ 초기 위치 상태 설정 실패: $e');
+        // 실패해도 서비스는 계속 진행
       }
+
+      // 3) 지오펜스 시작
+      await _geofenceService.start(geofences).catchError((e) {
+        print('❌ 지오펜스 시작 실패: $e');
+        if (e.toString().contains('ACTIVITY_NOT_ATTACHED')) {
+          print('ℹ️ 백그라운드 실행으로 인한 실패 - 정상적인 상황');
+          return;
+        }
+        throw e;
+      });
 
       print('🚀 지오펜스 감지 시작 완료 - ${geofences.length}개 장소 모니터링');
     } catch (e) {
@@ -826,50 +980,40 @@ class LocationMonitorService {
     _checkGeofenceEvents(location);
   }
 
-  // ✅ 지오펜스 체크 함수 추가
+  // ✅ _checkGeofenceEvents 메서드 수정 (GeofenceService가 자동 처리하므로 단순화)
   Future<void> _checkGeofenceEvents(Location location) async {
-    try {
-      // GeofenceService가 자동으로 처리하므로
-      // 여기서는 추가 로직이 필요없을 수도 있지만,
-      // 수동 체크가 필요한 경우를 위해 추가
+    // GeofenceService가 자동으로 지오펜스 이벤트를 처리하므로
+    // 이 함수는 디버깅 로그만 출력
 
-      // 현재 등록된 지오펜스들과 비교
-      final activeAlarms = await _getActiveAlarms();
-      final alarmedPlaces = _extractAlarmedPlaces(activeAlarms);
+    if (kDebugMode) {
+      try {
+        final activeAlarms = await _getActiveAlarms();
+        final alarmedPlaces = _extractAlarmedPlaces(activeAlarms);
 
-      for (var place in alarmedPlaces) {
-        await _checkSinglePlaceGeofence(location, place);
+        for (var place in alarmedPlaces) {
+          final lat = (place['lat'] ?? 0.0).toDouble();
+          final lng = (place['lng'] ?? 0.0).toDouble();
+          final radius = (place['radius'] ?? 100).toDouble();
+          final placeName = place['name'] ?? 'Unknown';
+
+          final distance = Geolocator.distanceBetween(
+            location.latitude,
+            location.longitude,
+            lat,
+            lng,
+          );
+
+          // 디버그 로그만 출력
+          if (distance <= radius * 1.5) {
+            // 반경의 1.5배 이내일 때만 로그
+            print(
+              '📏 $placeName: ${distance.toInt()}m (반경: ${radius.toInt()}m)',
+            );
+          }
+        }
+      } catch (e) {
+        print('❌ 지오펜스 체크 실패: $e');
       }
-    } catch (e) {
-      print('❌ 수동 지오펜스 체크 실패: $e');
-    }
-  }
-
-  // ✅ 개별 장소 지오펜스 체크
-  Future<void> _checkSinglePlaceGeofence(
-    Location location,
-    Map<String, dynamic> place,
-  ) async {
-    try {
-      final lat = (place['lat'] ?? 0.0).toDouble();
-      final lng = (place['lng'] ?? 0.0).toDouble();
-      final radius = (place['radius'] ?? 100).toDouble();
-      final placeName = place['name'] ?? 'Unknown';
-
-      // 거리 계산
-      final distance = Geolocator.distanceBetween(
-        location.latitude,
-        location.longitude,
-        lat,
-        lng,
-      );
-
-      print('📏 $placeName 거리: ${distance.toInt()}m (반경: ${radius.toInt()}m)');
-
-      // 지오펜스 상태 확인 및 이벤트 트리거는 GeofenceService가 자동 처리
-      // 이 함수는 디버깅 목적
-    } catch (e) {
-      print('❌ 개별 지오펜스 체크 실패: ${place['name']} - $e');
     }
   }
 
@@ -890,14 +1034,28 @@ class LocationMonitorService {
   // 서비스 정지
   Future<void> stopMonitoring() async {
     try {
+      // ✅ 스누즈 체커 정지
+      _snoozeCheckTimer?.cancel();
+      _snoozeCheckTimer = null;
+
+      // ✅ 리스너 제거
       if (_geofenceStatusChangedListener != null) {
         _geofenceService.removeGeofenceStatusChangeListener(
           _geofenceStatusChangedListener!,
         );
       }
+
+      // ✅ 추가: 다른 리스너들도 제거
+      _geofenceService.removeLocationChangeListener(_onLocationChanged);
+      _geofenceService.removeLocationServicesStatusChangeListener(
+        _onLocationServicesStatusChanged,
+      );
+      _geofenceService.removeActivityChangeListener(_onActivityChanged);
+      _geofenceService.removeStreamErrorListener(_onError);
+
       await _geofenceService.stop();
       _isRunning = false;
-      _lastGeofenceEvent = null; // ✅ 이벤트 시간 초기화
+      _lastGeofenceEvent = null;
       await _saveServiceState(false);
       print('🛑 지오펜스 감지 정지');
     } catch (e) {
@@ -947,5 +1105,63 @@ class LocationMonitorService {
       return _isRunning && timeSinceLastEvent.inMinutes < 5;
     }
     return _isRunning;
+  }
+
+  // ✅ 특정 장소의 상태 초기화 (알람 재활성화 시 사용)
+  @pragma('vm:entry-point')
+  Future<void> resetPlaceState(String placeName) async {
+    try {
+      print('🔄 장소 상태 초기화 시작: $placeName');
+
+      // 현재 위치 확인
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 0,
+        ),
+      );
+
+      // 해당 장소 정보 가져오기
+      final places = HiveHelper.getSavedLocations();
+      final place = places.firstWhere(
+        (p) => p['name'] == placeName,
+        orElse: () => {},
+      );
+
+      if (place.isEmpty) {
+        print('⚠️ 장소를 찾을 수 없음: $placeName');
+        return;
+      }
+
+      final lat = (place['lat'] ?? 0.0).toDouble();
+      final lng = (place['lng'] ?? 0.0).toDouble();
+      final radius = (place['radius'] ?? 100).toDouble();
+
+      // 현재 위치와 장소 거리 계산
+      final distance = Geolocator.distanceBetween(
+        pos.latitude,
+        pos.longitude,
+        lat,
+        lng,
+      );
+
+      final isInside = distance <= radius;
+
+      // ✅ 상태 초기화
+      _lastInside[placeName] = isInside;
+      _alreadyInside[placeName] = isInside;
+
+      if (isInside) {
+        print('🏠 "$placeName" - 지오펜스 내부 (거리: ${distance.toInt()}m)');
+        print('   → _alreadyInside[$placeName] = true (초기 진입 알람 스킵)');
+      } else {
+        print('🚶 "$placeName" - 지오펜스 외부 (거리: ${distance.toInt()}m)');
+        print('   → _alreadyInside[$placeName] = false (진입 시 알람)');
+      }
+
+      print('✅ 장소 상태 초기화 완료: $placeName');
+    } catch (e) {
+      print('❌ 장소 상태 초기화 실패: $e');
+    }
   }
 }

@@ -235,6 +235,25 @@ class HiveHelper {
     }
   }
 
+  // ✅ ID 기반 알람 업데이트 (UUID String으로 업데이트)
+  static Future<void> updateLocationAlarmById(
+    String id,
+    Map<String, dynamic> updatedAlarm,
+  ) async {
+    try {
+      if (!_alarmBox.containsKey(id)) {
+        throw Exception('알람 ID를 찾을 수 없습니다: $id');
+      }
+
+      // ✅ ID를 키로 사용하여 업데이트 (putAt이 아닌 put 사용)
+      await _alarmBox.put(id, updatedAlarm);
+      debugPrint('✅ 알람 업데이트 완료 (ID: $id)');
+    } catch (e) {
+      debugPrint('❌ updateLocationAlarmById 에러: $e');
+      rethrow;
+    }
+  }
+
   static Future<void> deleteAlarmById(String id) async {
     try {
       final triggerBox = await Hive.openBox('trigger_counts_v2'); // ✅ 버전 추가
