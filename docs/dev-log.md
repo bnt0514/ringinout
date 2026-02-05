@@ -1,0 +1,782 @@
+# 📘 Ringinout 개발일지
+
+Flutter로 개발하는 위치 기반 스마트 알람 앱 “Ringinout”의 개발 일지임. 
+음성 인식, GPS 기반 진입/진출 알림으로 간편하게 내가 특정 위치에 도착했거나,
+특정 위치를 벗어날 때 챙겨야 할 무언가, 혹은 해야할 일은 잊지 않도록
+알려주는 게 목표.
+하도 많은 업무로 인해, 혹은 노화로 인해, 혹은 육아로 인해,
+혹은 그냥 건망증이 심해서 깜박깜박하는 게 많은 여러분들을 위해 꼭 필요한 앱.
+
+──────────────────────────────────────────────────────────────
+
+## 2025-04-15
+
+- 프로젝트 초기 구상 및 핵심 기능 정의
+  - 위치 기반 알람 기능 (장소 진입/진출 시 알림)
+  - 음성 인식을 통한 알람 자동 등록 기능
+  - 진입/진출 구분, 반복 울림 설정, 알람 해제 시 목표 달성 여부 확인 기능 등 기획
+- Flutter 설치 및 VS Code 개발 환경 구성
+- 실제 기기에서 테스트 가능한 Android 에뮬레이터 및 USB 디버깅 설정 완료
+- 프로젝트 기본 구조 구성 (`main.dart` 생성)
+
+──────────────────────────────────────────────────────────────
+
+## 2025-04-16
+
+- MVP 기준에 맞춘 기초 UI 구성 시작
+  - `위치 기반 알람 설정`, `음성 알람 추가`, `알람 목록 보기` 3개의 버튼 구성
+- 저장된 위치 관리 기능 구현
+  - `Hive` 로컬 데이터베이스 연동
+  - `SavedLocationsPage`에서 위치 목록 불러오기 및 표시
+  - `FloatingActionButton` 또는 중앙 버튼을 통해 ‘새 위치 추가’ 가능
+- 위치 추가 기능 구현
+  - 구글 지도 연동 (`google_maps_flutter`)
+  - 현재 위치 자동 포커싱
+  - 지도에서 특정 위치를 터치하여 위치 저장 가능
+  - 주소 입력란 추가 및 수동 위치 이동 기능 구현
+  - 저장 시: 장소 이름 팝업 입력 → 반경 100m로 자동 설정 → Hive에 저장
+  - 저장 완료 시 Snackbar 표시
+- 위치 목록에서 팝업 메뉴 구성
+  - ‘새 알람 추가’, ‘기존 알람 수정’, ‘정보 수정’ 항목 구성
+- `AddAlarmPage` 첫 화면 UI 구현 시작
+  - 다시 울림 설정 (기본값: 5분 후, 3회) UI 설계
+  - 벨소리 드롭다운 메뉴 설계 착수
+
+──────────────────────────────────────────────────────────────
+# 📅 개발일지 - 2025.04.17 (Ringinout)
+
+## ✅ 주요 작업 내용
+
+### 1. 알람 추가 페이지 (AddAlarmPage) 정비
+- 자연어 키워드를 통해 **진입/진출 자동 인식 기능** 구현
+  - `entryKeywords`, `exitKeywords` 리스트 구성
+  - 알람 이름 입력 시 해당 키워드가 포함되면 자동으로 알람 방향 설정됨
+  - 진입/진출은 동시에 선택 불가하며, 마지막 입력된 의미 기준으로 자동 전환
+- `TextField.onChanged()` → `_checkAlarmConditionFromName(val)` 호출로 연결
+- 디버깅을 위해 `print()` 로그를 통해 키워드 매칭 여부 확인 가능하게 구성
+
+### 2. 알람 토글 UI 개선
+- 모든 토글 버튼 위치를 가장 우측에 일관적으로로 정렬**
+  - 버튼 우측 세로막대 경계선 포함
+  - 활성/비활성 시 색상 및 크기 변화 애니메이션 반영
+- 알람음, 진동, 다시 울림 항목은:
+  - **우측 버튼** 클릭 시: On/Off 토글
+  - **항목 전체(버튼 제외)** 클릭 시: 상세 설정 페이지로 진입 가능 (현재 TODO 상태)
+
+### 3. 저장된 위치 목록 페이지 개선 (`SavedLocationsPage`)
+- `AppBar` 제목을 **'위치 기반 알람 설정' → 'Ringinout 설정'** 으로 변경
+- 저장된 위치 항목 우측 메뉴에 `"삭제"` 항목 추가
+  - 삭제 시 확인 다이얼로그 표시
+  - 사용자 확인 시 Hive 데이터 삭제 후 UI 자동 갱신 (`_loadLocations()` 호출)
+
+---
+
+## 🛠️ 문제 해결 로그
+
+- 🔍 자연어 인식이 안 되는 문제 → `TextField`의 `onChanged`에 `_checkAlarmConditionFromName()` 누락 여부 확인 → 디버깅 로그 추가로 정상 작동 확인
+- ⛔ Flutter 콘솔에 `r` 입력 시 작동 안 되는 현상 → `flutter run`으로 실행했을 때만 `r` 가능, VS Code에서는 `Ctrl + S` 자동 핫리로드 활용으로 전환
+
+---
+
+## 📌 플랫폼 관련 논의
+
+### 📱 위치 기반 알림의 기기별 동작 가능성 분석
+
+| 플랫폼  | 가능 여부 | 설명 |
+|---------|-----------|------|
+| Android | ✅ 가능    | 포그라운드 서비스 + 배터리 최적화 예외 설정 필요 |
+| iOS     | ❌ 제한적 | 진입/진출 감지가 지연되거나 무시됨, 백그라운드 동작 어려움 |
+
+> **결론:** Ringinout의 고정밀 자동 알림 기능은 **안드로이드 우선 개발**이 현실적인 선택
+
+---
+
+## 🔚 다음 작업 예정
+
+- 상세 설정 페이지 (알람음, 진동, 다시 울림) 연결
+- 위치 기반 포그라운드 서비스 로직 구체화
+- 퀵타일 활성화 상태에 따라 `GeofencingService` 유지 여부 제어
+
+## 2025-04-18
+
+- 알람 리스트 롱프레스 기능 추가
+  - 선택 모드 진입 후 다중 선택 가능
+  - 선택된 항목 삭제용 FloatingActionButton 추가
+- 알람 리스트 항목의 토글 버튼 디자인 통일 (AddAlarmPage와 동일한 스타일로)
+- 기본알람 탭 전환 후 다시 돌아올 때 리스트 초기화되는 버그 수정
+
+---
+
+## 2025-04-19
+
+- 불필요한 알람테스트 버튼 완전 제거
+  - location_alarm_list.dart, 기본알람 페이지, 선택모드 페이지에서 전부 삭제
+- 알람 리스트 숏프레스 시 수정 페이지로 진입하도록 설정
+- MyPlaces 페이지에 구분선 추가 (알람 리스트와 UI 통일)
+
+---
+
+## 2025-04-20
+
+- AddLocationAlarmPage 전체 코드 리팩토링
+  - 요일 선택 시 순서 강제 정렬 (일~토 순서)
+  - 저장 조건 추가: 알람 이름 필수, 진입 or 진출 중 하나 이상 필수
+  - MaterialLocalizations 에러 해결 → `GlobalMaterialLocalizations` import 추가 및 supportedLocales 설정
+- 저장 시 요일/날짜 선택 없을 경우 "알람 설정 후 최초 진입/진출 시" 문구 저장되도록 개선
+
+---
+
+## 2025-04-21
+
+- EditLocationAlarmPage 생성
+  - AddLocationAlarmPage 전체 복사 후 수정 기능 추가
+  - 기존 알람 데이터 반영, 저장/삭제 버튼 분리
+- LocationAlarmList에서 onTap 시 수정 페이지로 연결되도록 수정
+  - pushNamed 방식으로 alarm 데이터와 index 전달
+  - routes에 edit_location_alarm 등록 및 import 처리
+
+## 🗓 2025-04-22 (화)
+
+- `AddLocationAlarmPage` 완성
+  - 저장 시 요일은 항상 `일~토` 순서로 정렬되도록 수정
+  - 요일/날짜 미선택 시 문구 자동 생성:  
+    - 진입 알람 → "알람 설정 후 최초 진입 시"  
+    - 진출 알람 → "알람 설정 후 최초 진출 시"
+- 알람 상세 진입용 수정 페이지 `EditLocationAlarmPage` 초안 작업 시작
+  - 기존 `AddLocationAlarmPage`를 기반으로 복사 후 수정 예정
+  - 수정 페이지에서는 기존 알람 데이터가 자동으로 불러와지도록 설계
+- Notification 클릭 시 전체화면 알람 페이지 띄우기 기능 검토 시작
+  - `AlarmFullScreenPage` 기획 논의는 있었으나 실제 구현 시작은 하지 않음
+  - Notification intent 처리 흐름, push 방식 검토 중
+
+---
+
+## 🗓 2025-04-23 (수)
+
+- 알람이 울릴 때 동작 관련 핵심 로직 정리
+  - 앱이 종료되었거나 백그라운드에 있어도 반드시 알림이 울리도록 설계 논의
+  - 화면이 꺼져 있을 경우 자동으로 켜지도록 구성 예정
+  - 첫 울림은 확인 버튼만, 반복 울림은 ‘확인 + 다시 울림’ 버튼 구성 예정
+- Notification 클릭 시 전체화면 페이지로 진입하는 방식 구체화 논의
+  - "어디든"이 아닌 정확한 파일명과 위치 안내가 필요함을 명시
+  - main.dart 또는 알람 초기화 파일 내에서 처리할 예정
+- AlarmFullScreenPage 설계 개시 예정 → 실제 코딩은 아직 착수하지 않음
+
+### 2025-04-24 개발일지
+
+**주요 작업:**
+1. **기기 위치 트리거에 대한 버그 수정:**
+   - 앱 실행 시 위치가 감지되면서 진입/진출 트리거가 잘못 작동하는 문제를 해결. `was in false, is in true` 상태에서 불필요하게 알람이 울리는 현상을 방지.
+   - 앱을 처음 실행하거나 업데이트 후 위치를 초기화하는 로직을 수정하여 알람 트리거가 비정상적으로 작동하지 않도록 개선.
+
+2. **백그라운드 위치 추적 강화:**
+   - 앱이 백그라운드 상태에서 위치를 지속적으로 추적하도록 설정. 위치가 변동될 때마다 정확한 트리거가 발생하도록 보장.
+   - 위치 추적이 꺼졌을 때 처리할 예외사항들을 다뤄, GPS 꺼짐, 통신 장애 등의 상태에서 알람이 울리지 않도록 방지.
+
+**버그 및 문제 해결:**
+- **앱 종료 후 위치 감지 문제:** 앱이 종료된 상태에서 이전 위치와 현재 위치를 비교하는 방식으로 트리거를 처리하는 로직을 개선. 이를 통해 앱 실행 후 잘못된 진입/진출 알람이 발생하는 문제를 해결.
+- **알람 트리거와 백그라운드 위치 비교:** 앱 실행 시 위치에 대한 트리거가 잘못 작동하는 문제를 수정. 앱이 종료된 상태에서 백그라운드에서 위치를 감지했을 때 잘못된 트리거가 발생하지 않도록 개선.
+
+---
+
+### 2025-04-25 개발일지
+
+**주요 작업:**
+1. **알람음 설정 및 리소스 관리 최적화:**
+   - 벨소리가 중복되어 울리거나, 알람이 울릴 때 기본 벨소리도 함께 울리는 문제 해결.
+   - 알람음의 재생 및 정지를 관리하는 `AlarmSoundPlayer` 클래스를 리팩토링하여, 알람 비활성화 시 불필요한 벨소리 재생을 방지하도록 개선.
+
+2. **알람 기능에 대한 리팩토링 및 테스트:**
+   - 백그라운드 상태에서 알람 기능이 정상적으로 동작하는지 테스트.
+   - 실제 기기에서 앱을 실행하며 백그라운드 위치 추적 및 알람 트리거 기능을 점검하여, 알람 울림이 정확하게 작동하도록 구현.
+   - 앱 업데이트 시, 기존 알람이 그대로 유지되는 문제를 점검하고, 사용자 경험을 개선.
+
+**버그 및 문제 해결:**
+- **알람 트리거 미작동 문제:** 사용자가 앱을 종료한 상태에서 알람이 울려야 하는 위치에 도달했을 때, 알람이 울리지 않는 문제를 해결. 앱이 백그라운드 상태에서도 위치를 감지하여 정확한 트리거가 발생하도록 개선.
+
+**기타 작업:**
+- **개발일지 업데이트 및 관리:** 4월 24일과 25일의 작업 내용을 깃허브에 기록하여 관리.
+
+# 📅 Ringinout 개발일지  
+## 기간: 2025년 4월 26일 ~ 4월 27일 (알람앱7 시작 시점)
+
+---
+
+## ✅ 2025-04-26 (금)
+
+### 📌 주요 작업
+- `알람앱7 시작` 선언, GitHub 프로젝트 공유 (`https://github.com/bnt0514/ringinout`)
+- 전체 프로젝트 코드 구조 빠르게 리뷰
+- 중복 벨소리 재생 이슈 확인
+  - 앱 내에서 설정한 mp3 벨소리와 시스템 기본 벨소리가 동시에 재생됨
+  - 벨소리 중복으로 앱 튕김 현상 발생 확인
+- `MainActivity.kt` 내 Notification 채널에서 `setSound(null, null)` 설정 확인
+- `playRingtoneLoud()` 메서드 확인: 시스템 기본 벨소리 강제 재생 구조 유지
+
+---
+
+## ✅ 2025-04-27 (토)
+
+### 📌 주요 작업
+
+#### 🔧 벨소리 구조 리팩토링
+- 전체 벨소리 로직을 **Flutter 내부 asset(mp3)** 기반 → **Native 기본 벨소리** 방식으로 변경
+- 모든 페이지에서 `just_audio` 제거 작업 시작
+  - `FullScreenAlarmPage`, `LocationMonitorService`, `AlarmPopupManager` 등 수정
+  - `soundPath` 인자 제거, MethodChannel을 통한 native 호출 방식 통일
+
+#### 🧹 정리 작업
+- `AlarmPopupManager` 삭제 결정
+  - ValueListenableBuilder 및 Stack 기반 상단 메시지 UI 제거
+  - `builder: (context, child)` 내부 간소화
+- Notification 클릭 시 전체화면 진입 로직 점검
+  - `.mp3.mp3` 오타 수정
+  - `FullScreenAlarmPage`에 더 이상 `soundPath` 넘기지 않도록 정리 예정
+
+---
+
+## 🔄 주요 이슈/논의
+- 앱 실행 시 위치 기반 알람이 잘못 울리는 문제 제기
+  - 진입/진출 상태 비교(`wasInside`, `isInside`)가 실행 시점에 따라 잘못 감지될 가능성 논의
+- 향후 음성 인식 기반 알람 생성이 메인 기능이라는 점 재확인
+
+---
+
+## 📌 TODO (다음 작업)
+- `flutter_local_notifications` 관련 코드 전체 리팩토링 (사운드 설정 제거 포함)
+- `LocationMonitorService`에서 완전한 just_audio 제거 + MethodChannel 전환
+- `AlarmNotificationHelper` 캔버스 코드 정리 (알람앱8에서 이어서)
+
+## 📅 개발일지: 2025.04.27 ~ 2025.04.28
+
+### ✅ 주요 작업 요약
+
+- **전체화면 알람 분기 처리**
+  - 포그라운드 상태: Flutter `FullScreenAlarmPage`로 전환
+  - 백그라운드 상태: Android Native `AlarmFullscreenActivity` 실행
+
+- **MethodChannel 연결**
+  - Flutter → Native: `launchNativeAlarm`
+  - Native → Flutter: `navigateToFullScreenAlarm` (포그라운드 진입 시 사용)
+
+- **백그라운드 감시 서비스 확장**
+  - `onStart()` 내에서 위치 감지 및 Native 알람 호출 로직 포함
+  - showAlarmNotification 병행 호출로 알림도 함께 표시
+
+- **알람 벨소리 처리 변경**
+  - 앱 내 mp3 대신 Android 기본 벨소리만 사용
+  - `soundPath`는 포맷 유지만 하고 실제로는 사용하지 않음
+
+- **기타 이슈**
+  - Notification 클릭 시 전체화면 전환은 정상 작동 확인
+  - Flutter 포그라운드 상태에서의 전체화면 진입 실패 → 원인 분석 필요
+  - Kotlin 빌드 시 `source 8` 관련 경고 다수 발생 (기능에는 영향 없음)
+
+### 🧪 다음 작업 예정
+- 포그라운드 진입 실패 원인 추적 및 해결
+- 전체화면 알람 페이지와 알림 간 충돌 여부 검토
+- `flutter_background_service` 안정성 테스트
+
+## 📅 2025-04-29 ~ 04-30 개발일지: Bluetooth 기반 위치 감지 기능 구현 시작
+
+### ✅ 주요 개발 내용
+
+- `ringinout_bluetooth_detector` 프로젝트 신규 생성 (경로: `C:/buildapp/`)
+- `flutter_blue_plus`, `permission_handler` 의존성 설치 및 충돌 해결
+- Android NDK 버전 불일치 및 `<uses-permission>` 위치 오류 해결
+- `BluetoothManager` 클래스 설계 및 리팩토링 진행:
+  - 이름 기반 매칭 방식으로 간소화
+  - 주기적 연결 확인 (`Timer.periodic`) + 앱 시작 시 1회 확인 포함
+- `bluetooth_test_page.dart` 생성 및 UI 테스트 구현
+  - 블루투스 기기명 입력 → 연결 여부 감지
+  - 실제 감지는 안 되는 이슈 발견 → 백엔드 로직 개선 착수
+- 실시간 감지를 위한 Stream API 시도 → `connectionState` 미지원 확인
+- 최종적으로 `FlutterBluePlus.connectedDevices`를 이용한 30초 단위 확인 로직으로 정리
+- 플랫폼 이름(`device.name`)은 `platformName`으로 변경하여 deprecated 경고 제거
+
+---
+
+### 🛠 수정된 주요 파일
+
+- `lib/bluetooth_manager.dart`
+- `lib/pages/bluetooth_test_page.dart`
+- `pubspec.yaml`
+- `main.dart`
+
+---
+
+### 🔁 다음 작업 예정
+
+- `MyPlaces`에서 블루투스 기기명 등록 기능 연동
+- 블루투스 기기 자동연결 시 알람 트리거 연결
+- 이후 GPS 및 Wi-Fi 감지 방식과 통합 예정
+
+---
+
+### 🧠 기타
+
+- `BluetoothManager`에 `startMonitoring()` / `stopMonitoring()` 완성
+- 연결된 블루투스 기기 이름이 매칭되면 콜백 실행되는 구조 설계
+
+## 📆 2025-05-01 ~ 2025-05-02 Bluetooth 감지 기반 알람 기능 개발
+
+### ✅ 주요 작업 내용
+- BLE와 클래식 블루투스를 구분하여 감지 로직 분리
+  - `BleBluetoothManager` / `ClassicBluetoothManager` 클래스 작성 완료
+  - BLE는 `flutter_blue_plus`, 클래식은 `flutter_bluetooth_serial` 사용
+- BluetoothTestPage에서 BLE + 클래식 감지 테스트용 UI 구성
+  - 연결 시: 🟢 "BLE/클래식 블루투스 연결됨" 상태 표시
+  - 끊김 시: 🔴 "클래식 블루투스 끊어짐" 상태 표시
+- Android 12 이상 대응을 위한 권한 요청 로직 추가 (`permission_handler`)
+  - `BluetoothTestPage`에서 앱 실행 시 권한 자동 요청
+  - AndroidManifest에 `BLUETOOTH_CONNECT`, `BLUETOOTH_SCAN`, `FOREGROUND_SERVICE` 등 권한 명시
+- `getBondedDevices()` 및 `device.isConnected` 기반 클래식 연결 여부 탐지 로직 구현
+- 디버깅 중 `getBondedDevices()` 결과값이 나오지 않는 문제 확인 → Android 12+ 권한 설정 이슈로 추정, 해결
+
+### ⚙️ 추가 확인 사항
+- 사용 기기: Galaxy Z Flip6 (Android 14)
+- BLE는 현재 보류, 클래식 블루투스 연결 기반으로 진입/진출 감지 우선 구현 중
+
+# 📅 개발일지 (2025.05.03 ~ 2025.05.04)
+
+## ✅ Geofence 기반 위치 감지 구조 리팩터링
+- 기존 Geolocator 기반 감지 로직을 완전히 제거하고 Geofence 기반으로 전환
+- `LocationMonitorService`에서 `GeofenceService.instance.addGeofenceStatusChangeListener`를 사용하여 감지 이벤트 처리
+- 이벤트 핸들러는 `(Geofence geofence, GeofenceStatus status, Location location)` 형식으로 구현
+- `GeofenceStatus.ENTER`, `GeofenceStatus.EXIT` 값을 이용해 진입/진출 트리거 분기
+- `navigatorKey`를 사용해 포그라운드에서는 Flutter 페이지 이동, 백그라운드에서는 Native 알람 호출 처리
+- `GeofenceEvent`, `GeofenceTransitionType` 등 미사용/오류 타입 제거 후 정상 빌드 완료
+
+## ✅ MyPlaces와 Geofence 연동 설계
+- 위치 등록 페이지(`location_picker_page.dart`)를 `add_myplaces_page.dart`로 개편
+- 저장 시 Hive 저장과 동시에 Geofence 반경 100m 등록
+- 저장된 위치는 `SavedLocationsPage`에서 관리되고, 알람 설정 시 해당 장소 기준으로 트리거 감지 가능
+
+## 🐛 주요 이슈 해결
+- Geofence 관련 클래스/이벤트명 오타 및 잘못된 타입 정의로 인한 컴파일 에러 수정
+- context 사용 시 async gap 문제 발생 → `if (mounted)` 또는 `Future.microtask` 활용해 해결
+
+---
+### 📅 2025-05-07 개발일지
+
+#### ✅ 주요 작업 내역
+
+- **Flutter `PlatformException(ACTIVITY_NOT_ATTACHED)` 오류 해결**
+  - `flutterEngine`이 attach되기 전에 `MethodChannel.invokeMethod()` 호출되는 구조를 개선
+  - `MainActivity.kt`에서 알람 intent 관련 처리 코드를 `configureFlutterEngine()` 안으로 안전하게 이동
+  - `onCreate()`에선 알람 intent를 받아서 `companion object`에 임시 저장 후, Flutter attach 이후에 전달되도록 수정
+
+- **`MainActivity.kt` 전체 리팩토링**
+  - 지저분하게 분산된 `MethodChannel` 초기화 정리
+  - `pendingTitle`, `navigateToFullscreen` 전역 변수로 전달 상태 관리
+  - `flutterEngine!!.dartExecutor` 접근 시점 안정화
+
+- **Flutter 앱에서 알람 페이지 강제 호출 로직 재정비**
+  - `setupMethodChannel()` → `RinginoutApp` 안에서 Flutter attach 이후 안전하게 실행되도록 구조화
+  - `FullScreenAlarmPage`로 `Navigator.push()` 호출 시점 보장
+
+- **지오펜스 구조 점검 및 전략 논의**
+  - 현재 `geofence_service`가 위치 감지를 놓치는 문제 확인
+  - 배터리 절약을 위한 `geolocator` 기반 수동 감지 로직을 백업으로 사용할 수 있는 하이브리드 전략 구상
+  - “지오3 시작하자!” 구문으로 이후 전략 구현 시작 신호 설정
+
+---
+
+#### 🧠 개발 인사이트
+
+- 지오펜스는 감지가 누락될 수 있으므로, `geolocator` 백업 감시는 실전 앱에 매우 유용한 보완 수단
+- `PlatformException(ACTIVITY_NOT_ATTACHED)` 오류는 대부분 `flutterEngine` 미연결 시 발생하므로, 타이밍 제어가 중요함
+
+## 📅 2025-05-08 개발일지
+
+### 📌 MyPlacesPage UI 구조 리팩토링 및 FAB 표시 오류 해결
+
+- 기존 `MyPlacesPage`의 FAB(새 위치 추가 버튼)가 리스트가 비어있을 때 보이지 않는 문제 발생.
+- 원인 분석:
+  - `floatingActionButton`은 `MyPlacesPage`에 존재하지만, `MyPlacesBody`에서 리스트가 비어있을 때 `Center`만 반환되어 FAB가 보이지 않음.
+  - 즉, `Scaffold` 레이아웃 내에 FAB가 있어도 `body`가 `Center`로만 구성될 경우 FAB가 시각적으로 가려짐.
+- 해결 방법:
+  - `MyPlacesBody` 내에서 빈 리스트 메시지를 보여주되, `Column`으로 감싸고 `Expanded` + `Align` 등을 통해 FAB가 가려지지 않도록 구조 조정.
+  - `MyPlacesPage`에 `floatingActionButtonLocation`을 명시적으로 설정하여 우측 하단 고정.
+  - 버튼이 항상 보이도록 `MyPlacesPage` 레벨에서 일관되게 관리.
+
+### ✅ 주요 수정 사항
+- `MyPlacesPage` 클래스 내 `floatingActionButton` 항상 유지.
+- `MyPlacesBody`는 장소가 없을 경우에도 FAB를 가리지 않는 구조로 수정.
+- 리스트가 비었을 때도 `MyPlacesBody`가 `Text` 대신 `Column`을 반환하여 FAB 영역 확보.
+
+---
+## 📅 2025-05-09 개발일지
+
+### ✅ 주요 작업 내용
+
+1. **MyPlaces 저장 기능 디버깅 및 정상화**
+   - `AddMyPlacesPage`에서 장소 저장 시 Hive 저장 로직 확인 및 수정
+   - `onLocationSelected` 콜백을 통해 Geofence 등록과 함께 `_loadLocations()` 호출
+   - 저장은 정상적으로 이루어지며, 실제 위치 기반 알람도 작동함 확인
+
+2. **MyPlaces 리스트 미출력 문제**
+   - `MyPlacesBody` 내 텍스트 `"여기에 장소 리스트 들어감"` 제거
+   - 리스트가 보이지 않는 근본 원인은 여전히 Hive 데이터 불러오기 실패 추정
+   - 이후 디버깅 통해 `getSavedLocations()` 로직 및 `ValueListenableBuilder` 연동 여부 점검 예정
+
+3. **전체화면 알람 중복 벨소리 문제 분석**
+   - 알람 감지 시 벨소리 1회 재생 → 노티피케이션 터치 후 전체화면 진입 시 벨소리 다시 재생되어 중복 발생
+   - 해결 전략: 전체화면 진입 시 벨소리 재생 로직 제거, 정지 로직만 유지
+
+4. **전체화면 자동 전환 기능 일시 보류**
+   - 노티피케이션 터치 시에만 전체화면 알람 페이지 진입하는 방식으로 임시 변경
+   - 추후 자동 전환 기능 완성 후 다시 적용 예정
+
+5. **Notification 개선**
+   - Android 알림의 `ongoing: true` 설정 추가로 노티피케이션을 더 오래 유지되도록 수정
+   - 추후 반복 노출 전략도 함께 고려할 예정
+
+6. **알람 울림 상태 관리**
+   - `triggerCount` 필드 기반으로 알람의 "최초 울림" 여부 판단
+   - 최초 울림 시: 전체화면에 "다시 울림" 버튼만 표시
+   - 이후 울림 시: "알람 종료" + "다시 울림" 버튼 표시
+
+7. **알람 종료 시 처리 로직 설계**
+   - 알람 종료 버튼 클릭 시 알람 비활성화 처리
+   - `triggerCount`도 초기화되어야 하며, 다시 활성화 시에는 0부터 다시 시작
+   - 신규 알람 생성 시에는 기본적으로 활성화 상태로 생성되고 `triggerCount`는 0으로 시작됨
+
+---
+## 📅 2025-05-10 (토) - MyPlaces 문제 해결 & 정리
+
+### ✅ 주요 작업 내용
+- **MyPlacesPage 정리**:
+  - 기존 MyPlacesPage 구조가 불안정했음
+  - `MyPlacesPage`에서 리스트가 보이지 않는 문제를 해결하기 위해 `ValueListenableBuilder`를 기반으로 `MyPlacesCall` 구조로 전면 리팩토링
+  - 기존 페이지에 있던 setState 방식 삭제 및 `HiveHelper.getSavedLocations()` 동기화 방식 제거
+
+- **FloatingActionButton 적용**:
+  - `MyPlacesPage`에 새 위치 추가용 FAB(플로팅 버튼) 정상 적용 확인
+  - 버튼 누르면 `AddMyPlacePage`로 이동하여 장소 추가 가능
+
+- **데이터 저장 확인**:
+  - 새 장소 저장 시 `📦 Hive 상태 (저장 후)` 로그 출력 확인
+  - 저장 완료 후 Snackbar는 정상 출력되나, **페이지가 이전으로 돌아가지 않음**
+  - 저장 후 자동 페이지 pop 처리가 필요함
+
+- **지오펜스 트리거 확인**:
+  - 장소 저장 후 즉시 지오펜스 감지 발생 확인 (`📍 지오펜스 이벤트 발생: 집3 / 상태: GeofenceStatus.ENTER`)
+  - 하지만 **노티피케이션 및 벨소리 울리지 않음** → 이후 디버깅 필요
+
+---
+
+### 🔧 다음 작업 예정
+- 저장 완료 후 페이지 자동 pop 추가
+- 저장 후 리스트 실시간 반영 안 되는 문제 해결
+- 지오펜스 트리거 시 알람 노티 + 벨소리 울리지 않는 원인 조사
+
+---
+## 📅 2025-05-11 개발일지
+
+### 🔔 알림(Notification) 기능 점검 및 개선
+
+- 지오펜스 이벤트 발생 시 알림(Notification)이 울리지 않는 문제 발생
+- `showAlarmNotification()` 호출은 되었으나, 채널 미생성으로 인해 알림이 표시되지 않음 확인
+- 해결 조치:
+  - `alarm_notification_helper.dart` 내 `createNotificationChannel()` 함수 작성
+  - `initializeNotifications()` 내에서 `createNotificationChannel()` 함수 호출 추가
+  - `main.dart`에 별도 호출 없이 `initializeNotifications()`에서 자동 등록되도록 수정
+  - Android에서 알림 채널 누락 시 노티가 보이지 않는 문제 해결됨
+
+### 🐞 기타 이슈 및 조치
+
+- `await HiveHelper.getAlarmSound()` 등의 코드는 `Future<String>`이 아닌 `String` 리턴이므로 `await` 제거
+- `myplaces`에 장소를 저장해도 리스트에 표시되지 않는 문제 확인 (해결은 별도 이슈로 이관 예정)
+
+---
+## ✅ 2025-05-12 개발일지 (MyPlaces 리스트 표시 문제 해결)
+
+### 🔧 주요 수정 사항
+- `MyPlacesPage` 위젯이 `StatelessWidget`이면서 `body: const MyPlacesPage()` 구조로 자기 자신을 무한 재귀 호출 → 앱 실행 불가 현상 발생
+- 이 문제를 해결하기 위해 껍데기용 `MyPlacesCall` 클래스 신설하고, 실제 리스트 표시 로직은 `MyPlacesPage`로 분리
+- `MyPlacesPage`는 Stateful 구조로 유지하며 Hive 박스 초기화 및 ValueListenableBuilder로 리스트 실시간 표시 처리
+- 결국 `main.dart`에는 `MyPlacesCall`만 남기고, `MyPlacesPage`는 별도 파일에서 로직 담당
+- `MyPlacesPage`에서 Hive 저장된 데이터 정상적으로 리스트뷰에 표시되는 문제 해결됨
+- 각 리스트 항목의 `onTap` 동작, 옵션 메뉴(`⋮`) 표시 기능 재도입 예정
+
+### ✏️ 향후 작업 예정
+- 리스트 항목 우측 옵션 버튼으로 `편집/삭제` 기능 추가
+- `편집` 버튼 클릭 시 위치 편집 전용 페이지로 이동 (명칭, 반경, 좌표 수정 가능)
+
+---
+## 📅 2025-05-13 (월)
+
+### 🚀 MyPlacesPage 개선
+- `bottomNavigationBar` 방식 → `FloatingActionButton` 방식으로 전환
+  - FAB 위치 드래그 가능하게 구현
+  - FAB 위치를 Hive에 저장 (`Offset`)하고 불러오는 구조 완료
+  - `Icons.add_location_alt` 아이콘 사용, 위치 저장 시 구글맵으로 이동
+- `PopupMenuButton` 항목 일부 누락 이슈 해결
+  - `const` 위치 조정하여 메뉴 항목 3개 모두 정상 출력되도록 수정
+- 버튼이 안 보이던 이슈 디버깅
+  - `Scaffold` 내에 Positioned 위젯을 `floatingActionButton`에 잘못 적용한 문제 식별
+  - 추후 해결을 위한 `지오펜스9 시작` 키워드 등록
+
+### 🛠 LocationAlarmList 탭 스와이프 비활성화
+- `TabBarView`에 `NeverScrollableScrollPhysics()` 적용하여 스와이프 차단
+- 오직 탭 클릭으로만 페이지 전환되도록 UX 개선
+
+---
+## 📅 2025-05-14 개발일지
+
+### 🔧 MyPlacesPage 기능 개선 및 다중 선택 모드 구현
+- 기존 리스트 UI에서 중복 텍스트, 색상 문제 해결
+- 상단에 `MyPlaces` 서브헤더만 유지, 앱 전체 타이틀은 `Ringinout 알람`으로 통일
+- 각 장소 항목을 숏프레스하면 `EditPlacePage`로 진입하도록 수정
+- 롱프레스 시 다중 선택 모드 진입:
+  - 각 항목 좌측에 체크박스 표시
+  - 항목 전체가 **오른쪽 + 아래**로 슬라이드
+  - `전체 선택` 버튼을 리스트 최상단에 노출
+- FloatingActionButton 위치 저장 및 재사용 기능 유지
+
+### 🐞 버그 수정
+- `items` 미정의 오류 → State 변수로 선언하여 해결
+- 문자열 보간 오류 (`'반경: \${...}'`) → Dart 문법에 맞게 수정
+- ListView 연관 오류와 중첩 구조 정리 완료
+
+### 💡 기타 논의 및 전략 설계
+- 백엔드 필요성에 대한 심층 분석:
+  - Hive만으로는 기기 변경, 앱 삭제 시 데이터 보존 불가
+  - Firebase Firestore를 통한 클라우드 저장 전략 검토
+- 예상 사용자 증가 시 비용 모델 시뮬레이션:
+  - 100만 → 1,000만 사용자 확대 시 Firestore 비용 분석
+- Freemium, 구독 모델, 보상형 광고 등 수익화 전략 논의
+
+# 📆 2025-05-15 ~ 2025-05-19 개발일지
+
+## ✅ 알람 시스템 구조 통합 및 최적화
+
+### 🔧 알람 동작 구조 재설계
+- 포그라운드: Flutter에서 절반 팝업 알람, Native에서 기본 벨소리 호출
+- 백그라운드: Native에서 화면만 깨운 후 Flutter로 진입 → 동일한 알람 페이지 표시
+- 플랫폼 상관없이 `triggerCount`는 SharedPreferences로 동기화
+
+### 🔁 알람 진입 방식 개선
+- 기존 `title` 기반 전달에서 `alarmId` 기반 전달로 구조 변경
+- `MainActivity.kt`에서 `pendingAlarmId`를 기반으로 Flutter MethodChannel 호출
+- Flutter `main()` 내부에서 `navigateToFullScreenAlarm` 처리 → Hive에서 알람 정보 로드 후 알람 페이지 진입
+
+### 🔊 벨소리 일원화
+- Flutter → Native `SystemRingtone.play()`로 벨소리 통합
+- 포그라운드/백그라운드 모두 동일하게 기본 벨소리 재생
+
+### 📱 전체화면 알람 페이지 개선
+- `AlarmFullscreenActivity.kt`는 이제 화면만 깨우고 `MainActivity`를 호출하는 역할로 축소
+- Native와 Flutter 알람 동작을 하나의 알람 페이지로 통일
+
+### 🐛 기타 처리 및 최적화
+- `firstWhere`의 null 반환 문제 해결 → `collection` 패키지의 `firstWhereOrNull()` 사용
+- `FullScreenAlarmPage`에 `alarmData` 옵셔널 추가로 모든 호출부 오류 제거
+- `late final` 대신 `final Map<String, dynamic>?` 사용하여 null-safe 처리
+
+---
+# 📋 Ringinout 앱 개발일지 (2025/05/23~27)
+
+---
+
+## 📅 2025/05/23
+- **Hive 초기화 문제**: 백그라운드에서 `_alarmBox` 초기화 오류 확인
+- **진입/진출 트리거**: 다중 알람 중 일부만 트리거되는 문제 확인
+
+---
+
+## 📅 2025/05/24
+- **중복 지오펜스 문제**: 같은 장소에 알람 4개 → 지오펜스 4개 생성
+- **로그 시스템 기초**: 각 단계별 로그 찍기 시작
+
+---
+
+## 📅 2025/05/25
+- **중복 지오펜스 방지**  
+  ➡️ `Set<String> createdPlaces`를 도입, 같은 장소 = 지오펜스 1개만 생성  
+- **트리거 카운트 타입 오류**  
+  ➡️ type 'String' is not a subtype of type 'int' → `int.tryParse()`로 안전 변환  
+- **로그 상세화**  
+  ➡️ 🔊 (음향/소리), 📱 (UI), 🔢 (카운트) 등의 이모지별 로그로 가독성 UP
+
+---
+
+## 📅 2025/05/26
+- **다중 알람 트리거 문제 해결**  
+  ➡️ `_handleGeofenceEvent()`의 for문을 완전 실행 → 같은 장소의 모든 알람이 정상 트리거  
+- **백그라운드 안정화**  
+  ➡️ `_getActiveAlarms()`에 Hive 재초기화 로직 추가 → 안정적으로 알람 접근 가능
+
+---
+
+## 📅 2025/05/27
+- **디버깅 로그 시스템 완성**  
+  ➡️ 단계별 상세 로그로 문제 지점 정확히 파악 가능  
+- **현재 상태 정리**  
+  ✅ 완료: 지오펜스 감지, 다중 알람 트리거, 트리거 카운트, 포그라운드/백그라운드 판단, Flutter 화면 전환  
+  ⚠️ 남은 과제: Native 알람 소리 재생(MissingPluginException), 실제 알람 UI 표시, 백그라운드 Native 전체화면 알람  
+- **다음 단계**  
+  1️⃣ Android Native 오디오 채널 구현  
+  2️⃣ 실제 알람 화면 표시 검증  
+  3️⃣ 백그라운드 전체화면 알람 구현
+
+---
+
+### 🟩 최종 테스트 결과
+- **Flutter → Native** 연결, 지오펜스 이벤트 정상 작동
+- Native 알람 소리 및 전체화면 UI는 구현 예정
+
+---## 🔄 **2025.09.19 - 푸쉬 알림 기반 알람 시스템 구현**
+
+### **✅ 주요 변경사항:**
+
+#### **1. LocationMonitorService 대폭 개선**
+- `_triggerAlarm()` 메서드 푸쉬 알림 기반으로 전환
+- 기존 화면 전환 로직 → 영구 푸쉬 알림으로 대체
+- 트리거 카운트 타입 안전성 개선 (String/int 혼용 문제 해결)
+- 백그라운드/포그라운드 구분 없이 동일하게 작동
+
+#### **2. AlarmNotificationHelper 기능 확장**
+- `showPersistentAlarmNotification()` 메서드 추가
+- 영구 알림 특성: `ongoing: true`, `autoCancel: false`
+- 푸쉬 알림 터치 시 전체화면 이동 처리
+- 액션 버튼: "알람 확인", "끄기" 추가
+- `dismissPersistentAlarm()` 메서드로 알림 제거 기능
+
+#### **3. MainActivity.kt 벨소리 시스템 개선**
+- `playDefaultRingtone()` 중복 재생 방지 로직 추가
+- 무한 루프 재생 (`isLooping = true`) 보장
+- DND 모드 무시 설정 (`FLAG_BYPASS_INTERRUPTION_POLICY`)
+- 사용자 알람 사운드 우선 사용 (`TYPE_ALARM`)
+- 안전한 벨소리 정지 로직 구현
+
+#### **4. 작동 흐름 최적화**
+```
+📍 지오펜스 트리거
+↓
+🔊 무한 루프 벨소리 재생
+↓  
+📢 영구 푸쉬 알림 표시
+↓
+📱 사용자 터치 시 전체화면 이동
+↓
+🔕 사용자 직접 종료 시에만 정지
+```
+
+### **🐛 해결된 문제들:**
+
+- ❌ `MissingPluginException: No implementation found for method playSystemRingtone` 
+- ❌ `type 'String' is not a subtype of type 'int'` (트리거 카운트)
+- ❌ 백그라운드에서 전체화면 전환 실패
+- ❌ 벨소리 중복 재생 문제
+- ❌ 시스템 알람 사운드 미사용 문제
+
+### **🎯 새로운 기능:**
+
+- ✅ 백그라운드 완벽 작동 (앱 종료 상태에서도)
+- ✅ 영구 푸쉬 알림 (스와이프 삭제 불가)
+- ✅ 무한 루프 알람 벨소리 (사용자 종료 시까지)
+- ✅ 사용자 설정 알람 사운드 재생
+- ✅ 타입 안전한 트리거 카운트 관리
+- ✅ DND 모드 무시 알람
+
+### **🔧 기술적 개선:**
+
+- Flutter 푸쉬 알림 활용으로 백그라운드 안정성 확보
+- Kotlin Native Audio API로 벨소리 제어 강화  
+- 타입 안전성 보장으로 런타임 에러 방지
+- 중복 재생 방지로 리소스 효율성 향상
+
+### **📱 사용자 경험 개선:**
+
+- 백그라운드에서도 확실한 알림 전달
+- 푸쉬 알림 터치로 간편한 전체화면 접근
+- 사용자가 직접 끄기 전까지 지속되는 알람
+- 시스템 설정 알람 사운드 사용으로 친숙함
+
+---
+
+**💡 다음 단계:** 실제 테스트를 통한 버그 수정 및 성능 최적화
+
+📅 2025-10-21 개발일지
+🔧 지오펜스 알람 트리거 로직 개선
+✅ 주요 작업 내용
+1. 초기 ENTER 이벤트 처리 문제 해결
+앱 시작 시 이미 지오펜스 내부에 있을 경우 초기 ENTER 이벤트가 발생하는 문제 분석
+초기 ENTER는 알람을 울리지 않되, 내부 상태(_lastInside)는 정확히 업데이트되도록 개선
+_alreadyInside 플래그를 사용하여 초기 진입과 실제 진입을 구분
+2. EXIT 알람이 울리지 않는 문제 해결
+EXIT 이벤트 발생 시 wasInside가 false로 잘못 인식되는 버그 수정
+_handleGeofenceEvent에서 알람 트리거 후 상태 업데이트하도록 로직 재배치
+_shouldTriggerAlarm에서는 판단만 하고 상태 업데이트는 상위에서 처리하도록 분리
+3. triggerCount 타입 안전성 강화
+String, int, double 등 다양한 타입으로 저장된 triggerCount를 안전하게 int로 변환
+int.tryParse() 등을 활용한 타입 안전 변환 로직 추가
+Hive 저장 시 명시적으로 int 타입 보장
+4. 전체화면 알람이 꺼지지 않는 문제 해결 (진행중)
+triggerCount 타입 문제로 알람 비활성화 실패 확인
+목표 달성 기록 시 Hive key 타입 오류 발견
+알람 종료 버튼 클릭 시에도 화면이 꺼지지 않는 문제 남아있음
+
+🔍 코드 구조 개선
+상태 관리 흐름 명확화
+알람 트리거 판단: _shouldTriggerAlarm()
+상태 업데이트: _handleGeofenceEvent()
+초기 ENTER는 알람은 스킵하되 상태는 업데이트
+로그 시스템 강화
+각 단계별 상세 로그 추가로 문제 지점 파악 용이
+wasInside, trigger, status 값을 명시적으로 출력
+타입 변환 시도와 결과도 로그로 기록
+📌 다음 작업 예정
+전체화면 알람 종료 로직 완전 수정
+목표 달성 기록 시 Hive key 타입 문제 해결
+알람 종료 후 화면 자동 닫힘 구현
+ENTER/EXIT 알람 실제 기기 테스트
+💡 주요 인사이트
+지오펜스 이벤트는 앱 시작 시 현재 위치를 기준으로 초기 ENTER를 발생시킴
+초기 상태 감지와 실제 진입/진출을 구분하는 로직이 핵심
+상태 업데이트와 알람 트리거를 분리하면 로직이 명확해짐
+Hive에 저장되는 데이터의 타입 일관성 유지가 중요# #     2 0 2 5 - 1 1 - 1 8   ��|���
+ 
+ # # #     �Ȕ�  ��  ��m�
+ 
+ # # # #   1 .   * * ���  x���  Lż�  8��  tհ�* * 
+ -   * * 8��* * :   LŌ�  �Ҭ�p�  ��  Lż�t�  2 �)�  ��1�(�
+ -   * * ��x�* * :   ` _ s h o w N a t i v e A n d r o i d A l a r m ( ) `   8֜�\�  x�\�  ���
+ -   * * tհ�* * :   ` a l a r m _ n o t i f i c a t i o n _ h e l p e r . d a r t ` ���  ��DՔ�\�  Lż�  8֜�  �p�
+ 
+ # # # #   2 .   * * ȴ�T�t�  LŌ�  ����  8��  tհ�* * 
+ -   * * 8��* * :   LŌ�  ��̸  ��  H�  T�t�<�\�  ����X���  J�L�
+ -   * * tհ�* * :   ` f u l l _ s c r e e n _ a l a r m _ p a g e . d a r t ` ���  ` p u s h A n d R e m o v e U n t i l `   ����
+ 
+ # # # #   3 .   * * ��\� �0�  ����  ٳ��  � �* * 
+ -   * * 8��* * :   ��\� �0�  ����  tЭ�  ��  q�t�  ��̸(�
+ -   * * tհ�* * :   ` M a i n A c t i v i t y . k t ` ��  ` o n B a c k P r e s s e d ( ) `   $Ƅ�|�t�ܴ  �� �
+ 
+ # # # #   4 .   * * ��ĳ  t�<�  \���  0���  �� �* * 
+ -   ���  ��ĳ  ��t�����  ` b u i l d i n g s E n a b l e d :   t r u e `   $��  �� �
+ 
+ # # # #   5 .   * * T�t�  ���  ��  ȴ�T�t�  LŌ�  tհ�* * 
+ -   ` A l a r m F u l l s c r e e n A c t i v i t y . k t `   �t�  ��  -   N a t i v e   U I   ���  l��
+ 
+ # # # #   6 .   * * a l a r m I d   �Ѕ�  �Τ��  $�X�  tհ�* * 
+ -   S t r i n g   U U I D |�  h a s h C o d e \�  ��X�X���  H��XՌ�  �̬�
+ 
+ # # # #   7 .   * * �X�  LŌ�  ��  ��t���   ȥ�  $�X�  tհ�* * 
+ -   ` H i v e H e l p e r ` ��  ` u p d a t e L o c a t i o n A l a r m B y I d ( ) `   T��ܴ  �� �
+ 
+ # # # #   8 .   * * @����Ф¹�  �p�  ��  1���|���ܴ  �D���  �ɍ�1�  � �* * 
+ -   A n d r o i d   1 2 +   �¤�\�  �}�<�\�  D��  tհ�  �� ���
+ -   �����  LŌ�@�  H i v e ��   ȥ����  q�  ����  ��  ���  ��ٳ
+ 
+ # # #     tհ��  �Ȕ�  ����
+ 
+ 1 .     ���  x���  Lż�
+ 2 .     ȴ�T�t�  LŌ�  ��̸  ��  H�  ����  ��(�
+ 3 .     ��\� �0�  ����<�\�  q�  ��̸
+ 4 .     ��ĳ  t�<�  ��\���
+ 5 .     a l a r m I d   �Ѕ�  �Τ��  $�X�
+ 6 .     �X�  LŌ�  ��  ��t���   ȥ�  ��(�
+ 7 .     @����Ф¹�  �p�  ��  �D���  ��  ( ����  tհ�)  
+ 

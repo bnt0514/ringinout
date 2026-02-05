@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widget_container" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center" android:padding="2dp" android:background="@android:color/transparent">
+
+    <!-- 마이크 버튼 (원형) -->
+    <ImageView android:id="@+id/mic_button" android:layout_width="56dp" android:layout_height="56dp" android:src="@android:drawable/ic_btn_speak_now" android:background="@drawable/widget_circle_bg" android:padding="12dp" android:tint="#FFFFFF" android:contentDescription="음성 알람" />
+
+    <!-- 앱 이름 -->
+    <TextView android:id="@+id/widget_label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="Ringinout" android:textColor="#FFFFFF" android:textSize="10sp" android:textStyle="bold" android:shadowColor="#80000000" android:shadowDx="1" android:shadowDy="1" android:shadowRadius="2" />
+
+</LinearLayout>

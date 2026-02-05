@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <!-- 주황-빨강 그라데이션 (눈에 잘 띄는 색상) -->
+    <gradient android:type="radial" android:gradientRadius="64dp" android:startColor="#FF6B35" android:endColor="#E53935" />
+    <size android:width="64dp" android:height="64dp" />
+</shape>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Ringinout</string>
+    <string name="widget_description">마이크 버튼을 눌러 음성으로 위치 알람을 등록합니다</string>
+    <string name="widget_name">음성 알람 위젯</string>
+</resources>
