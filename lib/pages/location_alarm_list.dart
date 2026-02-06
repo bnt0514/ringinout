@@ -6,6 +6,8 @@ import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/smart_location_monitor.dart';
 import 'package:ringinout/services/smart_location_service.dart';
 import 'package:ringinout/services/location_monitor_service.dart';
+import 'package:ringinout/services/subscription_service.dart';
+import 'package:ringinout/widgets/subscription_limit_dialog.dart';
 
 // 컨트롤러
 class AlarmListController {
@@ -136,7 +138,7 @@ class AlarmListItem extends StatelessWidget {
                     onTap: () => onTap(index),
                   ),
                 ),
-                if (!isSelectionMode) _buildEnableSwitch(),
+                if (!isSelectionMode) _buildEnableSwitch(context),
               ],
             ),
             Divider(color: Colors.grey.shade300, height: 1),
@@ -146,7 +148,7 @@ class AlarmListItem extends StatelessWidget {
     );
   }
 
-  Widget _buildEnableSwitch() {
+  Widget _buildEnableSwitch(BuildContext context) {
     return Container(
       width: 48,
       alignment: Alignment.center,
@@ -157,6 +159,28 @@ class AlarmListItem extends StatelessWidget {
         onTap: () async {
           final updatedAlarm = Map<String, dynamic>.from(alarm);
           final willEnable = !(alarm['enabled'] ?? false);
+
+          if (willEnable) {
+            final plan = await SubscriptionService.getCurrentPlan();
+            final limit = SubscriptionService.activeAlarmLimit(plan);
+            if (limit != null) {
+              final activeCount =
+                  HiveHelper.alarmBox.values
+                      .where((item) => item is Map && item['enabled'] == true)
+                      .length;
+              if (activeCount >= limit) {
+                if (context.mounted) {
+                  await SubscriptionLimitDialog.showAlarmLimit(
+                    context,
+                    plan: plan,
+                    limit: limit,
+                  );
+                }
+                return;
+              }
+            }
+          }
+
           updatedAlarm['enabled'] = willEnable;
           updatedAlarm['snoozePending'] = false; // ✅ 스누즈 상태 초기화
 

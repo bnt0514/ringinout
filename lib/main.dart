@@ -16,12 +16,15 @@ import 'package:ringinout/services/location_monitor_service.dart';
 import 'package:ringinout/services/test_controller.dart';
 import 'package:ringinout/services/alarm_notification_helper.dart';
 import 'package:ringinout/services/smart_location_monitor.dart'; // ✅ 추가
+import 'package:ringinout/services/remote_config_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Firebase 초기화
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  await RemoteConfigService.initialize();
 
   // 네이버맵 초기화 (flutter_naver_map 최신 API)
   await FlutterNaverMap().init(

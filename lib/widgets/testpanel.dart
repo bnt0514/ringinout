@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:ringinout/services/test_controller.dart';
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/widgets/realbackgroundtestpanel.dart';
-import 'package:ringinout/widgets/location_simulator_panel.dart';
 
 class TestGeofencePanel extends StatelessWidget {
   const TestGeofencePanel({Key? key}) : super(key: key);
@@ -26,7 +25,6 @@ class TestGeofencePanel extends StatelessWidget {
                 ),
               ),
               RealBackgroundTestPanel(), // ✅ 백그라운드 테스트 패널 추가
-              LocationSimulatorPanel(),
             ],
           );
         }
@@ -178,7 +176,6 @@ class TestGeofencePanel extends StatelessWidget {
               ),
             ),
             RealBackgroundTestPanel(), // ✅ 백그라운드 테스트 패널 추가
-            LocationSimulatorPanel(),
           ],
         );
       },

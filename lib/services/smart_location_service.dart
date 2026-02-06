@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/alarm_notification_helper.dart';
+import 'package:ringinout/services/app_log_buffer.dart';
 
 /// 🎯 SmartLocationService - 네이티브 3단계 위치 모니터링 연동
 ///
@@ -18,6 +19,11 @@ class SmartLocationService {
   static const MethodChannel _channel = MethodChannel(
     'com.example.ringinout/smart_location',
   );
+
+  static void _log(String message) {
+    AppLogBuffer.record('SmartLocationService', message);
+    debugPrint(message);
+  }
 
   static bool _isInitialized = false;
   static Function(String placeId, String placeName, String triggerType)?
@@ -40,7 +46,7 @@ class SmartLocationService {
         final placeName = args['placeName'] as String;
         final triggerType = args['triggerType'] as String;
 
-        print('🚨 네이티브 알람 수신: $placeName ($triggerType)');
+        _log('🚨 네이티브 알람 수신: $placeName ($triggerType)');
 
         // 콜백 호출
         _onAlarmTriggered?.call(placeId, placeName, triggerType);
@@ -51,7 +57,7 @@ class SmartLocationService {
     });
 
     _isInitialized = true;
-    print('✅ SmartLocationService 초기화 완료');
+    _log('✅ SmartLocationService 초기화 완료');
   }
 
   /// 모니터링 시작
@@ -63,8 +69,10 @@ class SmartLocationService {
               .where((alarm) => alarm['enabled'] == true)
               .toList();
 
+      _log('🧭 startMonitoring 활성 알람 수: ${alarms.length}');
+
       if (alarms.isEmpty) {
-        print('📭 활성 알람 없음 - 모니터링 시작하지 않음');
+        _log('📭 활성 알람 없음 - 모니터링 시작하지 않음');
         return;
       }
 
@@ -76,6 +84,10 @@ class SmartLocationService {
         final placeName = alarm['place'] ?? alarm['locationName'];
         if (placeName == null) continue;
 
+        final alarmId = alarm['id']?.toString() ?? '';
+        final trigger = alarm['trigger'] as String? ?? 'entry';
+        _log('🧭 알람 확인: id=$alarmId, place=$placeName, trigger=$trigger');
+
         final place = places.firstWhere(
           (p) => p['name'] == placeName,
           orElse: () => <String, dynamic>{},
@@ -86,12 +98,10 @@ class SmartLocationService {
         final lat = (place['latitude'] ?? place['lat']) as double?;
         final lng = (place['longitude'] ?? place['lng']) as double?;
         final radius = (alarm['radius'] ?? place['radius'] ?? 100) as num;
-        final trigger = alarm['trigger'] as String? ?? 'entry';
 
         if (lat == null || lng == null) continue;
 
         // ✅ 고유 ID 생성: 알람ID_장소명_트리거타입 (같은 장소에 여러 알람 지원)
-        final alarmId = alarm['id']?.toString() ?? '';
         final uniqueId = '${alarmId}_${placeName}_$trigger';
 
         alarmPlaces.add({
@@ -106,21 +116,31 @@ class SmartLocationService {
       }
 
       if (alarmPlaces.isEmpty) {
-        print('📭 유효한 알람 장소 없음');
+        _log('📭 유효한 알람 장소 없음');
         return;
       }
 
       // 네이티브 모니터링 시작
       await _channel.invokeMethod('startMonitoring', {'places': alarmPlaces});
 
-      print('🎯 SmartLocationService 모니터링 시작: ${alarmPlaces.length}개 장소');
+      _log('🎯 SmartLocationService 모니터링 시작: ${alarmPlaces.length}개 장소');
       for (final place in alarmPlaces) {
-        print(
+        _log(
           '   📍 ${place['name']} (${place['triggerType']}) - ID: ${place['id']}',
         );
       }
     } catch (e) {
-      print('❌ SmartLocationService 모니터링 시작 실패: $e');
+      _log('❌ SmartLocationService 모니터링 시작 실패: $e');
+    }
+  }
+
+  static Future<void> sendErrorReport(Map<String, dynamic> payload) async {
+    try {
+      await _channel.invokeMethod('sendErrorReport', payload);
+      _log('✅ 에러 리포트 전송 요청 완료');
+    } catch (e) {
+      _log('❌ 에러 리포트 전송 실패: $e');
+      _log(payload.toString());
     }
   }
 
@@ -128,9 +148,9 @@ class SmartLocationService {
   static Future<void> stopMonitoring() async {
     try {
       await _channel.invokeMethod('stopMonitoring');
-      print('🛑 SmartLocationService 모니터링 중지');
+      _log('🛑 SmartLocationService 모니터링 중지');
     } catch (e) {
-      print('❌ SmartLocationService 모니터링 중지 실패: $e');
+      _log('❌ SmartLocationService 모니터링 중지 실패: $e');
     }
   }
 
@@ -142,12 +162,20 @@ class SmartLocationService {
               .where((alarm) => alarm['enabled'] == true)
               .toList();
 
+      _log('🧭 updatePlaces 활성 알람 수: ${alarms.length}');
+
       final places = HiveHelper.getSavedLocations();
       final alarmPlaces = <Map<String, dynamic>>[];
 
       for (final alarm in alarms) {
         final placeName = alarm['place'] ?? alarm['locationName'];
         if (placeName == null) continue;
+
+        final alarmId = alarm['id']?.toString() ?? '';
+        final trigger = alarm['trigger'] as String? ?? 'entry';
+        _log(
+          '🧭 updatePlaces 알람: id=$alarmId, place=$placeName, trigger=$trigger',
+        );
 
         final place = places.firstWhere(
           (p) => p['name'] == placeName,
@@ -159,13 +187,11 @@ class SmartLocationService {
         final lat = (place['latitude'] ?? place['lat']) as double?;
         final lng = (place['longitude'] ?? place['lng']) as double?;
         final radius = (alarm['radius'] ?? 100) as num;
-        final trigger = alarm['trigger'] as String? ?? 'entry';
 
         if (lat == null || lng == null) continue;
 
         alarmPlaces.add({
-          'id':
-              '${alarm['id']?.toString() ?? placeName}_$trigger', // 같은 장소라도 entry/exit 구분
+          'id': '${alarmId}_${placeName}_$trigger',
           'name': placeName,
           'latitude': lat,
           'longitude': lng,
@@ -176,9 +202,14 @@ class SmartLocationService {
       }
 
       await _channel.invokeMethod('updatePlaces', {'places': alarmPlaces});
-      print('🔄 SmartLocationService 장소 업데이트: ${alarmPlaces.length}개');
+      _log('🔄 SmartLocationService 장소 업데이트: ${alarmPlaces.length}개');
+      for (final place in alarmPlaces) {
+        _log(
+          '   📍 ${place['name']} (${place['triggerType']}) - ID: ${place['id']}',
+        );
+      }
     } catch (e) {
-      print('❌ SmartLocationService 장소 업데이트 실패: $e');
+      _log('❌ SmartLocationService 장소 업데이트 실패: $e');
     }
   }
 
@@ -186,9 +217,9 @@ class SmartLocationService {
   static Future<void> clearTriggeredAlarm(String placeId) async {
     try {
       await _channel.invokeMethod('clearTriggeredAlarm', {'placeId': placeId});
-      print('🔔 트리거 기록 제거 요청: $placeId');
+      _log('🔔 트리거 기록 제거 요청: $placeId');
     } catch (e) {
-      print('❌ 트리거 기록 제거 실패: $e');
+      _log('❌ 트리거 기록 제거 실패: $e');
     }
   }
 

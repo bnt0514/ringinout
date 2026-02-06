@@ -6,7 +6,7 @@ import 'package:ringinout/features/alarm/alarm_page.dart';
 import 'package:ringinout/pages/my_places_page.dart';
 import 'package:ringinout/features/common/keep_alive_wrapper.dart';
 import 'package:ringinout/pages/testpage.dart';
-import 'package:ringinout/pages/gps_page.dart';
+import 'package:ringinout/pages/subscription_management_page.dart';
 import 'package:ringinout/pages/add_location_alarm_page.dart';
 import 'package:ringinout/services/app_localizations.dart';
 
@@ -31,7 +31,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
     const KeepAliveWidget(child: AlarmPage()),
     const KeepAliveWidget(child: MyPlacesPage()),
     const KeepAliveWidget(child: TestPage()),
-    const KeepAliveWidget(child: GpsPage()),
+    const KeepAliveWidget(child: SubscriptionManagementPage()),
   ];
 
   @override
@@ -118,8 +118,8 @@ class _MainNavigationPageState extends State<MainNavigationPage>
         ),
         const BottomNavigationBarItem(icon: Icon(Icons.mic), label: '음성'),
         const BottomNavigationBarItem(
-          icon: Icon(Icons.gps_fixed),
-          label: 'GPS',
+          icon: Icon(Icons.subscriptions),
+          label: '구독 관리',
         ),
       ],
     );

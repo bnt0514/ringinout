@@ -8,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:ringinout/pages/full_screen_alarm_page.dart';
 import 'package:ringinout/pages/login_page.dart';
 import 'package:ringinout/features/navigation/main_navigation.dart';
+import 'package:ringinout/widgets/terms_gate.dart';
 import 'package:ringinout/app/routes.dart';
 import 'package:ringinout/services/locale_provider.dart';
 import 'package:ringinout/services/app_localizations.dart';
@@ -50,7 +51,7 @@ class RinginoutApp extends StatelessWidget {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 _handlePendingAlarm(context);
               });
-              return const MainNavigationPage();
+              return const TermsGate(child: MainNavigationPage());
             },
           ),
           routes: AppRoutes.routes,

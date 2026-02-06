@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/smart_location_service.dart';
-import 'package:ringinout/widgets/location_simulator_panel.dart';
+import 'package:ringinout/services/app_log_buffer.dart';
 
 class GpsPage extends StatefulWidget {
-  const GpsPage({super.key});
+  const GpsPage({super.key, this.showAppBar = true});
+
+  final bool showAppBar;
 
   @override
   State<GpsPage> createState() => _GpsPageState();
@@ -57,6 +59,43 @@ class _GpsPageState extends State<GpsPage> {
     } catch (e) {
       print('❌ 네이티브 상태 조회 실패: $e');
     }
+  }
+
+  Future<void> _sendErrorReport() async {
+    final now = DateTime.now().toIso8601String();
+    final activeAlarms =
+        HiveHelper.alarmBox.values
+            .where((alarm) => alarm is Map && alarm['enabled'] == true)
+            .map((alarm) => Map<String, dynamic>.from(alarm as Map))
+            .toList();
+    final places = HiveHelper.getSavedLocations();
+
+    final payload = {
+      'timestamp': now,
+      'state': _nativeState,
+      'alarmCount': _alarmCount,
+      'targetPlace': _targetPlace,
+      'insideStatus': _insideStatus,
+      'currentPosition':
+          _currentPosition == null
+              ? null
+              : {
+                'lat': _currentPosition!.latitude,
+                'lng': _currentPosition!.longitude,
+                'accuracy': _currentPosition!.accuracy,
+                'time': _currentPosition!.timestamp?.toIso8601String(),
+              },
+      'activeAlarms': activeAlarms,
+      'savedPlacesCount': places.length,
+      'recentLogs': AppLogBuffer.snapshot(window: const Duration(minutes: 30)),
+    };
+
+    await SmartLocationService.sendErrorReport(payload);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('에러 리포트가 전송되었습니다.')));
   }
 
   Future<void> _startListeningToLocation() async {
@@ -188,16 +227,19 @@ class _GpsPageState extends State<GpsPage> {
     final alarmsWithDistance = _getActiveAlarmsWithDistance();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('GPS'),
-        actions: [
-          IconButton(
-            onPressed: _isUpdating ? null : _refreshLocation,
-            icon: const Icon(Icons.my_location),
-            tooltip: 'GPS 업데이트',
-          ),
-        ],
-      ),
+      appBar:
+          widget.showAppBar
+              ? AppBar(
+                title: const Text('GPS'),
+                actions: [
+                  IconButton(
+                    onPressed: _isUpdating ? null : _refreshLocation,
+                    icon: const Icon(Icons.my_location),
+                    tooltip: 'GPS 업데이트',
+                  ),
+                ],
+              )
+              : null,
       body: RefreshIndicator(
         onRefresh: _refreshLocation,
         child: ListView(
@@ -211,7 +253,6 @@ class _GpsPageState extends State<GpsPage> {
             const SizedBox(height: 16),
             _buildGeofenceStateCard(),
             const SizedBox(height: 16),
-            const LocationSimulatorPanel(),
           ],
         ),
       ),
@@ -313,6 +354,15 @@ class _GpsPageState extends State<GpsPage> {
               onPressed: _refreshNativeStatus,
               icon: const Icon(Icons.refresh, size: 16),
               label: const Text('상태 새로고침'),
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _sendErrorReport,
+                icon: const Icon(Icons.bug_report),
+                label: const Text('에러 리포트'),
+              ),
             ),
           ],
         ),

@@ -12,6 +12,8 @@ import 'package:geofence_service/geofence_service.dart';
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/location_monitor_service.dart';
 import 'package:ringinout/services/smart_location_monitor.dart';
+import 'package:ringinout/services/subscription_service.dart';
+import 'package:ringinout/widgets/subscription_limit_dialog.dart';
 import 'package:ringinout/utils/trigger_keywords.dart';
 
 class AddLocationAlarmPage extends StatefulWidget {
@@ -574,6 +576,31 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
                         }
 
                         () async {
+                          final plan =
+                              await SubscriptionService.getCurrentPlan();
+                          final limit = SubscriptionService.activeAlarmLimit(
+                            plan,
+                          );
+                          if (limit != null) {
+                            final activeCount =
+                                HiveHelper.alarmBox.values
+                                    .where(
+                                      (alarm) =>
+                                          alarm is Map &&
+                                          alarm['enabled'] == true,
+                                    )
+                                    .length;
+                            if (activeCount >= limit && mounted) {
+                              await SubscriptionLimitDialog.showAlarmLimit(
+                                context,
+                                plan: plan,
+                                limit: limit,
+                              );
+                              return;
+                            }
+                          }
+
+                          await SubscriptionService.requestAdIfNeeded(plan);
                           final sortedWeekdays =
                               weekdays
                                   .where((d) => selectedWeekdays.contains(d))

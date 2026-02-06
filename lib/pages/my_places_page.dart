@@ -7,6 +7,8 @@ import 'package:ringinout/pages/add_myplaces_page.dart';
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:geofence_service/geofence_service.dart';
 import 'package:ringinout/services/app_localizations.dart';
+import 'package:ringinout/services/subscription_service.dart';
+import 'package:ringinout/widgets/subscription_limit_dialog.dart';
 
 import 'package:provider/provider.dart';
 
@@ -66,6 +68,22 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
   }
 
   void _navigateToLocationPicker() async {
+    final plan = await SubscriptionService.getCurrentPlan();
+    final limit = SubscriptionService.placeLimit(plan);
+    if (limit != null) {
+      final currentCount = HiveHelper.placeBox.length;
+      if (currentCount >= limit) {
+        if (mounted) {
+          await SubscriptionLimitDialog.showPlaceLimit(
+            context,
+            plan: plan,
+            limit: limit,
+          );
+        }
+        return;
+      }
+    }
+
     await Navigator.push(
       context,
       MaterialPageRoute(

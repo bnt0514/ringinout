@@ -102,7 +102,15 @@ class SmartLocationManager private constructor(private val context: Context) {
 
     // 진입 dwell 시간 (inside 유지) 추적
     private val insideSince = mutableMapOf<String, Long>()
-    private val ENTRY_DWELL_MS = 60_000L
+    private val ENTRY_DWELL_MS = 15_000L
+
+    // 빠른 진입 감지를 위한 ARMED 기준
+    private val ARMED_ENTRY_FAST_ACCURACY_MAX = 40f
+    private val ARMED_ENTRY_FAST_MARGIN = 10f
+
+    // HOT 정확도 허용치 (진입은 조금 더 관대)
+    private val HOT_ENTRY_ACCURACY_MAX = 120f
+    private val HOT_EXIT_ACCURACY_MAX = 80f
 
     // 알람 확정 진행 중 (중복 방지)
     private var confirmationInProgress = false
@@ -128,9 +136,6 @@ class SmartLocationManager private constructor(private val context: Context) {
     private val STILL_THRESHOLD = 0.6f
     private val SHAKE_COOLDOWN_MS = 1500L
     private val HOT_STILL_TO_IDLE_MS = 8000L
-
-    // 시뮬레이션 모드 (테스트용)
-    private var simulationActive = false
 
     /** 알람 장소를 SharedPreferences에 저장 (앱이 죽어도 복구 가능) */
     private fun saveAlarmPlaces() {
@@ -188,11 +193,6 @@ class SmartLocationManager private constructor(private val context: Context) {
     fun startMonitoring(places: List<AlarmPlace>) {
         Log.d(TAG, "🚀 SmartLocationManager 시작: ${places.size}개 장소")
 
-        if (simulationActive) {
-            Log.d(TAG, "🧪 시뮬레이션 모드에서는 모니터링 시작을 건너뜀")
-            return
-        }
-
         // 알람 장소 저장 (메모리 + SharedPreferences)
         alarmPlaces.clear()
         places.forEach { place -> alarmPlaces[place.id] = place }
@@ -234,74 +234,19 @@ class SmartLocationManager private constructor(private val context: Context) {
         prefs.edit().remove(KEY_ALARM_PLACES).apply()
     }
 
-    /** 시뮬레이션 모드 시작 (실제 센서/지오펜스 중지) */
-    fun startSimulationMode() {
-        if (simulationActive) return
-        simulationActive = true
-
-        Log.d(TAG, "🧪 시뮬레이션 모드 시작")
-
-        cancelAllTimeouts()
-        activityTransitionManager.stopMonitoring()
-        nativeGeofenceManager.removeAllGeofences()
-        passiveLocationProvider.stopPassiveUpdates()
-        lowPowerLocationProvider.stopUpdates()
-        highAccuracyLocationProvider.stopBurst()
-        stopIdleMotionSensor()
-
-        currentState = LocationState.IDLE
-        targetPlace = null
-        idleInsideGuardActive = false
-    }
-
-    /** 시뮬레이션 모드 종료 (실제 모니터링 재개) */
-    fun stopSimulationMode() {
-        if (!simulationActive) return
-        simulationActive = false
-        Log.d(TAG, "🧪 시뮬레이션 모드 종료")
-        switchToIdle()
-    }
-
-    /** 시뮬레이션용 위치 주입 */
-    fun simulateLocation(latitude: Double, longitude: Double, accuracy: Double?) {
-        val location =
-                Location("simulated").apply {
-                    this.latitude = latitude
-                    this.longitude = longitude
-                    this.accuracy = (accuracy ?: 20.0).toFloat()
-                    this.time = System.currentTimeMillis()
-                }
-
-        when (currentState) {
-            LocationState.IDLE -> {
-                onPassiveLocationUpdate(location)
-                onIdleInsideLowPowerLocationUpdate(location)
-            }
-            LocationState.ARMED -> {
-                targetPlace?.let { onLowPowerLocationUpdate(location, it) }
-            }
-            LocationState.HOT -> {
-                targetPlace?.let { onHighAccuracyLocationUpdate(location, it) }
-            }
-        }
-    }
-
-    /** 시뮬레이션용 이동/정지 주입 */
-    fun simulateActivity(isMoving: Boolean) {
-        onActivityTransition(isMoving)
-    }
-
     /** 알람 장소 업데이트 (Flutter에서 호출) */
     fun updateAlarmPlaces(places: List<AlarmPlace>) {
         Log.d(TAG, "🔄 알람 장소 업데이트: ${places.size}개")
 
         alarmPlaces.clear()
         places.forEach { place -> alarmPlaces[place.id] = place }
+        Log.d(TAG, "🧾 업데이트된 장소 IDs: ${places.joinToString { it.id }}")
         saveAlarmPlaces() // 💾 영구 저장 (앱이 죽어도 복구 가능)
 
         insideStatus.clear()
         hasEverInside.clear()
         insideSince.clear()
+        Log.d(TAG, "🧹 insideStatus/hasEverInside/insideSince 초기화")
 
         // 새로운 장소 목록으로 업데이트 시 트리거 기록 초기화
         // (새 알람이 등록되면 다시 트리거될 수 있도록)
@@ -366,7 +311,7 @@ class SmartLocationManager private constructor(private val context: Context) {
             return
         }
 
-        Log.d(TAG, "⚡ ARMED 모드 전환: ${place.name}")
+        Log.d(TAG, "⚡ ARMED 모드 전환: ${place.name} (${place.triggerType})")
         currentState = LocationState.ARMED
         targetPlace = place
 
@@ -384,7 +329,9 @@ class SmartLocationManager private constructor(private val context: Context) {
         nativeGeofenceManager.registerSmallGeofence(place)
 
         // 저전력 위치 시작 (30초 간격)
-        lowPowerLocationProvider.startUpdates(30000) { location ->
+        val intervalMs = if (place.triggerType == AlarmTriggerType.ENTER) 10000L else 30000L
+        Log.d(TAG, "⏱️ ARMED 저전력 interval: ${intervalMs}ms")
+        lowPowerLocationProvider.startUpdates(intervalMs) { location ->
             onLowPowerLocationUpdate(location, place)
         }
 
@@ -402,7 +349,7 @@ class SmartLocationManager private constructor(private val context: Context) {
      * @param place 확정 대상 장소
      */
     private fun switchToHot(place: AlarmPlace) {
-        Log.d(TAG, "🔥 HOT 모드 전환: ${place.name}")
+        Log.d(TAG, "🔥 HOT 모드 전환: ${place.name} (${place.triggerType})")
         currentState = LocationState.HOT
         targetPlace = place
 
@@ -420,6 +367,7 @@ class SmartLocationManager private constructor(private val context: Context) {
         HotModeForegroundService.start(context)
 
         // 고정밀 GPS 버스트 시작 (5초 간격, 최대 60초)
+        Log.d(TAG, "🎯 HOT 버스트 시작: 5000ms, max 60000ms")
         highAccuracyLocationProvider.startBurst(intervalMs = 5000, maxDurationMs = 60000) { location
             ->
             onHighAccuracyLocationUpdate(location, place)
@@ -759,7 +707,20 @@ class SmartLocationManager private constructor(private val context: Context) {
             hasEverInside[targetPlace.id] = true
         }
 
-        Log.d(TAG, "📍 저전력 위치: ${targetPlace.name}까지 ${distance.toInt()}m")
+        Log.d(
+                TAG,
+                "📍 저전력 위치: ${targetPlace.name}까지 ${distance.toInt()}m (acc=${location.accuracy.toInt()}m, inside=$isInside)"
+        )
+
+        if (targetPlace.triggerType == AlarmTriggerType.ENTER && isInside) {
+            if (location.accuracy <= ARMED_ENTRY_FAST_ACCURACY_MAX &&
+                            distance <= targetPlace.radiusMeters + ARMED_ENTRY_FAST_MARGIN
+            ) {
+                Log.d(TAG, "⚡ ARMED 진입 근접 감지(정확도 양호) → HOT 전환: ${targetPlace.name}")
+                switchToHot(targetPlace)
+                return
+            }
+        }
 
         // 작은 지오펜스 반경 접근 시 HOT 모드
         if (distance < targetPlace.smallGeofenceRadius) {
@@ -789,7 +750,14 @@ class SmartLocationManager private constructor(private val context: Context) {
         }
 
         // 정확도 필터: 정확도가 너무 낮으면(오차가 크면) 판정 유보
-        if (location.accuracy > 80) { // 80m 오차 이상은 신뢰 불가
+        val maxAccuracy =
+                if (place.triggerType == AlarmTriggerType.ENTER) {
+                    HOT_ENTRY_ACCURACY_MAX
+                } else {
+                    HOT_EXIT_ACCURACY_MAX
+                }
+
+        if (location.accuracy > maxAccuracy) {
             Log.w(TAG, "⚠️ GPS 정확도 낮음(${location.accuracy}m) - 판정 유보")
             return
         }
@@ -814,6 +782,7 @@ class SmartLocationManager private constructor(private val context: Context) {
         if (isInside) {
             hasEverInside[place.id] = true
         }
+        Log.d(TAG, "🧭 hasEverInside[${place.id}]=${hasEverInside[place.id]}")
 
         Log.d(
                 TAG,
@@ -943,8 +912,14 @@ class SmartLocationManager private constructor(private val context: Context) {
                     if (insideStatus[place.id] == true) {
                         hasEverInside[place.id] = true
                     }
-                    Log.d(TAG, "📍 초기 상태: ${place.name} - inside=${insideStatus[place.id]}")
+                    Log.d(
+                            TAG,
+                            "📍 초기 상태: ${place.name} - inside=${insideStatus[place.id]}, dist=${distance.toInt()}m"
+                    )
                 }
+            }
+            if (location == null) {
+                Log.w(TAG, "⚠️ 초기 위치 없음 - inside 상태 미결정")
             }
             updateIdleInsideGuard()
         }

@@ -472,38 +472,6 @@ class MainActivity : FlutterActivity() {
                         result.error("ERROR", e.message, null)
                     }
                 }
-                "startSimulation" -> {
-                    smartManager.startSimulationMode()
-                    result.success(true)
-                }
-                "stopSimulation" -> {
-                    smartManager.stopSimulationMode()
-                    result.success(true)
-                }
-                "simulateLocation" -> {
-                    try {
-                        val lat = call.argument<Double>("latitude")
-                        val lng = call.argument<Double>("longitude")
-                        val accuracy = call.argument<Double>("accuracy")
-                        if (lat == null || lng == null) {
-                            result.error("ERROR", "latitude/longitude required", null)
-                        } else {
-                            smartManager.simulateLocation(lat, lng, accuracy)
-                            result.success(true)
-                        }
-                    } catch (e: Exception) {
-                        result.error("ERROR", e.message, null)
-                    }
-                }
-                "simulateActivity" -> {
-                    try {
-                        val isMoving = call.argument<Boolean>("isMoving") ?: false
-                        smartManager.simulateActivity(isMoving)
-                        result.success(true)
-                    } catch (e: Exception) {
-                        result.error("ERROR", e.message, null)
-                    }
-                }
                 "getStatus" -> {
                     val status = smartManager.getStatus()
                     result.success(status)

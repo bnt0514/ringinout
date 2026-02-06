@@ -9,6 +9,8 @@ import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/naver_geocoding_service.dart';
 import 'package:ringinout/services/smart_location_service.dart';
+import 'package:ringinout/services/subscription_service.dart';
+import 'package:ringinout/widgets/subscription_limit_dialog.dart';
 
 class AddMyPlacesPage extends StatefulWidget {
   final Future<void> Function(double lat, double lng, String name, int radius)
@@ -107,6 +109,22 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
       return;
     }
 
+    final plan = await SubscriptionService.getCurrentPlan();
+    final limit = SubscriptionService.placeLimit(plan);
+    if (limit != null) {
+      final currentCount = HiveHelper.placeBox.length;
+      if (currentCount >= limit) {
+        if (mounted) {
+          await SubscriptionLimitDialog.showPlaceLimit(
+            context,
+            plan: plan,
+            limit: limit,
+          );
+        }
+        return;
+      }
+    }
+
     final TextEditingController nameController = TextEditingController();
 
     await showDialog(
@@ -146,6 +164,7 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                 onPressed: () async {
                   final name = nameController.text.trim();
                   if (name.isNotEmpty) {
+                    await SubscriptionService.requestAdIfNeeded(plan);
                     await HiveHelper.addLocation({
                       'name': name,
                       'lat': _selectedLatLng!.latitude,
