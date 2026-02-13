@@ -17,6 +17,9 @@ import 'package:ringinout/services/test_controller.dart';
 import 'package:ringinout/services/alarm_notification_helper.dart';
 import 'package:ringinout/services/smart_location_monitor.dart'; // ✅ 추가
 import 'package:ringinout/services/remote_config_service.dart';
+import 'package:ringinout/services/auth_service.dart';
+import 'package:ringinout/services/billing_service.dart';
+import 'package:ringinout/services/subscription_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +28,12 @@ void main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   await RemoteConfigService.initialize();
+
+  // AuthService 및 BillingService 초기화
+  final authService = AuthService();
+  await authService.initialize();
+  final billingService = BillingService(authService);
+  SubscriptionService.initialize(billingService);
 
   // 네이버맵 초기화 (flutter_naver_map 최신 API)
   await FlutterNaverMap().init(
@@ -57,12 +66,6 @@ void main() async {
 
   // ✅ SmartLocationMonitor는 메인 앱용만 (백그라운드 중복 방지)
   WidgetsBinding.instance.addPostFrameCallback((_) async {
-    await Future.delayed(const Duration(seconds: 2)); // UI 안정화 대기
-
-    // 메인 앱에서만 SmartLocationMonitor 시작 (중복 방지)
-    await SmartLocationMonitor.startSmartMonitoring();
-  });
-
   // 앱 실행
   runApp(
     MultiProvider(
@@ -70,6 +73,14 @@ void main() async {
         ChangeNotifierProvider(create: (_) => NavigationState()),
         ChangeNotifierProvider(create: (_) => LocaleProvider()),
         ChangeNotifierProvider.value(value: alarmController),
+        ChangeNotifierProvider.value(value: testGeofenceController),
+        Provider.value(value: authService),
+        ChangeNotifierProvider.value(value: billingService),
+      ],
+      child: RinginoutApp(navigatorKey: globalNavigatorKey),
+    ),
+  );
+}       ChangeNotifierProvider.value(value: alarmController),
         ChangeNotifierProvider.value(value: testGeofenceController),
       ],
       child: RinginoutApp(navigatorKey: globalNavigatorKey),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ringinout/config/app_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:hive/hive.dart';
 import 'package:ringinout/services/hive_helper.dart';
@@ -342,7 +343,7 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.textPrimary,
         body: SafeArea(
           child: Stack(
             children: [
@@ -354,7 +355,7 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
                   widget.alarmTitle,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppColors.textOnPrimary,
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
                   ),
@@ -371,12 +372,15 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
                     height: 60,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
+                        backgroundColor: AppColors.primary,
                       ),
                       onPressed: _onSnooze,
                       child: const Text(
                         "다시 울림",
-                        style: TextStyle(fontSize: 20, color: Colors.white),
+                        style: TextStyle(
+                          fontSize: 20,
+                          color: AppColors.textOnPrimary,
+                        ),
                       ),
                     ),
                   ),
@@ -393,12 +397,15 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
                     height: 60,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
+                        backgroundColor: AppColors.danger,
                       ),
                       onPressed: _onConfirm,
                       child: const Text(
                         "알람 종료",
-                        style: TextStyle(fontSize: 20, color: Colors.white),
+                        style: TextStyle(
+                          fontSize: 20,
+                          color: AppColors.textOnPrimary,
+                        ),
                       ),
                     ),
                   ),

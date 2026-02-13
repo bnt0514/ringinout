@@ -93,6 +93,18 @@ void _onStart(ServiceInstance service) async {
   // ✅ 백그라운드 Hive 초기화 (경로 통일)
   await _initializeBackgroundHive();
 
+  // ✅ 활성 알람(오늘 기준) 없으면 백그라운드 서비스 종료
+  final activeAlarms = HiveHelper.getActiveAlarmsForMonitoring();
+  if (activeAlarms.isEmpty) {
+    print('📭 백그라운드 활성 알람 없음 - 서비스 종료');
+    if (service is AndroidServiceInstance) {
+      await service.stopSelf();
+    } else {
+      await service.stopSelf();
+    }
+    return;
+  }
+
   // ✅ 위치 모니터링 시작 (알림과 독립적)
   final locationMonitor = LocationMonitorService();
   await locationMonitor.startBackgroundMonitoring((type, alarm) async {

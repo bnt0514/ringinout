@@ -154,6 +154,11 @@ class AppLocalizations {
       'grant_all_permissions': 'Please grant all permissions',
       'setup_later': 'Setup Later',
       'location_permission_desc': 'Required to detect alarm locations.',
+      'battery_opt_warning_title': 'Battery Optimization Not Excluded',
+      'battery_opt_warning_desc':
+          'This notice appears because battery optimization exclusion is currently disabled. '
+          'The app can still work, but alarms may be delayed or missed on some devices. '
+          'We recommend excluding this app from battery optimization.',
 
       // GPS 페이지
       'gps_title': 'GPS',
@@ -356,6 +361,11 @@ class AppLocalizations {
       'grant_all_permissions': '모든 권한을 허용해주세요',
       'setup_later': '나중에 설정하기',
       'location_permission_desc': '알람을 울릴 위치를 감지하기 위해 필요합니다.',
+      'battery_opt_warning_title': '배터리 최적화 제외 필요',
+      'battery_opt_warning_desc':
+          '현재 배터리 최적화 제외가 설정되어 있지 않아 안내를 띄웁니다. '
+          '앱은 사용 가능하지만 일부 기기에서 알람이 지연되거나 누락될 수 있어, '
+          '배터리 최적화 제외를 권장합니다.',
 
       // GPS 페이지
       'gps_title': 'GPS',
@@ -557,6 +567,11 @@ class AppLocalizations {
       'grant_all_permissions': 'すべての権限を許可してください',
       'setup_later': '後で設定',
       'location_permission_desc': 'アラームの位置を検出するために必要です。',
+      'battery_opt_warning_title': 'バッテリー最適化が除外されていません',
+      'battery_opt_warning_desc':
+          '現在バッテリー最適化の除外が無効のため、この案内を表示しています。 '
+          'アプリは動作しますが、一部の端末ではアラームが遅延または見逃される可能性があります。 '
+          'バッテリー最適化から除外することを推奨します。',
 
       // GPS 페이지
       'gps_title': 'GPS',
@@ -756,6 +771,10 @@ class AppLocalizations {
       'grant_all_permissions': '请授予所有权限',
       'setup_later': '稍后设置',
       'location_permission_desc': '需要检测闹钟位置。',
+      'battery_opt_warning_title': '未排除电池优化',
+      'battery_opt_warning_desc':
+          '由于当前未排除电池优化，因此显示此提示。应用仍可使用，但在部分设备上闹钟可能延迟或漏发。'
+          '建议将应用从电池优化中排除。',
 
       // GPS 페이지
       'gps_title': 'GPS',

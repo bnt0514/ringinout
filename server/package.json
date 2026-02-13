@@ -1,0 +1,21 @@
+{
+    "name": "ringinout-server",
+    "version": "1.0.0",
+    "description": "RingInOut 구독 검증 서버 - 구독 검증 목적 외 사용 금지",
+    "main": "src/index.js",
+    "scripts": {
+        "start": "node src/index.js",
+        "dev": "nodemon src/index.js"
+    },
+    "dependencies": {
+        "express": "^4.18.2",
+        "firebase-admin": "^12.0.0",
+        "better-sqlite3": "^11.0.0",
+        "helmet": "^7.1.0",
+        "cors": "^2.8.5",
+        "dotenv": "^16.4.5"
+    },
+    "devDependencies": {
+        "nodemon": "^3.1.0"
+    }
+}

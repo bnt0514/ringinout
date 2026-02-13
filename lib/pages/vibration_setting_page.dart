@@ -1,5 +1,6 @@
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:ringinout/config/app_theme.dart';
 
 class VibrationSettingPage extends StatelessWidget {
   final String currentVibration;
@@ -26,7 +27,9 @@ class VibrationSettingPage extends StatelessWidget {
           return ListTile(
             title: Text(option),
             trailing:
-                isSelected ? const Icon(Icons.check, color: Colors.blue) : null,
+                isSelected
+                    ? const Icon(Icons.check, color: AppColors.primary)
+                    : null,
             onTap: () {
               onSelected(option);
               Navigator.pop(context);

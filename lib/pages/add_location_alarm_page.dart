@@ -1,5 +1,6 @@
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:ringinout/config/app_theme.dart';
 
 // Package imports:
 import 'package:hive/hive.dart';
@@ -12,6 +13,7 @@ import 'package:geofence_service/geofence_service.dart';
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/location_monitor_service.dart';
 import 'package:ringinout/services/smart_location_monitor.dart';
+import 'package:ringinout/services/smart_location_service.dart';
 import 'package:ringinout/services/subscription_service.dart';
 import 'package:ringinout/widgets/subscription_limit_dialog.dart';
 import 'package:ringinout/utils/trigger_keywords.dart';
@@ -324,7 +326,7 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
       width: 32,
       height: 32,
       decoration: BoxDecoration(
-        color: value ? Colors.blue : Colors.grey[300],
+        color: value ? AppColors.active : AppColors.inactive,
         shape: BoxShape.circle,
       ),
       child: Center(
@@ -333,7 +335,7 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
           width: value ? 20 : 12,
           height: value ? 20 : 12,
           decoration: const BoxDecoration(
-            color: Colors.white,
+            color: AppColors.toggleThumb,
             shape: BoxShape.circle,
           ),
         ),
@@ -356,7 +358,7 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
             width: 48,
             alignment: Alignment.center,
             decoration: const BoxDecoration(
-              border: Border(left: BorderSide(color: Colors.grey)),
+              border: Border(left: BorderSide(color: AppColors.divider)),
             ),
             child: GestureDetector(
               onTap: onToggle,
@@ -386,7 +388,7 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
             width: 48,
             alignment: Alignment.center,
             decoration: const BoxDecoration(
-              border: Border(left: BorderSide(color: Colors.grey)),
+              border: Border(left: BorderSide(color: AppColors.divider)),
             ),
             child: GestureDetector(
               onTap: () => onToggle(!enabled),
@@ -413,19 +415,21 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
                 padding: const EdgeInsets.all(12),
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  color: Colors.red.shade50,
+                  color: AppColors.primary.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.shade200),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.mic, color: Colors.red, size: 24),
+                    Icon(Icons.mic, color: AppColors.primary, size: 24),
                     const SizedBox(width: 8),
                     const Text(
                       '🎙️ 듣는 중... 말씀해 주세요!',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.red,
+                        color: AppColors.primary,
                       ),
                     ),
                     const Spacer(),
@@ -444,7 +448,7 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
                 suffixIcon: IconButton(
                   icon: Icon(
                     _isListening ? Icons.stop : Icons.mic,
-                    color: _isListening ? Colors.red : Colors.purple,
+                    color: _isListening ? AppColors.danger : AppColors.primary,
                   ),
                   onPressed: _isListening ? _stopListening : _startListening,
                 ),
@@ -504,10 +508,10 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
                     final selected = selectedWeekdays.contains(day);
                     final color =
                         day == '일'
-                            ? Colors.red
+                            ? AppColors.sunday
                             : day == '토'
-                            ? Colors.blue
-                            : Colors.black;
+                            ? AppColors.saturday
+                            : AppColors.textPrimary;
                     return GestureDetector(
                       onTap: () {
                         setState(() {
@@ -527,7 +531,9 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
                             selected
                                 ? BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: Colors.blue,
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.2,
+                                  ),
                                 )
                                 : null,
                         child: Text(
@@ -552,7 +558,7 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
                   padding: EdgeInsets.only(top: 8),
                   child: Text(
                     '대체 및 임시 공휴일에는 켜기',
-                    style: TextStyle(color: Colors.blue),
+                    style: TextStyle(color: AppColors.primary),
                   ),
                 ),
               ),
@@ -636,6 +642,10 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
                             'alarm_name_$id',
                             alarm['name'],
                           );
+
+                          // ✅ 네이티브 SmartLocationService 즉시 업데이트 (최초 진입/진출 알람 대응)
+                          await SmartLocationService.updatePlaces();
+                          print('🎯 SmartLocationService 장소 업데이트 완료');
 
                           await SmartLocationMonitor.startSmartMonitoring();
                           if (selectedPlace != null) {

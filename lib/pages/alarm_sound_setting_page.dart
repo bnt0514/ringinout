@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ringinout/config/app_theme.dart';
 import 'package:hive/hive.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:ringinout/services/alarm_sound_player.dart';
@@ -107,7 +108,10 @@ class _AlarmSoundSettingPageState extends State<AlarmSoundSettingPage> {
                   title: Text(fileName),
                   trailing:
                       selectedPath == path
-                          ? const Icon(Icons.check_circle, color: Colors.green)
+                          ? const Icon(
+                            Icons.check_circle,
+                            color: AppColors.primary,
+                          )
                           : null,
                   onTap: () async {
                     setState(() => selectedPath = path);

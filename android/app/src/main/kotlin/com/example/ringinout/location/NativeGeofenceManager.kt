@@ -50,7 +50,7 @@ class NativeGeofenceManager(private val context: Context) {
      */
     fun registerLargeGeofences(
             places: List<AlarmPlace>,
-            notificationResponsiveness: Int = 60000 // 1분 (반응성 강화)
+            notificationResponsiveness: Int = 10000 // 10초 (지연 최소화)
     ) {
         if (!hasLocationPermission()) {
             Log.e(TAG, "❌ 위치 권한 없음")
@@ -117,7 +117,7 @@ class NativeGeofenceManager(private val context: Context) {
      */
     fun registerSmallGeofence(
             place: AlarmPlace,
-            notificationResponsiveness: Int = 5000 // 5초 (즉각 감지)
+            notificationResponsiveness: Int = 3000 // 3초 (더 빠른 감지)
     ) {
         if (!hasLocationPermission()) {
             Log.e(TAG, "❌ 위치 권한 없음")
@@ -146,7 +146,7 @@ class NativeGeofenceManager(private val context: Context) {
                                         Geofence.GEOFENCE_TRANSITION_EXIT or
                                         Geofence.GEOFENCE_TRANSITION_DWELL
                         )
-                        .setLoiteringDelay(15000) // 15초 머물러야 DWELL
+                        .setLoiteringDelay(5000) // 5초 머물러야 DWELL
                         .setNotificationResponsiveness(notificationResponsiveness)
                         .build()
 

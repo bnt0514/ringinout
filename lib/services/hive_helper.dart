@@ -251,6 +251,70 @@ class HiveHelper {
     }
   }
 
+  static List<Map<String, dynamic>> getActiveAlarmsForMonitoring({
+    DateTime? now,
+  }) {
+    final current = now ?? DateTime.now();
+    try {
+      final alarms = getLocationAlarms();
+      return alarms
+          .where((alarm) => alarm['enabled'] == true)
+          .where((alarm) => isAlarmActiveForMonitoring(alarm, current))
+          .toList();
+    } catch (e) {
+      debugPrint('❌ getActiveAlarmsForMonitoring 에러: $e');
+      return [];
+    }
+  }
+
+  /// 알람이 현재 모니터링이 필요한지 확인
+  /// - 최초 진입/진출 알람 (repeat == null): 항상 활성
+  /// - 특정 날짜 알람 (repeat가 ISO8601 문자열): 오늘이 해당 날짜인 경우만 활성
+  /// - 요일별 알람 (repeat가 List): 오늘 요일이 포함된 경우만 활성
+  static bool isAlarmActiveForMonitoring(
+    Map<String, dynamic> alarm,
+    DateTime now,
+  ) {
+    if (alarm['enabled'] != true) return false;
+
+    final repeat = alarm['repeat'];
+
+    // 최초 진입/진출 알람: repeat이 null이면 항상 활성
+    if (repeat == null) {
+      return true;
+    }
+
+    // 특정 날짜 알람: repeat이 ISO8601 문자열
+    if (repeat is String) {
+      final targetDate = DateTime.tryParse(repeat);
+      if (targetDate != null) {
+        // 오늘 날짜와 비교 (시간 무시, 날짜만 비교)
+        final todayOnly = DateTime(now.year, now.month, now.day);
+        final targetOnly = DateTime(
+          targetDate.year,
+          targetDate.month,
+          targetDate.day,
+        );
+        return todayOnly.isAtSameMomentAs(targetOnly);
+      }
+      return false; // 파싱 실패 시 비활성
+    }
+
+    // 요일별 알람: repeat이 List
+    if (repeat is List && repeat.isNotEmpty) {
+      final weekdayStr = ['일', '월', '화', '수', '목', '금', '토'][now.weekday % 7];
+      final days = repeat.map((e) => e.toString()).toList();
+      return days.contains(weekdayStr);
+    }
+
+    // 빈 리스트인 경우 (요일 선택 없음) - 최초 진입/진출과 동일하게 처리
+    if (repeat is List && repeat.isEmpty) {
+      return true;
+    }
+
+    return true;
+  }
+
   static Future<void> deleteLocationAlarm(int index) async {
     try {
       // ✅ 삭제 전에 알람 ID 가져오기

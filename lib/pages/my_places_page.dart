@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ringinout/config/app_theme.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:ringinout/pages/add_location_alarm_page.dart';
@@ -142,8 +143,12 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Ringinout 알람'),
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor, // 변경
-        elevation: 0, // 그림자 제거(선택)
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.textOnPrimary,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(gradient: AppColors.primaryGradient),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.sort),
@@ -198,7 +203,7 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
                     ],
                   ),
                 ),
-                const Divider(height: 1, thickness: 1),
+                const SizedBox(height: 4),
                 Expanded(
                   child: ValueListenableBuilder(
                     valueListenable: HiveHelper.placeBox.listenable(),
@@ -225,78 +230,88 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
                         children: [
                           Expanded(
                             child: ListView.separated(
-                              padding: const EdgeInsets.only(bottom: 100),
+                              padding: const EdgeInsets.only(
+                                left: 12,
+                                right: 12,
+                                top: 4,
+                                bottom: 100,
+                              ),
                               itemCount: items.length,
                               itemBuilder: (context, index) {
                                 final location = items[index];
                                 return AnimatedPadding(
                                   duration: const Duration(milliseconds: 200),
                                   padding: EdgeInsets.only(
-                                    left: isSelectionMode ? 12.0 : 0.0,
-                                    top: isSelectionMode ? 6.0 : 0.0,
+                                    left: isSelectionMode ? 8.0 : 0.0,
+                                    top: isSelectionMode ? 4.0 : 0.0,
                                   ),
-                                  child: ListTile(
-                                    leading:
-                                        isSelectionMode
-                                            ? Checkbox(
-                                              value: selectedIndexes.contains(
-                                                index,
-                                              ),
-                                              onChanged: (_) {
-                                                setState(() {
-                                                  if (selectedIndexes.contains(
-                                                    index,
-                                                  )) {
-                                                    selectedIndexes.remove(
-                                                      index,
-                                                    );
-                                                    if (selectedIndexes.isEmpty)
-                                                      isSelectionMode = false;
-                                                  } else {
-                                                    selectedIndexes.add(index);
-                                                  }
-                                                });
-                                              },
-                                            )
-                                            : const Icon(Icons.place),
-                                    title: Text(location['name'] ?? '이름 없음'),
-                                    subtitle: Text(
-                                      '반경: ${location["radius"] ?? '?'}m',
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: AppColors.card,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color:
+                                            selectedIndexes.contains(index)
+                                                ? AppColors.primary.withValues(
+                                                  alpha: 0.5,
+                                                )
+                                                : AppColors.divider,
+                                        width:
+                                            selectedIndexes.contains(index)
+                                                ? 1.5
+                                                : 1,
+                                      ),
+                                      boxShadow: AppStyle.softShadow,
                                     ),
-                                    onTap: () async {
-                                      if (isSelectionMode) {
-                                        setState(() {
-                                          if (selectedIndexes.contains(index)) {
-                                            selectedIndexes.remove(index);
-                                            if (selectedIndexes.isEmpty)
-                                              isSelectionMode = false;
-                                          } else {
-                                            selectedIndexes.add(index);
-                                          }
-                                        });
-                                      } else {
-                                        final updated = await Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder:
-                                                (_) => EditPlacePage(
-                                                  initialData: location,
-                                                  index: index,
+                                    child: ListTile(
+                                      leading:
+                                          isSelectionMode
+                                              ? Checkbox(
+                                                value: selectedIndexes.contains(
+                                                  index,
                                                 ),
-                                          ),
-                                        );
-                                        if (updated == true) setState(() {});
-                                      }
-                                    },
-                                    onLongPress: () {
-                                      setState(() {
-                                        isSelectionMode = true;
-                                        selectedIndexes.add(index);
-                                      });
-                                    },
-                                    trailing: PopupMenuButton<String>(
-                                      onSelected: (value) async {
-                                        if (value == 'edit_places') {
+                                                onChanged: (_) {
+                                                  setState(() {
+                                                    if (selectedIndexes
+                                                        .contains(index)) {
+                                                      selectedIndexes.remove(
+                                                        index,
+                                                      );
+                                                      if (selectedIndexes
+                                                          .isEmpty) {
+                                                        isSelectionMode = false;
+                                                      }
+                                                    } else {
+                                                      selectedIndexes.add(
+                                                        index,
+                                                      );
+                                                    }
+                                                  });
+                                                },
+                                              )
+                                              : const Icon(
+                                                Icons.place,
+                                                color: AppColors.primary,
+                                              ),
+                                      title: Text(location['name'] ?? '이름 없음'),
+                                      subtitle: Text(
+                                        '반경: ${location["radius"] ?? '?'}m',
+                                      ),
+                                      onTap: () async {
+                                        if (isSelectionMode) {
+                                          setState(() {
+                                            if (selectedIndexes.contains(
+                                              index,
+                                            )) {
+                                              selectedIndexes.remove(index);
+                                              if (selectedIndexes.isEmpty) {
+                                                isSelectionMode = false;
+                                              }
+                                            } else {
+                                              selectedIndexes.add(index);
+                                            }
+                                          });
+                                        } else {
                                           final updated = await Navigator.push(
                                             context,
                                             MaterialPageRoute(
@@ -307,76 +322,104 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
                                                   ),
                                             ),
                                           );
-                                          if (updated == true) setState(() {});
-                                        } else if (value == 'add_alarm') {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder:
-                                                  (_) => AddLocationAlarmPage(
-                                                    preSelectedPlace: location,
-                                                  ),
-                                            ),
-                                          );
-                                        } else if (value == 'delete') {
-                                          final confirm = await showDialog<
-                                            bool
-                                          >(
-                                            context: context,
-                                            builder:
-                                                (_) => AlertDialog(
-                                                  title: const Text('삭제 확인'),
-                                                  content: const Text(
-                                                    '정말로 이 위치를 삭제하시겠습니까?',
-                                                  ),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed:
-                                                          () => Navigator.pop(
-                                                            context,
-                                                            false,
-                                                          ),
-                                                      child: const Text('취소'),
-                                                    ),
-                                                    TextButton(
-                                                      onPressed:
-                                                          () => Navigator.pop(
-                                                            context,
-                                                            true,
-                                                          ),
-                                                      child: const Text('삭제'),
-                                                    ),
-                                                  ],
-                                                ),
-                                          );
-                                          if (confirm == true) {
-                                            await HiveHelper.deleteLocation(
-                                              index,
-                                            );
+                                          if (updated == true) {
                                             setState(() {});
                                           }
                                         }
                                       },
-                                      itemBuilder:
-                                          (context) => const [
-                                            PopupMenuItem(
-                                              value: 'edit_places',
-                                              child: Text('MyPlaces 편집'),
-                                            ),
-                                            PopupMenuItem(
-                                              value: 'add_alarm',
-                                              child: Text('새 알람 추가'),
-                                            ),
-                                            PopupMenuItem(
-                                              value: 'delete',
-                                              child: Text(
-                                                '삭제',
-                                                style: TextStyle(
-                                                  color: Colors.red,
+                                      onLongPress: () {
+                                        setState(() {
+                                          isSelectionMode = true;
+                                          selectedIndexes.add(index);
+                                        });
+                                      },
+                                      trailing: PopupMenuButton<String>(
+                                        onSelected: (value) async {
+                                          if (value == 'edit_places') {
+                                            final updated =
+                                                await Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder:
+                                                        (_) => EditPlacePage(
+                                                          initialData: location,
+                                                          index: index,
+                                                        ),
+                                                  ),
+                                                );
+                                            if (updated == true)
+                                              setState(() {});
+                                          } else if (value == 'add_alarm') {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder:
+                                                    (_) => AddLocationAlarmPage(
+                                                      preSelectedPlace:
+                                                          location,
+                                                    ),
+                                              ),
+                                            );
+                                          } else if (value == 'delete') {
+                                            final confirm = await showDialog<
+                                              bool
+                                            >(
+                                              context: context,
+                                              builder:
+                                                  (_) => AlertDialog(
+                                                    title: const Text('삭제 확인'),
+                                                    content: const Text(
+                                                      '정말로 이 위치를 삭제하시겠습니까?',
+                                                    ),
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed:
+                                                            () => Navigator.pop(
+                                                              context,
+                                                              false,
+                                                            ),
+                                                        child: const Text('취소'),
+                                                      ),
+                                                      TextButton(
+                                                        onPressed:
+                                                            () => Navigator.pop(
+                                                              context,
+                                                              true,
+                                                            ),
+                                                        child: const Text('삭제'),
+                                                      ),
+                                                    ],
+                                                  ),
+                                            );
+                                            if (confirm == true) {
+                                              await HiveHelper.deleteLocation(
+                                                index,
+                                              );
+                                              setState(() {});
+                                            }
+                                          }
+                                        },
+                                        itemBuilder:
+                                            (context) => const [
+                                              PopupMenuItem(
+                                                value: 'edit_places',
+                                                child: Text('MyPlaces 편집'),
+                                              ),
+                                              PopupMenuItem(
+                                                value: 'add_alarm',
+                                                child: Text('새 알람 추가'),
+                                              ),
+                                              PopupMenuItem(
+                                                value: 'delete',
+                                                child: Text(
+                                                  '삭제',
+                                                  style: TextStyle(
+                                                    color: AppColors.danger,
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                          ],
+                                            ],
+                                      ),
                                     ),
                                   ),
                                 );
@@ -409,16 +452,23 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
                   fabPosition.dy,
                 );
               },
-              child: FloatingActionButton(
-                heroTag: 'my_places',
-                shape: const CircleBorder(),
-                elevation: 4,
-                mini: true,
-                backgroundColor: const Color.fromARGB(255, 0, 15, 150),
-                foregroundColor: Colors.white,
-                onPressed: _navigateToLocationPicker,
-                tooltip: '새 위치 추가',
-                child: const Icon(Icons.add_location_alt),
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: AppColors.primaryGradient,
+                  boxShadow: AppStyle.fabShadow,
+                ),
+                child: FloatingActionButton(
+                  heroTag: 'my_places',
+                  shape: const CircleBorder(),
+                  elevation: 0,
+                  mini: true,
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: AppColors.textOnPrimary,
+                  onPressed: _navigateToLocationPicker,
+                  tooltip: '새 위치 추가',
+                  child: const Icon(Icons.add_location_alt),
+                ),
               ),
             ),
           ),

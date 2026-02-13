@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ringinout/config/app_theme.dart';
 import 'add_location_alarm_page.dart';
 
 class TestPage extends StatefulWidget {
@@ -73,8 +74,8 @@ class _TestPageState extends State<TestPage>
   Widget _buildWidgetGuideSheet() {
     return Container(
       height: MediaQuery.of(context).size.height * 0.7,
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: AppColors.card,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
@@ -85,7 +86,7 @@ class _TestPageState extends State<TestPage>
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey[300],
+              color: AppColors.inactive,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -102,14 +103,12 @@ class _TestPageState extends State<TestPage>
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFF6B35), Color(0xFFE53935)],
-                          ),
+                          gradient: AppColors.primaryGradient,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(
                           Icons.widgets,
-                          color: Colors.white,
+                          color: AppColors.textOnPrimary,
                           size: 28,
                         ),
                       ),
@@ -129,7 +128,7 @@ class _TestPageState extends State<TestPage>
                               '더 빠르게 음성 알람을 시작하세요!',
                               style: TextStyle(
                                 fontSize: 14,
-                                color: Colors.grey,
+                                color: AppColors.textSecondary,
                               ),
                             ),
                           ],
@@ -152,13 +151,15 @@ class _TestPageState extends State<TestPage>
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
+                      color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.orange.shade200),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.3),
+                      ),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.lightbulb, color: Colors.orange.shade700),
+                        Icon(Icons.lightbulb, color: AppColors.primary),
                         const SizedBox(width: 12),
                         const Expanded(
                           child: Text(
@@ -178,8 +179,8 @@ class _TestPageState extends State<TestPage>
                     child: ElevatedButton(
                       onPressed: () => Navigator.pop(context),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFF6B35),
-                        foregroundColor: Colors.white,
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.textOnPrimary,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -219,14 +220,14 @@ class _TestPageState extends State<TestPage>
               child: Text(
                 '$number',
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textOnPrimary,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
           ),
           const SizedBox(width: 12),
-          Icon(icon, color: Colors.grey[600], size: 24),
+          Icon(icon, color: AppColors.textSecondary, size: 24),
           const SizedBox(width: 12),
           Expanded(child: Text(text, style: const TextStyle(fontSize: 15))),
         ],
@@ -237,11 +238,16 @@ class _TestPageState extends State<TestPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('🎤 음성 알람'),
         centerTitle: true,
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.textOnPrimary,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(gradient: AppColors.primaryGradient),
+        ),
+        systemOverlayStyle: SystemUiOverlayStyle.light,
         elevation: 0,
       ),
       body: Stack(
@@ -261,7 +267,7 @@ class _TestPageState extends State<TestPage>
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF333333),
+                          color: AppColors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -269,7 +275,7 @@ class _TestPageState extends State<TestPage>
                         '"회사 도착하면 알려줘"',
                         style: TextStyle(
                           fontSize: 16,
-                          color: Colors.grey[600],
+                          color: AppColors.textSecondary,
                           fontStyle: FontStyle.italic,
                         ),
                       ),
@@ -285,17 +291,13 @@ class _TestPageState extends State<TestPage>
                             width: 140,
                             height: 140,
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [Color(0xFFFF6B35), Color(0xFFE53935)],
-                              ),
+                              gradient: AppColors.primaryGradient,
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(
-                                    0xFFFF6B35,
-                                  ).withOpacity(0.4),
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.4,
+                                  ),
                                   blurRadius: 30,
                                   spreadRadius: 5,
                                 ),
@@ -304,7 +306,7 @@ class _TestPageState extends State<TestPage>
                             child: const Icon(
                               Icons.mic,
                               size: 70,
-                              color: Colors.white,
+                              color: AppColors.textOnPrimary,
                             ),
                           ),
                         ),
@@ -315,7 +317,7 @@ class _TestPageState extends State<TestPage>
                         '탭하여 시작',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey,
+                          color: AppColors.textSecondary,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -333,11 +335,11 @@ class _TestPageState extends State<TestPage>
                     child: Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.card,
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -348,12 +350,12 @@ class _TestPageState extends State<TestPage>
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFF6B35).withOpacity(0.1),
+                              color: AppColors.primary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(
                               Icons.add_to_home_screen,
-                              color: Color(0xFFFF6B35),
+                              color: AppColors.primary,
                               size: 28,
                             ),
                           ),
@@ -374,7 +376,7 @@ class _TestPageState extends State<TestPage>
                                   '앱 없이 바로 음성 알람 시작!',
                                   style: TextStyle(
                                     fontSize: 13,
-                                    color: Colors.grey[600],
+                                    color: AppColors.textSecondary,
                                   ),
                                 ),
                               ],
@@ -383,7 +385,7 @@ class _TestPageState extends State<TestPage>
                           const Icon(
                             Icons.arrow_forward_ios,
                             size: 16,
-                            color: Colors.grey,
+                            color: AppColors.textSecondary,
                           ),
                         ],
                       ),
@@ -399,20 +401,50 @@ class _TestPageState extends State<TestPage>
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
+                      color: AppColors.shimmer,
                       borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.divider),
                     ),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Icon(
                           Icons.tips_and_updates,
-                          color: Colors.blue.shade700,
+                          color: AppColors.primary,
+                          size: 24,
                         ),
                         const SizedBox(width: 12),
-                        const Expanded(
-                          child: Text(
-                            '장소 이름을 말하면 자동으로 매칭됩니다\n예: "집", "회사", "시흥집"',
-                            style: TextStyle(fontSize: 13),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '💡 음성 인식 예시',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '• "집 도착하면 알려줘"\n• "회사 출발하면 알려줘"\n• "학교 나가면 알려줘"\n• "시흥집 들어가면 울려줘"',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.textSecondary,
+                                  height: 1.5,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                '진입/진출 모두 자동 인식됩니다',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -433,13 +465,13 @@ class _TestPageState extends State<TestPage>
                 _showWidgetGuideDialog();
               },
               child: Container(
-                color: Colors.black54,
+                color: Colors.black.withValues(alpha: 0.7),
                 child: Center(
                   child: Container(
                     margin: const EdgeInsets.all(32),
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.card,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Column(
@@ -448,14 +480,12 @@ class _TestPageState extends State<TestPage>
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFFF6B35), Color(0xFFE53935)],
-                            ),
+                            gradient: AppColors.primaryGradient,
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: const Icon(
                             Icons.celebration,
-                            color: Colors.white,
+                            color: AppColors.textOnPrimary,
                             size: 40,
                           ),
                         ),
@@ -480,8 +510,8 @@ class _TestPageState extends State<TestPage>
                             _showWidgetGuideDialog();
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFFF6B35),
-                            foregroundColor: Colors.white,
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: AppColors.textOnPrimary,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 32,
                               vertical: 14,

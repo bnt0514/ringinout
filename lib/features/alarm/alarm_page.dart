@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 // Project imports
-import 'package:ringinout/config/constants.dart';
+import 'package:ringinout/config/app_theme.dart';
 import 'package:ringinout/pages/location_alarm_list.dart';
 import 'package:ringinout/pages/settings_page.dart';
 import 'package:ringinout/services/permissions.dart';
@@ -18,12 +18,9 @@ class AlarmPage extends StatefulWidget {
 
 class _AlarmPageState extends State<AlarmPage>
     with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     _checkPermissions();
   }
 
@@ -62,16 +59,21 @@ class _AlarmPageState extends State<AlarmPage>
 
   @override
   void dispose() {
-    _tabController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.get('alarm_title')),
+        title: const Text('Ringinout 알람'),
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.textOnPrimary,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(gradient: AppColors.primaryGradient),
+        ),
+        systemOverlayStyle: SystemUiOverlayStyle.light,
         actions: [
           IconButton(icon: const Icon(Icons.sort), onPressed: _showSortOptions),
           IconButton(
@@ -84,24 +86,8 @@ class _AlarmPageState extends State<AlarmPage>
             },
           ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: [
-            Tab(text: l10n.get('location_alarm')),
-            Tab(text: l10n.get('basic_alarm')),
-          ],
-        ),
       ),
-      body: TabBarView(
-        physics: const NeverScrollableScrollPhysics(),
-        controller: _tabController,
-        children: [
-          const KeepAliveWidget(child: LocationAlarmList()),
-          KeepAliveWidget(
-            child: Center(child: Text(l10n.get('basic_alarm_page'))),
-          ),
-        ],
-      ),
+      body: const KeepAliveWidget(child: LocationAlarmList()),
     );
   }
 }

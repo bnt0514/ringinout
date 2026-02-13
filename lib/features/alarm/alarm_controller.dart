@@ -169,6 +169,10 @@ class AlarmController extends ChangeNotifier {
 
   Future<void> _refreshMonitoring() async {
     try {
+      // ✅ 네이티브 SmartLocationService 즉시 업데이트
+      await SmartLocationService.updatePlaces();
+      print('🎯 AlarmController: SmartLocationService 장소 업데이트 완료');
+
       await SmartLocationMonitor.startSmartMonitoring();
     } catch (e) {
       print('⚠️ 스마트 모니터링 재시작 실패: $e');

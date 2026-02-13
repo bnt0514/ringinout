@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ringinout/config/app_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:hive/hive.dart';
 
@@ -81,7 +82,7 @@ class _ShowAlarmPopupPageState extends State<ShowAlarmPopupPage> {
     final Size screenSize = MediaQuery.of(context).size;
 
     return Material(
-      color: Colors.black.withOpacity(0.8),
+      color: Colors.black.withValues(alpha: 0.8),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -91,7 +92,7 @@ class _ShowAlarmPopupPageState extends State<ShowAlarmPopupPage> {
               widget.alarmTitle,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: Colors.white,
+                color: AppColors.textOnPrimary,
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
               ),
@@ -99,7 +100,7 @@ class _ShowAlarmPopupPageState extends State<ShowAlarmPopupPage> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
+              backgroundColor: AppColors.primary,
               padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
             ),
             onPressed: _onSnooze,
@@ -109,7 +110,7 @@ class _ShowAlarmPopupPageState extends State<ShowAlarmPopupPage> {
             const SizedBox(height: 16),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
+                backgroundColor: AppColors.danger,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 40,
                   vertical: 16,

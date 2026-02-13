@@ -64,15 +64,13 @@ class SmartLocationService {
   static Future<void> startMonitoring() async {
     try {
       // Hive에서 활성 알람 가져오기
-      final alarms =
-          HiveHelper.getLocationAlarms()
-              .where((alarm) => alarm['enabled'] == true)
-              .toList();
+      final alarms = HiveHelper.getActiveAlarmsForMonitoring();
 
       _log('🧭 startMonitoring 활성 알람 수: ${alarms.length}');
 
       if (alarms.isEmpty) {
         _log('📭 활성 알람 없음 - 모니터링 시작하지 않음');
+        await stopMonitoring();
         return;
       }
 
@@ -157,12 +155,15 @@ class SmartLocationService {
   /// 알람 장소 업데이트
   static Future<void> updatePlaces() async {
     try {
-      final alarms =
-          HiveHelper.getLocationAlarms()
-              .where((alarm) => alarm['enabled'] == true)
-              .toList();
+      final alarms = HiveHelper.getActiveAlarmsForMonitoring();
 
       _log('🧭 updatePlaces 활성 알람 수: ${alarms.length}');
+
+      if (alarms.isEmpty) {
+        _log('📭 활성 알람 없음 - 모니터링 중지');
+        await stopMonitoring();
+        return;
+      }
 
       final places = HiveHelper.getSavedLocations();
       final alarmPlaces = <Map<String, dynamic>>[];
@@ -319,9 +320,12 @@ class SmartLocationService {
       );
 
       // 알람 비활성화 (1회성 알람인 경우)
-      final repeatDays = alarm['days'] as List?;
-      if (repeatDays == null || repeatDays.isEmpty) {
-        // 반복 요일이 없으면 비활성화
+      // - repeat == null: 최초 진입/진출 (1회성)
+      // - repeat is String: 특정 날짜 (1회성)
+      // - repeat is List && notEmpty: 요일 반복 (반복)
+      final repeat = alarm['repeat'];
+      final isOneShot = repeat == null || repeat is String;
+      if (isOneShot) {
         await _disableAlarm(placeId, placeName);
       }
     } catch (e) {
@@ -337,10 +341,13 @@ class SmartLocationService {
       for (var key in alarmBox.keys) {
         final alarm = alarmBox.get(key);
         if (alarm is Map) {
-          final id = alarm['id']?.toString();
-          final place = alarm['place'] ?? alarm['locationName'];
+          final converted = Map<String, dynamic>.from(alarm);
+          final candidatePlaceId = buildPlaceIdFromAlarm(converted);
 
-          if (id == placeId || place == placeName) {
+          // 1) 네이티브가 준 placeId(고유 ID)로 정확히 매칭
+          // 2) 폴백: 장소명만 매칭 (레거시/데이터 이상 시)
+          final place = converted['place'] ?? converted['locationName'];
+          if (candidatePlaceId == placeId || place == placeName) {
             final updatedAlarm = Map<String, dynamic>.from(alarm);
             updatedAlarm['enabled'] = false;
             await alarmBox.put(key, updatedAlarm);

@@ -1,5 +1,6 @@
 // lib/pages/permission_guide_page.dart
 import 'package:flutter/material.dart';
+import 'package:ringinout/config/app_theme.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
 
 /// 권한 가이드 페이지 - 사용자가 쉽게 권한을 설정할 수 있도록 안내
@@ -29,7 +30,7 @@ class _PermissionGuidePageState extends State<PermissionGuidePage> {
         title: '위치 권한',
         description: '알람을 울릴 위치를 감지하기 위해 필요합니다.',
         icon: Icons.location_on,
-        color: Colors.blue,
+        color: AppColors.primary,
         checkPermission: () async {
           final status = await ph.Permission.location.status;
           return status.isGranted;
@@ -42,7 +43,7 @@ class _PermissionGuidePageState extends State<PermissionGuidePage> {
         title: '백그라운드 위치',
         description: '앱을 사용하지 않을 때도 위치를 감지합니다.',
         icon: Icons.my_location,
-        color: Colors.green,
+        color: AppColors.success,
         checkPermission: () async {
           final status = await ph.Permission.locationAlways.status;
           return status.isGranted;
@@ -55,7 +56,7 @@ class _PermissionGuidePageState extends State<PermissionGuidePage> {
         title: '알림 권한',
         description: '알람이 울릴 때 알림을 표시합니다.',
         icon: Icons.notifications_active,
-        color: Colors.orange,
+        color: AppColors.warning,
         checkPermission: () async {
           final status = await ph.Permission.notification.status;
           return status.isGranted;
@@ -68,7 +69,7 @@ class _PermissionGuidePageState extends State<PermissionGuidePage> {
         title: '다른 앱 위에 표시',
         description: '전체화면 알람을 표시하기 위해 필요합니다.',
         icon: Icons.layers,
-        color: Colors.purple,
+        color: const Color(0xFF7B1FA2),
         checkPermission: () async {
           final status = await ph.Permission.systemAlertWindow.status;
           return status.isGranted;
@@ -139,7 +140,9 @@ class _PermissionGuidePageState extends State<PermissionGuidePage> {
                     margin: const EdgeInsets.symmetric(horizontal: 2),
                     decoration: BoxDecoration(
                       color:
-                          step.isGranted ? Colors.green : Colors.grey.shade300,
+                          step.isGranted
+                              ? AppColors.success
+                              : AppColors.inactive,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -178,13 +181,14 @@ class _PermissionGuidePageState extends State<PermissionGuidePage> {
                           decoration: BoxDecoration(
                             color:
                                 step.isGranted
-                                    ? Colors.green.shade100
+                                    ? AppColors.success.withValues(alpha: 0.2)
                                     : step.color.withOpacity(0.1),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
                             step.isGranted ? Icons.check : step.icon,
-                            color: step.isGranted ? Colors.green : step.color,
+                            color:
+                                step.isGranted ? AppColors.success : step.color,
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -199,14 +203,15 @@ class _PermissionGuidePageState extends State<PermissionGuidePage> {
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
-                                  color: step.isGranted ? Colors.green : null,
+                                  color:
+                                      step.isGranted ? AppColors.success : null,
                                 ),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 step.description,
                                 style: TextStyle(
-                                  color: Colors.grey.shade600,
+                                  color: AppColors.textSecondary,
                                   fontSize: 13,
                                 ),
                               ),
@@ -216,9 +221,9 @@ class _PermissionGuidePageState extends State<PermissionGuidePage> {
 
                         // 버튼
                         if (step.isGranted)
-                          const Icon(
+                          Icon(
                             Icons.check_circle,
-                            color: Colors.green,
+                            color: AppColors.success,
                             size: 28,
                           )
                         else
@@ -226,7 +231,7 @@ class _PermissionGuidePageState extends State<PermissionGuidePage> {
                             onPressed: () => _handlePermissionRequest(index),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: step.color,
-                              foregroundColor: Colors.white,
+                              foregroundColor: AppColors.textOnPrimary,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,
                                 vertical: 8,
@@ -257,8 +262,8 @@ class _PermissionGuidePageState extends State<PermissionGuidePage> {
                         : null,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Colors.green,
-                  disabledBackgroundColor: Colors.grey.shade300,
+                  backgroundColor: AppColors.success,
+                  disabledBackgroundColor: AppColors.inactive,
                 ),
                 child: Text(
                   _allPermissionsGranted ? '설정 완료! 🎉' : '모든 권한을 허용해주세요',
@@ -280,7 +285,7 @@ class _PermissionGuidePageState extends State<PermissionGuidePage> {
               },
               child: Text(
                 '나중에 설정하기',
-                style: TextStyle(color: Colors.grey.shade600),
+                style: TextStyle(color: AppColors.textSecondary),
               ),
             ),
           const SizedBox(height: 16),

@@ -66,6 +66,7 @@ dependencies:
   cloud_firestore: ^5.6.0
   firebase_remote_config: ^5.3.0
   in_app_purchase: ^3.2.0
+  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:
@@ -90,6 +91,8 @@ flutter:
   uses-material-design: true
   assets:
     - assets/map.html
+    - assets/images/RingInOutLogo.png
+    - assets/images/로그인화면.jpg
     - assets/sounds/beep.mp3
     - assets/sounds/horizonmusic.mp3
     - assets/sounds/thoughtfulringtone.mp3

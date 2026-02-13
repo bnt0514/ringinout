@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:ringinout/config/app_theme.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
 import 'package:ringinout/pages/gps_page.dart';
 import 'package:ringinout/services/policy_texts.dart';
-import 'package:ringinout/config/app_config.dart';
 import 'package:ringinout/config/app_config.dart';
 
 class SubscriptionManagementPage extends StatefulWidget {
@@ -50,24 +51,46 @@ class _SubscriptionManagementPageState extends State<SubscriptionManagementPage>
     return Scaffold(
       appBar: AppBar(
         title: const Text('구독 관리'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [Tab(text: '구독 관리'), Tab(text: 'GPS')],
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.textOnPrimary,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(gradient: AppColors.primaryGradient),
         ),
+        systemOverlayStyle: SystemUiOverlayStyle.light,
       ),
-      body: TabBarView(
-        controller: _tabController,
-        physics: const NeverScrollableScrollPhysics(),
+      body: Column(
         children: [
-          _SubscriptionManagementView(
-            currentPlanName: widget.currentPlanName,
-            currentPlanExpiry: widget.currentPlanExpiry,
-            onCancelPlan: widget.onCancelPlan,
-            basicProduct: widget.basicProduct,
-            premiumProduct: widget.premiumProduct,
-            adRemoveProduct: widget.adRemoveProduct,
+          Container(
+            color: AppColors.card,
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+            child: TabBar(
+              controller: _tabController,
+              labelColor: AppColors.textPrimary,
+              unselectedLabelColor: AppColors.textSecondary,
+              indicatorColor: AppColors.primary,
+              indicatorWeight: 2.5,
+              tabs: const [Tab(text: '구독 관리'), Tab(text: 'GPS')],
+            ),
           ),
-          const GpsPage(showAppBar: false),
+          const Divider(height: 1, thickness: 1, color: AppColors.divider),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                _SubscriptionManagementView(
+                  currentPlanName: widget.currentPlanName,
+                  currentPlanExpiry: widget.currentPlanExpiry,
+                  onCancelPlan: widget.onCancelPlan,
+                  basicProduct: widget.basicProduct,
+                  premiumProduct: widget.premiumProduct,
+                  adRemoveProduct: widget.adRemoveProduct,
+                ),
+                const GpsPage(showAppBar: false),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -104,7 +127,7 @@ class _SubscriptionManagementView extends StatelessWidget {
         const SizedBox(height: 16),
         if (AppConfig.isBetaVersion)
           Card(
-            color: Colors.orange.shade50,
+            color: AppColors.shimmer,
             child: const Padding(
               padding: EdgeInsets.all(12),
               child: Text(
@@ -386,7 +409,10 @@ class _PlanCard extends StatelessWidget {
                 padding: EdgeInsets.only(top: 8),
                 child: Text(
                   '베타 종료 후 구독이 활성화됩니다.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ),
           ],

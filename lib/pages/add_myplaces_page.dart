@@ -1,6 +1,7 @@
 // add_myplaces_page.dart
 
 import 'package:flutter/material.dart';
+import 'package:ringinout/config/app_theme.dart';
 import 'package:geofence_service/geofence_service.dart' as fence;
 import 'package:geofence_service/models/geofence.dart';
 import 'package:geofence_service/models/geofence_radius.dart';
@@ -71,8 +72,8 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
       id: 'radius_circle',
       center: _selectedLatLng!,
       radius: _selectedRadius.toDouble(),
-      color: Colors.blue.withOpacity(0.2),
-      outlineColor: Colors.blue,
+      color: AppColors.mapCircleFill,
+      outlineColor: AppColors.mapCircleBorder,
       outlineWidth: 2,
     );
     _mapController!.addOverlay(circle);
@@ -151,7 +152,10 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                 const SizedBox(height: 4),
                 const Text(
                   '(지도에서 원으로 표시됨)',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -279,7 +283,7 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                 color: Theme.of(context).scaffoldBackgroundColor,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 8,
                     offset: const Offset(0, -2),
                   ),
@@ -410,7 +414,10 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                       ),
                       const Text(
                         '30m ~ 500m (10m 단위)',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                   ),

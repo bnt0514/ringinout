@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:ringinout/config/app_theme.dart';
 import 'package:provider/provider.dart';
 
 import 'package:ringinout/services/locale_provider.dart';
 import 'package:ringinout/services/app_localizations.dart';
+import 'package:ringinout/services/auth_service.dart';
+import 'package:ringinout/services/billing_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -13,12 +15,10 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-
-  User? get _currentUser => _auth.currentUser;
-
   Future<void> _handleGoogleSignOut() async {
     final l10n = AppLocalizations.of(context);
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final billingService = Provider.of<BillingService>(context, listen: false);
 
     // 로그아웃 확인 다이얼로그
     final confirm = await showDialog<bool>(
@@ -42,8 +42,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
     if (confirm != true) return;
 
+    if (confirm != true) return;
+
     try {
-      await _auth.signOut();
+      await authService.signOut();
+      billingService.clearCache();
 
       if (!mounted) return;
 
@@ -54,7 +57,7 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  void _showLanguageDialog() {
+  oid _showLanguageDialog() {
     final l10n = AppLocalizations.of(context);
     final localeProvider = Provider.of<LocaleProvider>(context, listen: false);
 
@@ -71,7 +74,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       title: Text(language.displayName),
                       trailing:
                           localeProvider.currentLanguage == language
-                              ? const Icon(Icons.check, color: Colors.blue)
+                              ? const Icon(
+                                Icons.check,
+                                color: AppColors.primary,
+                              )
                               : null,
                       onTap: () async {
                         await localeProvider.setLanguage(language);
@@ -178,7 +184,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   const SizedBox(height: 12),
                   Text(
                     l10n.get('privacy_last_updated'),
-                    style: const TextStyle(color: Colors.grey),
+                    style: const TextStyle(color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 16),
                   Text(

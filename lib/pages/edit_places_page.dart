@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ringinout/config/app_theme.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import '../services/hive_helper.dart';
 import '../services/app_localizations.dart';
@@ -50,8 +51,8 @@ class _EditPlacePageState extends State<EditPlacePage> {
       id: 'radius_circle',
       center: _selectedLatLng,
       radius: _radius.toDouble(),
-      color: Colors.blue.withOpacity(0.2),
-      outlineColor: Colors.blue,
+      color: AppColors.mapCircleFill,
+      outlineColor: AppColors.mapCircleBorder,
       outlineWidth: 2,
     );
     _mapController!.addOverlay(circle);
@@ -176,7 +177,9 @@ class _EditPlacePageState extends State<EditPlacePage> {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: _deletePlace,
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.danger,
+                  ),
                   icon: const Icon(Icons.delete),
                   label: Text(l10n.get('delete')),
                 ),
@@ -247,7 +250,10 @@ class _EditPlacePageState extends State<EditPlacePage> {
                       ),
                       const Text(
                         '30m ~ 500m (10m 단위)',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                   ),

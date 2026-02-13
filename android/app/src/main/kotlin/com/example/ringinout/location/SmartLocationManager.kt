@@ -98,11 +98,11 @@ class SmartLocationManager private constructor(private val context: Context) {
     // 진입/진출 확정을 위한 연속 체크 카운터
     private var consecutiveInsideCount = 0
     private var consecutiveOutsideCount = 0
-    private val CONFIRM_COUNT = 2 // 연속 2회로 확정
+    private val CONFIRM_COUNT = 1 // 연속 1회로 확정 (지연 최소화)
 
     // 진입 dwell 시간 (inside 유지) 추적
     private val insideSince = mutableMapOf<String, Long>()
-    private val ENTRY_DWELL_MS = 15_000L
+    private val ENTRY_DWELL_MS = 5_000L
 
     // 빠른 진입 감지를 위한 ARMED 기준
     private val ARMED_ENTRY_FAST_ACCURACY_MAX = 40f
@@ -118,9 +118,18 @@ class SmartLocationManager private constructor(private val context: Context) {
     // 트리거된 알람 ID 기록 (중복 알람 방지)
     private val triggeredAlarms = mutableSetOf<String>()
 
+    // 관찰/디버그용: 마지막 거리/정확도/업데이트 시각 (placeId 기준)
+    private val lastDistanceMeters = mutableMapOf<String, Float>()
+    private val lastAccuracyMeters = mutableMapOf<String, Float>()
+    private val lastLocationUpdateMs = mutableMapOf<String, Long>()
+
+    // 과도한 HOT 재진입(thrash) 방지용 쿨다운
+    private val lastHotAttemptMs = mutableMapOf<String, Long>()
+    private val HOT_RETRY_COOLDOWN_MS = 45_000L
+
     // IDLE 상태에서 inside exit 감시용 저전력 가드
     private var idleInsideGuardActive = false
-    private val IDLE_INSIDE_GUARD_INTERVAL_MS = 20000L
+    private val IDLE_INSIDE_GUARD_INTERVAL_MS = 5000L
     private var idleGuardLastLocation: Location? = null
     private var idleGuardLastTimestamp: Long = 0L
 
@@ -248,10 +257,13 @@ class SmartLocationManager private constructor(private val context: Context) {
         insideSince.clear()
         Log.d(TAG, "🧹 insideStatus/hasEverInside/insideSince 초기화")
 
-        // 새로운 장소 목록으로 업데이트 시 트리거 기록 초기화
-        // (새 알람이 등록되면 다시 트리거될 수 있도록)
-        triggeredAlarms.clear()
-        Log.d(TAG, "🔄 트리거 기록 초기화 완료")
+        // 트리거 기록은 유지하되, 더 이상 존재하지 않는 ID만 제거
+        // (updatePlaces 호출만으로 같은 알람이 즉시 재트리거되는 문제 방지)
+        val newIds = places.map { it.id }.toSet()
+        val before = triggeredAlarms.size
+        triggeredAlarms.retainAll(newIds)
+        val after = triggeredAlarms.size
+        Log.d(TAG, "🔄 트리거 기록 정리: $before → $after")
 
         // 큰 지오펜스 재등록
         nativeGeofenceManager.registerLargeGeofences(places)
@@ -329,7 +341,7 @@ class SmartLocationManager private constructor(private val context: Context) {
         nativeGeofenceManager.registerSmallGeofence(place)
 
         // 저전력 위치 시작 (30초 간격)
-        val intervalMs = if (place.triggerType == AlarmTriggerType.ENTER) 10000L else 30000L
+        val intervalMs = if (place.triggerType == AlarmTriggerType.ENTER) 5000L else 10000L
         Log.d(TAG, "⏱️ ARMED 저전력 interval: ${intervalMs}ms")
         lowPowerLocationProvider.startUpdates(intervalMs) { location ->
             onLowPowerLocationUpdate(location, place)
@@ -349,6 +361,17 @@ class SmartLocationManager private constructor(private val context: Context) {
      * @param place 확정 대상 장소
      */
     private fun switchToHot(place: AlarmPlace) {
+        val now = System.currentTimeMillis()
+        val lastAttempt = lastHotAttemptMs[place.id] ?: 0L
+        if (now - lastAttempt < HOT_RETRY_COOLDOWN_MS) {
+            Log.d(
+                    TAG,
+                    "⏳ HOT 전환 쿨다운 - 스킵: ${place.name} (${(HOT_RETRY_COOLDOWN_MS - (now - lastAttempt)) / 1000}s 남음)"
+            )
+            return
+        }
+        lastHotAttemptMs[place.id] = now
+
         Log.d(TAG, "🔥 HOT 모드 전환: ${place.name} (${place.triggerType})")
         currentState = LocationState.HOT
         targetPlace = place
@@ -377,9 +400,49 @@ class SmartLocationManager private constructor(private val context: Context) {
 
         // 60초 타임아웃 (강제 IDLE 복귀)
         hotTimeoutRunnable = Runnable {
-            Log.d(TAG, "⏰ HOT 타임아웃 - IDLE로 강제 복귀")
-            // HOT 타임아웃 시 IDLE로 복귀 (ARMED로 가면 무한 루프 가능)
-            switchToIdle()
+            val p = targetPlace
+            if (p != null && p.triggerType == AlarmTriggerType.ENTER) {
+                val t = System.currentTimeMillis()
+                val lastTs = lastLocationUpdateMs[p.id] ?: 0L
+                val ageMs = if (lastTs == 0L) Long.MAX_VALUE else (t - lastTs)
+                val d = lastDistanceMeters[p.id]
+                val acc = lastAccuracyMeters[p.id]
+
+                // 무조건 ARMED로 가지 않도록 조건화
+                // - 최근에 위치 업데이트가 있었고
+                // - (작은 지오펜스 근처이거나) (정확도 불량으로 확정 못 한 흔적이 있을 때)
+                val isRecent = ageMs <= 20_000L
+                val nearSmall =
+                        (d != null && acc != null) &&
+                                (d <= p.smallGeofenceRadius + acc.coerceAtMost(120f))
+                val likelyAccuracyBlocked = (acc != null) && (acc > HOT_ENTRY_ACCURACY_MAX)
+
+                val shouldFallbackToArmed = isRecent && (nearSmall || likelyAccuracyBlocked)
+
+                if (shouldFallbackToArmed) {
+                    Log.d(
+                            TAG,
+                            "⏰ HOT 타임아웃 - ARMED 폴백: ${p.name} (d=${d?.toInt()}m acc=${acc?.toInt()}m age=${ageMs / 1000}s)"
+                    )
+                    highAccuracyLocationProvider.stopBurst()
+                    HotModeForegroundService.stop(context)
+
+                    // switchToArmed가 HOT 상태를 막고 있어서, 상태만 잠깐 풀고 진입
+                    currentState = LocationState.IDLE
+                    confirmationInProgress = false
+                    switchToArmed(p)
+                } else {
+                    Log.d(
+                            TAG,
+                            "⏰ HOT 타임아웃 - IDLE 복귀: ${p.name} (d=${d?.toInt()}m acc=${acc?.toInt()}m age=${ageMs / 1000}s)"
+                    )
+                    switchToIdle()
+                }
+            } else {
+                Log.d(TAG, "⏰ HOT 타임아웃 - IDLE로 강제 복귀")
+                // HOT 타임아웃 시 IDLE로 복귀 (ARMED로 가면 무한 루프 가능)
+                switchToIdle()
+            }
         }
         handler.postDelayed(hotTimeoutRunnable!!, 60 * 1000) // 60초
     }
@@ -712,6 +775,22 @@ class SmartLocationManager private constructor(private val context: Context) {
                 "📍 저전력 위치: ${targetPlace.name}까지 ${distance.toInt()}m (acc=${location.accuracy.toInt()}m, inside=$isInside)"
         )
 
+        // 관찰/디버그용 기록
+        lastDistanceMeters[targetPlace.id] = distance
+        lastAccuracyMeters[targetPlace.id] = location.accuracy
+        lastLocationUpdateMs[targetPlace.id] = System.currentTimeMillis()
+
+        // 지하/실내에서 지오펜스 이벤트가 늦거나 GPS 튐이 있을 때를 대비한 승격 보강
+        // 정확도가 아주 나쁘지 않은 범위에서는(<= 120m) 반경 + 정확도만큼 여유를 주고 HOT로 승격
+        if (targetPlace.triggerType == AlarmTriggerType.ENTER) {
+            val acc = location.accuracy.coerceAtMost(60f)
+            if (location.accuracy <= 120f && distance <= targetPlace.radiusMeters + acc) {
+                Log.d(TAG, "🧲 ARMED 근접(accuracy 고려) → HOT 전환: ${targetPlace.name}")
+                switchToHot(targetPlace)
+                return
+            }
+        }
+
         if (targetPlace.triggerType == AlarmTriggerType.ENTER && isInside) {
             if (location.accuracy <= ARMED_ENTRY_FAST_ACCURACY_MAX &&
                             distance <= targetPlace.radiusMeters + ARMED_ENTRY_FAST_MARGIN
@@ -749,6 +828,19 @@ class SmartLocationManager private constructor(private val context: Context) {
             return
         }
 
+        val distance =
+                calculateDistance(
+                        location.latitude,
+                        location.longitude,
+                        place.latitude,
+                        place.longitude
+                )
+
+        // 관찰/디버그용 기록 (정확도 좋든 나쁘든 저장)
+        lastDistanceMeters[place.id] = distance
+        lastAccuracyMeters[place.id] = location.accuracy
+        lastLocationUpdateMs[place.id] = System.currentTimeMillis()
+
         // 정확도 필터: 정확도가 너무 낮으면(오차가 크면) 판정 유보
         val maxAccuracy =
                 if (place.triggerType == AlarmTriggerType.ENTER) {
@@ -758,17 +850,12 @@ class SmartLocationManager private constructor(private val context: Context) {
                 }
 
         if (location.accuracy > maxAccuracy) {
-            Log.w(TAG, "⚠️ GPS 정확도 낮음(${location.accuracy}m) - 판정 유보")
+            Log.w(
+                    TAG,
+                    "⚠️ GPS 정확도 낮음(${location.accuracy.toInt()}m) - 판정 유보 (d=${distance.toInt()}m, r=${place.radiusMeters.toInt()}m)"
+            )
             return
         }
-
-        val distance =
-                calculateDistance(
-                        location.latitude,
-                        location.longitude,
-                        place.latitude,
-                        place.longitude
-                )
 
         // 정확도를 고려한 보수적 판단 (진입은 더 깊숙이, 진출은 더 확실히 멀어져야 함)
         // distance - accuracy <= radius : 확실히 안에 있음
@@ -1091,12 +1178,27 @@ class SmartLocationManager private constructor(private val context: Context) {
                             }
                         }
                         .joinToString()
+
+        val targetId = targetPlace?.id
+        val tNow = System.currentTimeMillis()
+        val lastD = if (targetId != null) lastDistanceMeters[targetId] else null
+        val lastA = if (targetId != null) lastAccuracyMeters[targetId] else null
+        val lastTs = if (targetId != null) lastLocationUpdateMs[targetId] else null
+        val ageSec =
+                if (lastTs == null || lastTs == 0L) {
+                    -1
+                } else {
+                    ((tNow - lastTs) / 1000L).toInt()
+                }
         return mapOf(
                 "state" to currentState.name,
                 "targetPlace" to (targetPlace?.name ?: "없음"),
                 "alarmCount" to alarmPlaces.size,
                 "insideStatus" to insideByName,
-                "triggeredAlarms" to triggeredAlarms.joinToString()
+                "triggeredAlarms" to triggeredAlarms.joinToString(),
+                "targetDistanceM" to (lastD?.toInt() ?: -1),
+                "targetAccuracyM" to (lastA?.toInt() ?: -1),
+                "targetUpdateAgeSec" to ageSec
         )
     }
 

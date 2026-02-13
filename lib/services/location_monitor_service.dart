@@ -182,15 +182,45 @@ class LocationMonitorService {
     return _checkTimeCondition(alarm);
   }
 
-  // 요일 조건 체크
+  // 요일/날짜 조건 체크 (repeat 필드 사용)
+  // - repeat == null: 최초 진입/진출 → 항상 true
+  // - repeat이 String (ISO8601): 특정 날짜 알람
+  // - repeat이 List: 요일별 알람
   @pragma('vm:entry-point')
   bool _checkDayCondition(Map<String, dynamic> alarm) {
-    final List<String>? selectedDays = (alarm['days'] as List?)?.cast<String>();
-    if (selectedDays?.isEmpty ?? true) return true;
+    final repeat = alarm['repeat'];
+
+    // 최초 진입/진출 알람: repeat이 null이면 항상 true
+    if (repeat == null) {
+      return true;
+    }
 
     final now = DateTime.now();
-    final weekdayStr = ['일', '월', '화', '수', '목', '금', '토'][now.weekday % 7];
-    return selectedDays!.contains(weekdayStr);
+
+    // 특정 날짜 알람: repeat이 ISO8601 문자열
+    if (repeat is String) {
+      final targetDate = DateTime.tryParse(repeat);
+      if (targetDate != null) {
+        final todayOnly = DateTime(now.year, now.month, now.day);
+        final targetOnly = DateTime(
+          targetDate.year,
+          targetDate.month,
+          targetDate.day,
+        );
+        return todayOnly.isAtSameMomentAs(targetOnly);
+      }
+      return false;
+    }
+
+    // 요일별 알람: repeat이 List
+    if (repeat is List && repeat.isNotEmpty) {
+      final weekdayStr = ['일', '월', '화', '수', '목', '금', '토'][now.weekday % 7];
+      final days = repeat.map((e) => e.toString()).toList();
+      return days.contains(weekdayStr);
+    }
+
+    // 빈 리스트인 경우 - 최초 진입/진출과 동일
+    return true;
   }
 
   // 시간 조건 체크
@@ -703,8 +733,7 @@ class LocationMonitorService {
       if (HiveHelper.isInitialized) {
         try {
           final alarms = HiveHelper.getLocationAlarms();
-          final activeAlarms =
-              alarms.where((alarm) => alarm['enabled'] == true).toList();
+          final activeAlarms = HiveHelper.getActiveAlarmsForMonitoring();
 
           print(
             '📋 전체 알람 개수: ${alarms.length}, 활성화된 알람 개수: ${activeAlarms.length}',
@@ -760,10 +789,15 @@ class LocationMonitorService {
 
         List<Map<String, dynamic>> activeAlarms = [];
         for (var alarm in alarms) {
-          if (alarm is Map && alarm['enabled'] == true) {
+          if (alarm is Map) {
             // Map<dynamic, dynamic>을 Map<String, dynamic>으로 안전하게 변환
             final convertedAlarm = Map<String, dynamic>.from(alarm);
-            activeAlarms.add(convertedAlarm);
+            if (HiveHelper.isAlarmActiveForMonitoring(
+              convertedAlarm,
+              DateTime.now(),
+            )) {
+              activeAlarms.add(convertedAlarm);
+            }
           }
         }
 
@@ -795,9 +829,7 @@ class LocationMonitorService {
         }
 
         if (HiveHelper.isInitialized) {
-          final alarms = HiveHelper.getLocationAlarms();
-          final activeAlarms =
-              alarms.where((alarm) => alarm['enabled'] == true).toList();
+          final activeAlarms = HiveHelper.getActiveAlarmsForMonitoring();
           print('✅ HiveHelper 재시도 성공: ${activeAlarms.length}개 알람');
           return activeAlarms;
         } else {
@@ -860,15 +892,15 @@ class LocationMonitorService {
     try {
       print('🌙 백그라운드 지오펜스 모니터링 시작');
 
-      // ✅ 스누즈 알람 체크 시작
-      _startSnoozeChecker(onTrigger);
-
       final activeAlarms = await _getActiveAlarms();
 
       if (activeAlarms.isEmpty) {
         print('📭 백그라운드: 활성화된 알람이 없음');
         return;
       }
+
+      // ✅ 스누즈 알람 체크 시작 (활성 알람 있을 때만)
+      _startSnoozeChecker(onTrigger);
 
       print('🔔 백그라운드 활성 알람 ${activeAlarms.length}개 발견');
 
@@ -927,12 +959,17 @@ class LocationMonitorService {
   static Future<void> sendWatchdogHeartbeat() async {
     try {
       final activeAlarms = await _getActiveAlarmsStatic();
-      final activeCount =
-          activeAlarms.where((a) => a['enabled'] == true).length;
+      final activeCount = activeAlarms.length;
 
       await _watchdogChannel.invokeMethod('sendHeartbeat', {
         'activeAlarmsCount': activeCount,
       });
+
+      if (activeCount == 0) {
+        await _watchdogChannel.invokeMethod('stopWatchdog');
+      } else {
+        await _watchdogChannel.invokeMethod('startWatchdog');
+      }
 
       print('💓 Watchdog heartbeat 전송 (활성 알람: $activeCount)');
     } on MissingPluginException {
@@ -953,7 +990,13 @@ class LocationMonitorService {
       for (var key in box.keys) {
         final value = box.get(key);
         if (value is Map) {
-          alarms.add(Map<String, dynamic>.from(value));
+          final converted = Map<String, dynamic>.from(value);
+          if (HiveHelper.isAlarmActiveForMonitoring(
+            converted,
+            DateTime.now(),
+          )) {
+            alarms.add(converted);
+          }
         }
       }
       return alarms;

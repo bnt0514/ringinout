@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:ringinout/pages/subscription_management_page.dart';
+import 'package:ringinout/pages/server_subscription_page.dart';
 import 'package:ringinout/services/subscription_service.dart';
 
 class SubscriptionLimitDialog {
@@ -61,7 +61,7 @@ class SubscriptionLimitDialog {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const SubscriptionManagementPage(),
+                    builder: (_) => const ServerSubscriptionPage(),
                   ),
                 );
               },

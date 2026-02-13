@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:ringinout/config/app_theme.dart';
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ringinout/services/smart_location_monitor.dart';
+import 'package:ringinout/services/smart_location_service.dart';
 import 'package:ringinout/utils/trigger_keywords.dart';
 import 'package:uuid/uuid.dart';
 
@@ -161,7 +163,7 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
       width: 32,
       height: 32,
       decoration: BoxDecoration(
-        color: value ? Colors.blue : Colors.grey[300],
+        color: value ? AppColors.active : AppColors.inactive,
         shape: BoxShape.circle,
       ),
       child: Center(
@@ -170,7 +172,7 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
           width: value ? 20 : 12,
           height: value ? 20 : 12,
           decoration: const BoxDecoration(
-            color: Colors.white,
+            color: AppColors.toggleThumb,
             shape: BoxShape.circle,
           ),
         ),
@@ -193,7 +195,7 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
             width: 48,
             alignment: Alignment.center,
             decoration: const BoxDecoration(
-              border: Border(left: BorderSide(color: Colors.grey)),
+              border: Border(left: BorderSide(color: AppColors.divider)),
             ),
             child: GestureDetector(
               onTap: onToggle,
@@ -223,7 +225,7 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
             width: 48,
             alignment: Alignment.center,
             decoration: const BoxDecoration(
-              border: Border(left: BorderSide(color: Colors.grey)),
+              border: Border(left: BorderSide(color: AppColors.divider)),
             ),
             child: GestureDetector(
               onTap: () => onToggle(!enabled),
@@ -264,7 +266,7 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
               leading: const Icon(Icons.place),
               title: Text(widget.location['name'] ?? '장소 없음'),
               subtitle: const Text('이 알람은 해당 장소에 고정됩니다'),
-              tileColor: Colors.grey.shade100,
+              tileColor: AppColors.shimmer,
             ),
             const SizedBox(height: 20),
             _buildToggleRow(
@@ -300,10 +302,10 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
                     final selected = selectedWeekdays.contains(day);
                     final color =
                         day == '일'
-                            ? Colors.red
+                            ? AppColors.sunday
                             : day == '토'
-                            ? Colors.blue
-                            : Colors.black;
+                            ? AppColors.saturday
+                            : AppColors.textPrimary;
                     return GestureDetector(
                       onTap: () {
                         setState(() {
@@ -323,7 +325,9 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
                             selected
                                 ? BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: Colors.blue.withOpacity(0.3),
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.2,
+                                  ),
                                 )
                                 : null,
                         child: Text(
@@ -348,7 +352,7 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
                   padding: EdgeInsets.only(top: 8),
                   child: Text(
                     '대체 및 임시 공휴일에는 켜기',
-                    style: TextStyle(color: Colors.blue),
+                    style: TextStyle(color: AppColors.primary),
                   ),
                 ),
               ),
@@ -422,6 +426,10 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
                     (newAlarm['name'] ?? '') as String,
                   );
                 }
+
+                // ✅ 네이티브 SmartLocationService 즉시 업데이트
+                await SmartLocationService.updatePlaces();
+                print('🎯 SmartLocationService 장소 업데이트 완료');
 
                 await SmartLocationMonitor.startSmartMonitoring();
 

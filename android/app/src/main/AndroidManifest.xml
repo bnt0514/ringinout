@@ -91,6 +91,8 @@
             </intent-filter>
         </receiver>
 
+
+
         <!-- 🛡️ 앱 종료 감지 서비스 (멀티태스킹에서 밀어서 종료 시 즉시 알림) -->
         <!-- 앱 종료/죽음 감지 서비스 (위치 타입 제거) -->
         <service android:name=".AppDeathDetectorService" android:stopWithTask="false" android:exported="false" />

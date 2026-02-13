@@ -1,10 +1,12 @@
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:ringinout/config/app_theme.dart';
 
 // Package imports:
 import 'package:hive/hive.dart';
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/location_monitor_service.dart'; // ✅ Heartbeat 전송용
+import 'package:ringinout/services/smart_location_service.dart'; // ✅ 네이티브 서비스 연동
 
 class EditLocationAlarmPage extends StatefulWidget {
   final int? alarmIndex;
@@ -152,7 +154,7 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
       width: 32,
       height: 32,
       decoration: BoxDecoration(
-        color: value ? Colors.blue : Colors.grey[300],
+        color: value ? AppColors.active : AppColors.inactive,
         shape: BoxShape.circle,
       ),
       child: Center(
@@ -160,8 +162,8 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
           duration: const Duration(milliseconds: 200),
           width: value ? 20 : 12,
           height: value ? 20 : 12,
-          decoration: const BoxDecoration(
-            color: Colors.white,
+          decoration: BoxDecoration(
+            color: AppColors.toggleThumb,
             shape: BoxShape.circle,
           ),
         ),
@@ -183,8 +185,8 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
           Container(
             width: 48,
             alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              border: Border(left: BorderSide(color: Colors.grey)),
+            decoration: BoxDecoration(
+              border: Border(left: BorderSide(color: AppColors.divider)),
             ),
             child: GestureDetector(
               onTap: onToggle,
@@ -213,8 +215,8 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
           Container(
             width: 48,
             alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              border: Border(left: BorderSide(color: Colors.grey)),
+            decoration: BoxDecoration(
+              border: Border(left: BorderSide(color: AppColors.divider)),
             ),
             child: GestureDetector(
               onTap: () => onToggle(!enabled),
@@ -316,10 +318,10 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
                     final selected = selectedWeekdays.contains(day);
                     final color =
                         day == '일'
-                            ? Colors.red
+                            ? AppColors.sunday
                             : day == '토'
-                            ? Colors.blue
-                            : Colors.black;
+                            ? AppColors.saturday
+                            : AppColors.textPrimary;
                     return GestureDetector(
                       onTap: () {
                         setState(() {
@@ -339,7 +341,9 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
                             selected
                                 ? BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: Colors.blue.withOpacity(0.3),
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.2,
+                                  ),
                                 )
                                 : null,
                         child: Text(
@@ -364,7 +368,7 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
                   padding: EdgeInsets.only(top: 8),
                   child: Text(
                     '대체 및 임시 공휴일에는 켜기',
-                    style: TextStyle(color: Colors.blue),
+                    style: TextStyle(color: AppColors.primary),
                   ),
                 ),
               ),
@@ -444,6 +448,10 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
                                 );
                                 print('✅ 알람 업데이트 완료: ${updatedAlarm['name']}');
 
+                                // ✅ 네이티브 SmartLocationService 즉시 업데이트
+                                await SmartLocationService.updatePlaces();
+                                print('🎯 SmartLocationService 장소 업데이트 완료');
+
                                 // ✅ Watchdog heartbeat 전송 (활성 알람 수 동기화)
                                 await LocationMonitorService.sendWatchdogHeartbeat();
                                 print('💓 알람 수정 후 Heartbeat 전송');
@@ -457,7 +465,7 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text('알람 저장에 실패했습니다: $e'),
-                                      backgroundColor: Colors.red,
+                                      backgroundColor: AppColors.danger,
                                     ),
                                   );
                                 }

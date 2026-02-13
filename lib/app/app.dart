@@ -9,9 +9,11 @@ import 'package:ringinout/pages/full_screen_alarm_page.dart';
 import 'package:ringinout/pages/login_page.dart';
 import 'package:ringinout/features/navigation/main_navigation.dart';
 import 'package:ringinout/widgets/terms_gate.dart';
+import 'package:ringinout/widgets/permission_gate.dart';
 import 'package:ringinout/app/routes.dart';
 import 'package:ringinout/services/locale_provider.dart';
 import 'package:ringinout/services/app_localizations.dart';
+import 'package:ringinout/config/app_theme.dart';
 
 class RinginoutApp extends StatelessWidget {
   final GlobalKey<NavigatorState> navigatorKey;
@@ -30,7 +32,7 @@ class RinginoutApp extends StatelessWidget {
         return MaterialApp(
           navigatorKey: navigatorKey,
           title: 'Ringinout',
-          theme: ThemeData(primarySwatch: Colors.indigo),
+          theme: AppTheme.theme,
           locale: localeProvider.locale,
           home: StreamBuilder<User?>(
             stream: FirebaseAuth.instance.authStateChanges(),
@@ -51,7 +53,9 @@ class RinginoutApp extends StatelessWidget {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 _handlePendingAlarm(context);
               });
-              return const TermsGate(child: MainNavigationPage());
+              return const PermissionGate(
+                child: TermsGate(child: MainNavigationPage()),
+              );
             },
           ),
           routes: AppRoutes.routes,

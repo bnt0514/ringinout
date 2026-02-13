@@ -1,31 +1,47 @@
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ringinout/services/billing_service.dart';
 
 enum SubscriptionPlan { free, basic, premium, special }
 
+/// SubscriptionService - 구독 플랜 관리 (서버 기반)
+///
+/// ⚠️ 중요: 이 서비스는 BillingService를 통해 서버에서 플랜을 가져옵니다.
+/// 로컬 SharedPreferences는 폴백용으로만 사용됩니다.
 class SubscriptionService {
-  static const String _planKey = 'subscription_plan';
+  static BillingService? _billingService;
 
+  /// BillingService 인스턴스 설정 (앱 시작 시 호출)
+  static void initialize(BillingService billingService) {
+    _billingService = billingService;
+  }
+
+  /// 현재 플랜 가져오기 (서버 기반)
   static Future<SubscriptionPlan> getCurrentPlan() async {
-    final prefs = await SharedPreferences.getInstance();
-    final value = prefs.getString(_planKey);
-    return _fromString(value);
+    if (_billingService == null) {
+      print('⚠️ BillingService not initialized, using free plan');
+      return SubscriptionPlan.free;
+    }
+
+    try {
+      await _billingService!.fetchStatus();
+      return _billingService!.currentPlan;
+    } catch (e) {
+      print('⚠️ Failed to fetch plan from server: $e');
+      return SubscriptionPlan.free; // 폴백
+    }
   }
 
-  static Future<void> setCurrentPlan(SubscriptionPlan plan) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_planKey, plan.name);
-  }
+  /// 플랜 강제 새로고침
+  static Future<SubscriptionPlan> refreshPlan() async {
+    if (_billingService == null) {
+      return SubscriptionPlan.free;
+    }
 
-  static SubscriptionPlan _fromString(String? value) {
-    switch (value) {
-      case 'basic':
-        return SubscriptionPlan.basic;
-      case 'premium':
-        return SubscriptionPlan.premium;
-      case 'special':
-        return SubscriptionPlan.special;
-      default:
-        return SubscriptionPlan.free;
+    try {
+      await _billingService!.fetchStatus(forceRefresh: true);
+      return _billingService!.currentPlan;
+    } catch (e) {
+      print('⚠️ Failed to refresh plan: $e');
+      return SubscriptionPlan.free;
     }
   }
 

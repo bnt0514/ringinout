@@ -6,7 +6,7 @@ import 'package:ringinout/features/alarm/alarm_page.dart';
 import 'package:ringinout/pages/my_places_page.dart';
 import 'package:ringinout/features/common/keep_alive_wrapper.dart';
 import 'package:ringinout/pages/testpage.dart';
-import 'package:ringinout/pages/subscription_management_page.dart';
+import 'package:ringinout/pages/server_subscription_page.dart';
 import 'package:ringinout/pages/add_location_alarm_page.dart';
 import 'package:ringinout/services/app_localizations.dart';
 
@@ -31,7 +31,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
     const KeepAliveWidget(child: AlarmPage()),
     const KeepAliveWidget(child: MyPlacesPage()),
     const KeepAliveWidget(child: TestPage()),
-    const KeepAliveWidget(child: SubscriptionManagementPage()),
+    const KeepAliveWidget(child: ServerSubscriptionPage()),
   ];
 
   @override
@@ -96,13 +96,14 @@ class _MainNavigationPageState extends State<MainNavigationPage>
 
   Widget _buildBottomNav() {
     final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context); // 👈 테마 색상 자동 적용
     return BottomNavigationBar(
       key: const ValueKey('default_nav'),
       currentIndex: _selectedIndex,
       onTap: (index) => setState(() => _selectedIndex = index),
       type: BottomNavigationBarType.fixed,
-      selectedItemColor: Colors.indigo,
-      unselectedItemColor: Colors.grey,
+      selectedItemColor: theme.colorScheme.primary,
+      unselectedItemColor: theme.bottomNavigationBarTheme.unselectedItemColor,
       selectedFontSize: 14,
       unselectedFontSize: 12,
       selectedIconTheme: const IconThemeData(size: 28),

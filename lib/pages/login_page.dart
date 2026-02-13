@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
+import 'package:ringinout/config/app_theme.dart';
 
 import 'package:ringinout/services/app_localizations.dart';
+import 'package:ringinout/services/auth_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -13,104 +13,15 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends State<LoginPage> {
   bool _isLoading = false;
-  bool _isInitialized = false;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
-  @override
-  void initState() {
-    super.initState();
-    _initializeGoogleSignIn();
-  }
-
-  Future<void> _initializeGoogleSignIn() async {
-    try {
-      await GoogleSignIn.instance.initialize(
-        serverClientId:
-            '120131573076-4dgtii5olr1385gfq8jovp6nd7mue2b5.apps.googleusercontent.com',
-      );
-      setState(() {
-        _isInitialized = true;
-      });
-    } catch (e) {
-      print('Google Sign-In 초기화 실패: $e');
-      setState(() {
-        _isInitialized = true;
-      });
-    }
-  }
-
-  Future<void> _handleGoogleSignIn() async {
-    if (_isLoading) return;
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      // google_sign_in 7.x API
-      final user = await GoogleSignIn.instance.authenticate();
-
-      if (user == null) {
-        _showError('로그인이 취소되었습니다.');
-        return;
-      }
-
-      // ID Token 가져오기 (google_sign_in 7.x)
-      final idToken = user.authentication.idToken;
-
-      if (idToken == null) {
-        _showError('ID Token을 가져올 수 없습니다.');
-        return;
-      }
-
-      // Firebase Auth 인증
-      final credential = GoogleAuthProvider.credential(idToken: idToken);
-
-      final UserCredential userCredential = await _auth.signInWithCredential(
-        credential,
-      );
-
-      // Firestore에 사용자 정보 저장
-      final firebaseUser = userCredential.user;
-      if (firebaseUser != null) {
-        await _firestore.collection('users').doc(firebaseUser.uid).set({
-          'email': firebaseUser.email,
-          'displayName': firebaseUser.displayName,
-          'photoURL': firebaseUser.photoURL,
-          'createdAt': FieldValue.serverTimestamp(),
-          'lastLoginAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-
-        if (!mounted) return;
-        // 메인 화면으로 이동 (뒤로가기 불가)
-        Navigator.of(context).pushReplacementNamed('/home');
-      }
-    } catch (e) {
-      _showError('로그인 실패: $e');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  void _showError(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red.shade400),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final authService = Provider.of<AuthService>(context, listen: false);
 
-    return Scaffold(
-      body: SafeArea(
+    return Scaffold((
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -118,18 +29,21 @@ class _LoginPageState extends State<LoginPage> {
             children: [
               const Spacer(flex: 2),
 
-              // 로고 자리 (추후 로고 추가)
-              Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: const Icon(
-                  Icons.location_on,
-                  size: 60,
-                  color: Colors.deepPurple,
+              // 로고 자리 (앱 아이콘 모양으로 표시)
+              SizedBox(
+                width: 80,
+                height: 80,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: Transform.scale(
+                    scale: 2.4,
+                    child: Image.asset(
+                      'assets/images/RingInOutLogo.png',
+                      fit: BoxFit.cover,
+                      alignment: Alignment.center,
+                      semanticLabel: 'Ringinout 로고',
+                    ),
+                  ),
                 ),
               ),
 
@@ -141,7 +55,7 @@ class _LoginPageState extends State<LoginPage> {
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
-                  color: Colors.deepPurple,
+                  color: AppColors.primary,
                 ),
               ),
 
@@ -153,7 +67,7 @@ class _LoginPageState extends State<LoginPage> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.grey.shade700,
+                  color: AppColors.textSecondary,
                   height: 1.5,
                 ),
               ),
@@ -164,9 +78,9 @@ class _LoginPageState extends State<LoginPage> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
+                  color: AppColors.shimmer,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.blue.shade100),
+                  border: Border.all(color: AppColors.divider),
                 ),
                 child: Column(
                   children: [
@@ -174,7 +88,7 @@ class _LoginPageState extends State<LoginPage> {
                       children: [
                         Icon(
                           Icons.security,
-                          color: Colors.blue.shade700,
+                          color: AppColors.primary,
                           size: 20,
                         ),
                         const SizedBox(width: 8),
@@ -183,7 +97,7 @@ class _LoginPageState extends State<LoginPage> {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            color: Colors.blue.shade700,
+                            color: AppColors.primary,
                           ),
                         ),
                       ],
@@ -193,7 +107,7 @@ class _LoginPageState extends State<LoginPage> {
                       l10n.get('login_data_security_content'),
                       style: TextStyle(
                         fontSize: 13,
-                        color: Colors.blue.shade800,
+                        color: AppColors.primary,
                         height: 1.4,
                       ),
                     ),
@@ -207,15 +121,17 @@ class _LoginPageState extends State<LoginPage> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
+                  color: AppColors.primary.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.orange.shade100),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.2),
+                  ),
                 ),
                 child: Row(
                   children: [
                     Icon(
                       Icons.info_outline,
-                      color: Colors.orange.shade700,
+                      color: AppColors.warning,
                       size: 20,
                     ),
                     const SizedBox(width: 8),
@@ -224,7 +140,7 @@ class _LoginPageState extends State<LoginPage> {
                         l10n.get('login_data_deletion_warning'),
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.orange.shade800,
+                          color: AppColors.textSecondary,
                         ),
                       ),
                     ),
@@ -244,12 +160,12 @@ class _LoginPageState extends State<LoginPage> {
                           ? _handleGoogleSignIn
                           : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black87,
+                    backgroundColor: AppColors.card,
+                    foregroundColor: AppColors.textPrimary,
                     elevation: 2,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(28),
-                      side: BorderSide(color: Colors.grey.shade300),
+                      side: BorderSide(color: AppColors.border),
                     ),
                   ),
                   child:
@@ -297,7 +213,7 @@ class _LoginPageState extends State<LoginPage> {
                   l10n.get('privacy_policy'),
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey.shade600,
+                    color: AppColors.textSecondary,
                     decoration: TextDecoration.underline,
                   ),
                 ),
@@ -310,4 +226,46 @@ class _LoginPageState extends State<LoginPage> {
       ),
     );
   }
+
+  Future<void> _handleGoogleSignIn(BuildContext context, AuthService authService) async {
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final user = await authService.signInWithGoogle();
+
+      if (user != null && mounted) {
+        // 메인 화면으로 이동 (뒤로가기 불가)
+        Navigator.of(context).pushReplacementNamed('/home');
+      }
+    } catch (e) {
+      _showError('로그인 실패: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: AppColors.danger),
+    );
+  }
 }
+              // Google 로그인 버튼
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed:
+                      !_isLoading
+                          ? () => _handleGoogleSignIn(context, authService)
+                          : null,
+                  style: ElevatedButton.styleFrom(

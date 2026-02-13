@@ -1,5 +1,6 @@
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:ringinout/config/app_theme.dart';
 
 class SnoozeSettingPage extends StatelessWidget {
   final String currentSnooze;
@@ -24,7 +25,7 @@ class SnoozeSettingPage extends StatelessWidget {
               '📌 필독* 위치알람 다시울림 상세설명',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Colors.redAccent,
+                color: AppColors.danger,
               ),
             ),
             children: const [
@@ -35,7 +36,7 @@ class SnoozeSettingPage extends StatelessWidget {
                   '\n'
                   '* 첫 알람 이후 아래에서 선택한 시간에 맞춰 두 번째 알람이 울립니다.\n'
                   '* 두 번째 알람부터는 사용자가 알람 종료 또는 다시 울림을 알람 화면에서 직접 선택 가능합니다.',
-                  style: TextStyle(fontSize: 14, color: Colors.black87),
+                  style: TextStyle(fontSize: 14, color: AppColors.textPrimary),
                 ),
               ),
             ],
@@ -47,7 +48,7 @@ class SnoozeSettingPage extends StatelessWidget {
               title: Text(option),
               trailing:
                   isSelected
-                      ? const Icon(Icons.check, color: Colors.blue)
+                      ? const Icon(Icons.check, color: AppColors.primary)
                       : null,
               onTap: () {
                 onSelected(option);

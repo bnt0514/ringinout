@@ -11,6 +11,9 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
+import id.flutter.flutter_background_service.BackgroundService
+import java.util.Calendar
 
 /**
  * 백그라운드 서비스 감시 및 복구를 담당하는 Watchdog Receiver
@@ -24,7 +27,10 @@ class ServiceWatchdogReceiver : BroadcastReceiver() {
     companion object {
         const val ACTION_CHECK_SERVICE = "com.example.ringinout.ACTION_CHECK_SERVICE"
         const val ACTION_RESTART_SERVICE = "com.example.ringinout.ACTION_RESTART_SERVICE"
+        const val ACTION_DAILY_CHECK = "com.example.ringinout.ACTION_DAILY_CHECK"
         private const val WATCHDOG_INTERVAL_MS = 5 * 60 * 1000L // 5분마다 체크 (백업용, 메인은 onTaskRemoved)
+        private const val DAILY_CHECK_REQUEST_CODE_BASE = 9990
+        private val DAILY_CHECK_HOURS = listOf(0, 6, 12, 18)
         private const val PREFS_NAME = "ringinout_watchdog"
         private const val KEY_LAST_HEARTBEAT = "last_heartbeat"
         private const val KEY_ACTIVE_ALARMS = "active_alarms_count"
@@ -74,6 +80,50 @@ class ServiceWatchdogReceiver : BroadcastReceiver() {
             Log.d("Watchdog", "🛑 Watchdog 스케줄 중지")
         }
 
+        /** 매일 4회 체크 스케줄 시작 (00:05, 06:05, 12:05, 18:05) */
+        fun startDailyChecks(context: Context) {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            DAILY_CHECK_HOURS.forEachIndexed { index, hour ->
+                val intent =
+                        Intent(context, ServiceWatchdogReceiver::class.java).apply {
+                            action = ACTION_DAILY_CHECK
+                            putExtra("daily_check_hour", hour)
+                        }
+                val pendingIntent =
+                        PendingIntent.getBroadcast(
+                                context,
+                                DAILY_CHECK_REQUEST_CODE_BASE + index,
+                                intent,
+                                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                        )
+
+                val calendar =
+                        Calendar.getInstance().apply {
+                            timeInMillis = System.currentTimeMillis()
+                            set(Calendar.HOUR_OF_DAY, hour)
+                            set(Calendar.MINUTE, 5)
+                            set(Calendar.SECOND, 0)
+                            set(Calendar.MILLISECOND, 0)
+                            if (timeInMillis <= System.currentTimeMillis()) {
+                                add(Calendar.DAY_OF_YEAR, 1)
+                            }
+                        }
+
+                val triggerAt = calendar.timeInMillis
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setExactAndAllowWhileIdle(
+                            AlarmManager.RTC_WAKEUP,
+                            triggerAt,
+                            pendingIntent
+                    )
+                } else {
+                    alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+                }
+
+                Log.d("Watchdog", "🗓️ Daily check scheduled: ${calendar.time}")
+            }
+        }
+
         /** 서비스에서 주기적으로 호출하여 살아있음을 알림 */
         fun sendHeartbeat(context: Context, activeAlarmsCount: Int) {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -92,13 +142,32 @@ class ServiceWatchdogReceiver : BroadcastReceiver() {
         when (intent.action) {
             ACTION_CHECK_SERVICE -> checkServiceHealth(context)
             ACTION_RESTART_SERVICE -> restartService(context)
+            ACTION_DAILY_CHECK -> handleDailyCheck(context, intent)
             Intent.ACTION_BOOT_COMPLETED -> {
                 // 부팅 완료 시 서비스 시작 및 Watchdog 활성화
                 Log.d("Watchdog", "📱 부팅 완료 - 서비스 복구 시작")
-                restartService(context)
                 startWatchdog(context)
+                startDailyChecks(context)
+                handleBootRecovery(context)
             }
         }
+    }
+
+    private fun handleBootRecovery(context: Context) {
+        if (isAppProcessRunning(context) || isBackgroundServiceRunning(context)) {
+            Log.d("Watchdog", "✅ 부팅 후 이미 서비스 실행 중 - 복구 스킵")
+            return
+        }
+
+        Log.d("Watchdog", "🛠️ 부팅 후 서비스 미실행 - 복구 시도")
+        startBackgroundService(context)
+    }
+
+    private fun handleDailyCheck(context: Context, intent: Intent) {
+        val hour = intent.getIntExtra("daily_check_hour", -1)
+        Log.d("Watchdog", "🗓️ Daily check triggered (hour=$hour)")
+        startDailyChecks(context)
+        startBackgroundService(context)
     }
 
     private fun checkServiceHealth(context: Context) {
@@ -183,6 +252,32 @@ class ServiceWatchdogReceiver : BroadcastReceiver() {
         } catch (e: Exception) {
             Log.e("Watchdog", "❌ 앱 재시작 실패: ${e.message}")
             false
+        }
+    }
+
+    private fun isBackgroundServiceRunning(context: Context): Boolean {
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val runningServices = activityManager.getRunningServices(Integer.MAX_VALUE)
+        for (service in runningServices) {
+            if (service.service.className == BackgroundService::class.java.name) {
+                Log.d("Watchdog", "✅ BackgroundService running")
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun startBackgroundService(context: Context) {
+        try {
+            val intent = Intent(context, BackgroundService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                ContextCompat.startForegroundService(context, intent)
+            } else {
+                context.startService(intent)
+            }
+            Log.d("Watchdog", "✅ Daily background service start requested")
+        } catch (e: Exception) {
+            Log.e("Watchdog", "❌ Daily background service start failed: ${e.message}")
         }
     }
 

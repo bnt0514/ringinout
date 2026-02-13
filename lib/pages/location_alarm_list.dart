@@ -1,5 +1,6 @@
 // Flutter imports:
 import 'package:flutter/material.dart';
+import 'package:ringinout/config/app_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:ringinout/services/hive_helper.dart';
@@ -117,32 +118,40 @@ class AlarmListItem extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         transform:
             isSelectionMode
-                ? Matrix4.translationValues(20, 0, 0)
+                ? Matrix4.translationValues(10, 0, 0)
                 : Matrix4.identity(),
-        margin:
-            isSelectionMode ? const EdgeInsets.only(top: 30) : EdgeInsets.zero,
-        child: Column(
-          children: [
-            Row(
-              children: [
-                if (isSelectionMode)
-                  Checkbox(
-                    value: isSelected,
-                    onChanged: (bool? checked) => onSelect(index),
-                  ),
-                Expanded(
-                  child: ListTile(
-                    leading: const Icon(Icons.place),
-                    title: Text(alarm['name'] ?? '이름 없음'),
-                    subtitle: Text(_getSubtitle()),
-                    onTap: () => onTap(index),
-                  ),
-                ),
-                if (!isSelectionMode) _buildEnableSwitch(context),
-              ],
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color:
+                  isSelected
+                      ? AppColors.primary.withValues(alpha: 0.5)
+                      : AppColors.divider,
+              width: isSelected ? 1.5 : 1,
             ),
-            Divider(color: Colors.grey.shade300, height: 1),
-          ],
+            boxShadow: AppStyle.softShadow,
+          ),
+          child: Row(
+            children: [
+              if (isSelectionMode)
+                Checkbox(
+                  value: isSelected,
+                  onChanged: (bool? checked) => onSelect(index),
+                ),
+              Expanded(
+                child: ListTile(
+                  leading: const Icon(Icons.place, color: AppColors.primary),
+                  title: Text(alarm['name'] ?? '이름 없음'),
+                  subtitle: Text(_getSubtitle()),
+                  onTap: () => onTap(index),
+                ),
+              ),
+              if (!isSelectionMode) _buildEnableSwitch(context),
+            ],
+          ),
         ),
       ),
     );
@@ -153,7 +162,7 @@ class AlarmListItem extends StatelessWidget {
       width: 48,
       alignment: Alignment.center,
       decoration: const BoxDecoration(
-        border: Border(left: BorderSide(color: Colors.grey)),
+        border: Border(left: BorderSide(color: AppColors.divider)),
       ),
       child: GestureDetector(
         onTap: () async {
@@ -229,7 +238,10 @@ class AlarmListItem extends StatelessWidget {
           width: 32,
           height: 32,
           decoration: BoxDecoration(
-            color: (alarm['enabled'] ?? false) ? Colors.blue : Colors.grey[300],
+            color:
+                (alarm['enabled'] ?? false)
+                    ? AppColors.active
+                    : AppColors.inactive,
             shape: BoxShape.circle,
           ),
           child: Center(
@@ -238,7 +250,7 @@ class AlarmListItem extends StatelessWidget {
               width: (alarm['enabled'] ?? false) ? 20 : 12,
               height: (alarm['enabled'] ?? false) ? 20 : 12,
               decoration: const BoxDecoration(
-                color: Colors.white,
+                color: AppColors.toggleThumb,
                 shape: BoxShape.circle,
               ),
             ),
@@ -400,6 +412,7 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
                 Expanded(
                   child: ListView.builder(
                     physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.only(top: 8, bottom: 12),
                     itemCount: alarms.length,
                     itemBuilder:
                         (context, index) => AlarmListItem(
@@ -417,24 +430,24 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
+                      horizontal: AppStyle.spacingBase,
+                      vertical: AppStyle.spacingMd,
                     ),
-                    color: Colors.grey[100],
-                    child: Row(
+                    color: AppColors.shimmer,
+                    child: const Row(
                       children: [
                         Icon(
                           Icons.info_outline,
                           size: 16,
-                          color: Colors.grey[600],
+                          color: AppColors.textSecondary,
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             '활성 알람이 있으면 앱 종료 시 자동으로 재시작됩니다.\n안정적인 알람 작동을 위해 배터리 최적화 제외를 권장합니다.',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey[600],
+                              color: AppColors.textSecondary,
                               height: 1.4,
                             ),
                           ),
@@ -482,7 +495,8 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
       right: 20,
       child: FloatingActionButton(
         heroTag: 'delete_button',
-        backgroundColor: Colors.grey[500],
+        backgroundColor: AppColors.danger,
+        foregroundColor: AppColors.textOnPrimary,
         onPressed: _controller.deleteSelected,
         child: const Icon(Icons.delete),
       ),
@@ -502,18 +516,24 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
         onPanEnd: (_) async {
           await HiveHelper.saveFabPosition(fabPosition.dx, fabPosition.dy);
         },
-        child: FloatingActionButton(
-          heroTag: 'location_alarm', // MyPlaces와 다른 heroTag
-          shape: const CircleBorder(),
-          elevation: 4,
-          mini: true, // MyPlaces와 동일한 크기
-          backgroundColor: const Color.fromARGB(255, 0, 15, 150), // 동일한 색상
-          foregroundColor: Colors.white, // 동일한 색상
-          onPressed:
-              () =>
-                  Navigator.pushNamed(context, '/add_location_alarm'), // 다른 페이지
-          tooltip: '알람 추가', // 다른 툴팁
-          child: const Icon(Icons.alarm_add), // 다른 아이콘
+        child: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: AppColors.primaryGradient,
+            boxShadow: AppStyle.fabShadow,
+          ),
+          child: FloatingActionButton(
+            heroTag: 'location_alarm',
+            shape: const CircleBorder(),
+            elevation: 0,
+            mini: true,
+            backgroundColor: Colors.transparent,
+            foregroundColor: AppColors.textOnPrimary,
+            onPressed:
+                () => Navigator.pushNamed(context, '/add_location_alarm'),
+            tooltip: '알람 추가',
+            child: const Icon(Icons.alarm_add),
+          ),
         ),
       ),
     );

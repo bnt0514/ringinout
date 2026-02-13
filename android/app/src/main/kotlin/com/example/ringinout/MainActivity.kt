@@ -42,6 +42,9 @@ class MainActivity : FlutterActivity() {
         // ✅ Watchdog 시작 (서비스 죽음 감지)
         ServiceWatchdogReceiver.startWatchdog(this)
 
+        // ✅ Daily check 스케줄 시작 (하루 4회)
+        ServiceWatchdogReceiver.startDailyChecks(this)
+
         // 🛡️ 앱 종료 감지 서비스 시작 (멀티태스킹 종료 즉시 감지)
         AppDeathDetectorService.start(this)
 
@@ -64,8 +67,6 @@ class MainActivity : FlutterActivity() {
             }
             "PLAY_SNOOZE_ALARM" -> {
                 Log.d("MainActivity", "⏰ 스누즈 알람 재생 요청")
-                val alarmId = intent.getIntExtra("alarmId", -1)
-                val title = intent.getStringExtra("title") ?: "알람"
                 // 벨소리 재생
                 playDefaultRingtone(this)
             }
@@ -479,6 +480,8 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+
+        // 기본 알람(시간 알람) 기능 폐기: 관련 채널 비활성화
     }
 
     // ✅ DND 권한 확인
