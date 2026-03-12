@@ -207,6 +207,8 @@ class AlarmNotificationHelper {
         'title': title,
         'message': message,
         'alarmId': alarmId, // ✅ alarmId 전달
+        'placeId':
+            alarmData?['id']?.toString() ?? '', // ✅ placeId 전달 (passing버튼용)
       });
       print('📱 네이티브 전체화면 알람 요청 완료 (ID: $alarmId)');
     } catch (e) {

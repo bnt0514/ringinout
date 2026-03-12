@@ -7,7 +7,7 @@ import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/location_monitor_service.dart';
 import 'package:ringinout/services/background_service.dart';
 import 'package:ringinout/services/alarm_notification_helper.dart';
-import 'package:ringinout/services/smart_location_service.dart';
+import 'package:ringinout/services/smart_location_monitor.dart';
 
 @pragma('vm:entry-point')
 class AppInitializer {
@@ -24,32 +24,24 @@ class AppInitializer {
     // 3. 설정 로드
     await _loadSettings();
 
-    // 4. 🎯 SmartLocationService 시작 (네이티브 3단계 모니터링)
-    await _startSmartLocationService();
+    // 4. 🎯 SmartLocationMonitor 시작 (Flutter geofence_service 기반)
+    await _startSmartMonitoring();
   }
 
-  // 🎯 SmartLocationService 초기화 및 시작
+  // 🎯 Flutter 기반 스마트 모니터링 시작
   @pragma('vm:entry-point')
-  static Future<void> _startSmartLocationService() async {
+  static Future<void> _startSmartMonitoring() async {
     try {
-      // SmartLocationService 초기화
-      await SmartLocationService.initialize(
-        onAlarmTriggered: (placeId, placeName, triggerType) {
-          print('🚨 알람 트리거 콜백: $placeName ($triggerType)');
-        },
-      );
-
-      // 활성 알람 개수 확인
       final activeAlarms = await _getActiveAlarmsCount();
 
       if (activeAlarms > 0) {
-        print('🔔 활성 알람 ${activeAlarms}개 발견 - SmartLocationService 시작');
-        await SmartLocationService.startMonitoring();
+        print('🔔 활성 알람 ${activeAlarms}개 발견 - SmartLocationMonitor 시작');
+        await SmartLocationMonitor.startSmartMonitoring();
       } else {
-        print('📭 활성 알람이 없어 SmartLocationService 시작하지 않음');
+        print('📭 활성 알람이 없어 SmartLocationMonitor 시작하지 않음');
       }
     } catch (e) {
-      print('❌ SmartLocationService 시작 실패: $e');
+      print('❌ SmartLocationMonitor 시작 실패: $e');
       // 폴백: 기존 백그라운드 서비스 사용
       await _startBackgroundServiceIfNeeded();
     }

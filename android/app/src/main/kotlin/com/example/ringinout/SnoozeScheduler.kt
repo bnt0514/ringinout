@@ -17,7 +17,13 @@ object SnoozeScheduler {
      * @param alarmTitle 알람 제목
      * @param delayMinutes 몇 분 후에 울릴지
      */
-    fun scheduleSnooze(context: Context, alarmId: Int, alarmTitle: String, delayMinutes: Int) {
+    fun scheduleSnooze(
+            context: Context,
+            alarmId: Int,
+            alarmTitle: String,
+            delayMinutes: Int,
+            placeId: String = ""
+    ) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
         val intent =
@@ -25,6 +31,7 @@ object SnoozeScheduler {
                     action = SnoozeReceiver.ACTION_SNOOZE_ALARM
                     putExtra(SnoozeReceiver.EXTRA_ALARM_ID, alarmId)
                     putExtra(SnoozeReceiver.EXTRA_ALARM_TITLE, alarmTitle)
+                    putExtra(SnoozeReceiver.EXTRA_PLACE_ID, placeId) // ✅ placeId 전달
                 }
 
         val pendingIntent =

@@ -90,6 +90,7 @@ class AlarmListItem extends StatelessWidget {
   final int index;
   final bool isSelected;
   final bool isSelectionMode;
+  final bool isLocked;
   final Function(int) onSelect;
   final Function(int) onTap;
 
@@ -99,58 +100,123 @@ class AlarmListItem extends StatelessWidget {
     required this.index,
     required this.isSelected,
     required this.isSelectionMode,
+    this.isLocked = false,
     required this.onSelect,
     required this.onTap,
   });
 
   String _getSubtitle() {
     final repeat = alarm['repeat'];
-    if (repeat is String) return repeat;
-    if (repeat is List && repeat.isNotEmpty) return '매주 ${repeat.join(', ')}';
-    return alarm['trigger'] == 'entry' ? '알람 설정 후 최초 진입 시' : '알람 설정 후 최초 진출 시';
+    final trigger = alarm['trigger'] == 'entry' ? '진입' : '진출';
+    final parts = <String>[];
+
+    // ✅ 날짜 조건
+    if (repeat is String) {
+      final date = DateTime.tryParse(repeat);
+      if (date != null) {
+        parts.add(
+          '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}',
+        );
+      }
+    }
+
+    // ✅ 요일 조건
+    if (repeat is List && repeat.isNotEmpty) {
+      parts.add('매주 ${repeat.join(', ')}');
+    }
+
+    // ✅ 시간 조건 (hour/minute 또는 startTimeMs)
+    final h = alarm['hour'];
+    final m = alarm['minute'];
+    if (h != null) {
+      final period = h >= 12 ? '오후' : '오전';
+      final hour12 = h == 0 ? 12 : (h > 12 ? h - 12 : h);
+      parts.add('$period ${hour12}시${(m ?? 0).toString().padLeft(2, '0')}분 이후');
+    } else {
+      final startTimeMs = alarm['startTimeMs'];
+      if (startTimeMs is int && startTimeMs > 0) {
+        final dt = DateTime.fromMillisecondsSinceEpoch(startTimeMs);
+        final period = dt.hour >= 12 ? '오후' : '오전';
+        final hour12 =
+            dt.hour == 0 ? 12 : (dt.hour > 12 ? dt.hour - 12 : dt.hour);
+        parts.add(
+          '$period ${hour12}시${dt.minute.toString().padLeft(2, '0')}분 이후',
+        );
+      }
+    }
+
+    if (parts.isEmpty) {
+      return '알람 설정 후 최초 $trigger 시';
+    }
+    return '${parts.join(' ')} 최초 $trigger 시';
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onLongPress: () => onSelect(index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        transform:
-            isSelectionMode
-                ? Matrix4.translationValues(10, 0, 0)
-                : Matrix4.identity(),
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Container(
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color:
-                  isSelected
-                      ? AppColors.primary.withValues(alpha: 0.5)
-                      : AppColors.divider,
-              width: isSelected ? 1.5 : 1,
-            ),
-            boxShadow: AppStyle.softShadow,
-          ),
-          child: Row(
-            children: [
-              if (isSelectionMode)
-                Checkbox(
-                  value: isSelected,
-                  onChanged: (bool? checked) => onSelect(index),
-                ),
-              Expanded(
-                child: ListTile(
-                  leading: const Icon(Icons.place, color: AppColors.primary),
-                  title: Text(alarm['name'] ?? '이름 없음'),
-                  subtitle: Text(_getSubtitle()),
-                  onTap: () => onTap(index),
-                ),
+    return Opacity(
+      opacity: isLocked ? 0.5 : 1.0,
+      child: GestureDetector(
+        onLongPress: () => onSelect(index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          transform:
+              isSelectionMode
+                  ? Matrix4.translationValues(10, 0, 0)
+                  : Matrix4.identity(),
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isLocked ? AppColors.shimmer : AppColors.card,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color:
+                    isSelected
+                        ? AppColors.primary.withValues(alpha: 0.5)
+                        : AppColors.divider,
+                width: isSelected ? 1.5 : 1,
               ),
-              if (!isSelectionMode) _buildEnableSwitch(context),
-            ],
+              boxShadow: AppStyle.softShadow,
+            ),
+            child: Row(
+              children: [
+                if (isSelectionMode)
+                  Checkbox(
+                    value: isSelected,
+                    onChanged: (bool? checked) => onSelect(index),
+                  ),
+                Expanded(
+                  child: ListTile(
+                    leading: Icon(
+                      Icons.place,
+                      color: isLocked ? AppColors.divider : AppColors.primary,
+                    ),
+                    title: Text(
+                      alarm['name'] ?? '이름 없음',
+                      style: TextStyle(
+                        color: isLocked ? AppColors.divider : null,
+                      ),
+                    ),
+                    subtitle:
+                        isLocked
+                            ? const Text(
+                              '플랜 업그레이드 필요',
+                              style: TextStyle(
+                                color: AppColors.warning,
+                                fontSize: 12,
+                              ),
+                            )
+                            : Text(_getSubtitle()),
+                    onTap: isLocked ? null : () => onTap(index),
+                  ),
+                ),
+                if (!isSelectionMode && !isLocked) _buildEnableSwitch(context),
+                if (!isSelectionMode && isLocked)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Icon(Icons.lock, color: AppColors.divider),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -158,18 +224,29 @@ class AlarmListItem extends StatelessWidget {
   }
 
   Widget _buildEnableSwitch(BuildContext context) {
-    return Container(
-      width: 48,
-      alignment: Alignment.center,
-      decoration: const BoxDecoration(
-        border: Border(left: BorderSide(color: AppColors.divider)),
-      ),
-      child: GestureDetector(
-        onTap: () async {
-          final updatedAlarm = Map<String, dynamic>.from(alarm);
-          final willEnable = !(alarm['enabled'] ?? false);
+    return GestureDetector(
+      // ✅ opaque: 자식이 paint하지 않는 빈 영역도 터치 인식
+      behavior: HitTestBehavior.opaque,
+      onTap: () async {
+        final willEnable = !(alarm['enabled'] ?? false);
+        final alarmId = alarm['id'];
 
-          if (willEnable) {
+        // ✅ 활성화 시 구독 한도 체크 (백그라운드에서 검증 후 롤백)
+        if (willEnable) {
+          // UI 먼저 낙관적으로 업데이트
+          final updatedAlarm = Map<String, dynamic>.from(alarm);
+          updatedAlarm['enabled'] = true;
+          updatedAlarm['snoozePending'] = false;
+          updatedAlarm['triggerCount'] = 0;
+          if (alarmId is String) {
+            await HiveHelper.updateLocationAlarmById(alarmId, updatedAlarm);
+          } else {
+            await HiveHelper.updateLocationAlarm(index, updatedAlarm);
+          }
+          print('🔄 알람 활성화: ${alarm['name']}');
+
+          // 구독 한도 체크는 백그라운드에서
+          Future.microtask(() async {
             final plan = await SubscriptionService.getCurrentPlan();
             final limit = SubscriptionService.activeAlarmLimit(plan);
             if (limit != null) {
@@ -177,7 +254,15 @@ class AlarmListItem extends StatelessWidget {
                   HiveHelper.alarmBox.values
                       .where((item) => item is Map && item['enabled'] == true)
                       .length;
-              if (activeCount >= limit) {
+              if (activeCount > limit) {
+                // 한도 초과: 롤백
+                final rollback = Map<String, dynamic>.from(alarm);
+                rollback['enabled'] = false;
+                if (alarmId is String) {
+                  await HiveHelper.updateLocationAlarmById(alarmId, rollback);
+                } else {
+                  await HiveHelper.updateLocationAlarm(index, rollback);
+                }
                 if (context.mounted) {
                   await SubscriptionLimitDialog.showAlarmLimit(
                     context,
@@ -188,70 +273,63 @@ class AlarmListItem extends StatelessWidget {
                 return;
               }
             }
-          }
-
-          updatedAlarm['enabled'] = willEnable;
-          updatedAlarm['snoozePending'] = false; // ✅ 스누즈 상태 초기화
-
-          final alarmId = alarm['id'];
-
-          if (willEnable) {
-            // ✅ 알람 활성화 시: 트리거 카운트 초기화
-            updatedAlarm['triggerCount'] = 0;
-          }
-
-          // ✅ UI 먼저 업데이트 (Hive 저장)
+            // 트리거 카운트 초기화 + 상태 리셋
+            if (alarmId != null) {
+              final triggerBox = await Hive.openBox('trigger_counts_v2');
+              await triggerBox.delete(alarmId);
+            }
+            await _resetAlarmState(alarm['name'] ?? '');
+            await _updateMonitoringService();
+          });
+        } else {
+          // 비활성화: 즉시 처리
+          final updatedAlarm = Map<String, dynamic>.from(alarm);
+          updatedAlarm['enabled'] = false;
+          updatedAlarm['snoozePending'] = false;
           if (alarmId is String) {
             await HiveHelper.updateLocationAlarmById(alarmId, updatedAlarm);
           } else {
             await HiveHelper.updateLocationAlarm(index, updatedAlarm);
           }
+          print('🔄 알람 비활성화: ${alarm['name']}');
 
-          print('🔄 알람 ${willEnable ? '활성화' : '비활성화'}: ${alarm['name']}');
-
-          // ✅ 나머지 작업은 백그라운드에서 처리 (UI 블로킹 방지)
           Future.microtask(() async {
-            if (willEnable) {
-              // 트리거 카운트 박스 초기화
-              if (alarmId != null) {
-                final triggerBox = await Hive.openBox('trigger_counts_v2');
-                await triggerBox.delete(alarmId);
-              }
-              // 상태 초기화
-              await _resetAlarmState(alarm['name'] ?? '');
-            } else {
-              // 스누즈 스케줄과 트리거 카운트 삭제
-              if (alarmId != null) {
-                final snoozeBox = await Hive.openBox('snoozeSchedules');
-                await snoozeBox.delete(alarmId);
-                final triggerBox = await Hive.openBox('trigger_counts_v2');
-                await triggerBox.delete(alarmId);
-              }
+            if (alarmId != null) {
+              final snoozeBox = await Hive.openBox('snoozeSchedules');
+              await snoozeBox.delete(alarmId);
+              final triggerBox = await Hive.openBox('trigger_counts_v2');
+              await triggerBox.delete(alarmId);
             }
-
-            // 모니터링 재시작
             await _updateMonitoringService();
           });
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            color:
-                (alarm['enabled'] ?? false)
-                    ? AppColors.active
-                    : AppColors.inactive,
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: (alarm['enabled'] ?? false) ? 20 : 12,
-              height: (alarm['enabled'] ?? false) ? 20 : 12,
-              decoration: const BoxDecoration(
-                color: AppColors.toggleThumb,
-                shape: BoxShape.circle,
+        }
+      },
+      child: Container(
+        width: 64,
+        decoration: const BoxDecoration(
+          border: Border(left: BorderSide(color: AppColors.divider)),
+        ),
+        child: Center(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color:
+                  (alarm['enabled'] ?? false)
+                      ? AppColors.active
+                      : AppColors.inactive,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: (alarm['enabled'] ?? false) ? 20 : 12,
+                height: (alarm['enabled'] ?? false) ? 20 : 12,
+                decoration: const BoxDecoration(
+                  color: AppColors.toggleThumb,
+                  shape: BoxShape.circle,
+                ),
               ),
             ),
           ),
@@ -260,7 +338,6 @@ class AlarmListItem extends StatelessWidget {
     );
   }
 
-  // ✅ 알람 상태 초기화 메서드 추가
   Future<void> _resetAlarmState(String placeName) async {
     try {
       // LocationMonitorService의 상태 초기화 호출
@@ -307,10 +384,14 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
   final _controller = AlarmListController();
   final _platform = const MethodChannel('ringinout_channel');
   Offset fabPosition = const Offset(160, 400);
+  SubscriptionPlan _plan = SubscriptionPlan.free;
 
   @override
   void initState() {
     super.initState();
+    SubscriptionService.getCurrentPlan().then((plan) {
+      if (mounted) setState(() => _plan = plan);
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _setupMethodChannel();
       _loadFabPosition();
@@ -414,15 +495,23 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.only(top: 8, bottom: 12),
                     itemCount: alarms.length,
-                    itemBuilder:
-                        (context, index) => AlarmListItem(
-                          alarm: Map<String, dynamic>.from(alarms[index]),
-                          index: index,
-                          isSelected: selectedIndexes.contains(index),
-                          isSelectionMode: _controller.isSelectionMode.value,
-                          onSelect: _controller.toggleSelection,
-                          onTap: _handleAlarmTap,
+                    itemBuilder: (context, index) {
+                      final alarmLimit = SubscriptionService.activeAlarmLimit(
+                        _plan,
+                      );
+                      return AlarmListItem(
+                        alarm: Map<String, dynamic>.from(alarms[index]),
+                        index: index,
+                        isSelected: selectedIndexes.contains(index),
+                        isSelectionMode: _controller.isSelectionMode.value,
+                        isLocked: SubscriptionService.isIndexLocked(
+                          index,
+                          alarmLimit,
                         ),
+                        onSelect: _controller.toggleSelection,
+                        onTap: _handleAlarmTap,
+                      );
+                    },
                   ),
                 ),
                 // ✅ 활성 알람이 있을 때만 안내 문구 표시

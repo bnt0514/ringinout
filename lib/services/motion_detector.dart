@@ -28,20 +28,54 @@ class MotionDetector {
 
   // ===== 설정값 =====
   // 중력 제거 후 움직임 임계값 (m/s²)
-  // 걷기: ~2-4 m/s², 차량: ~0.5-2 m/s², 폰 들기: ~1-3 m/s² (짧게)
-  static const double _motionThreshold = 0.8; // 민감하게 설정
+  // 걸기: ~2-4 m/s², 차량: ~0.5-2 m/s², 폰 들기: ~1-3 m/s² (짧게)
+  static const double _normalMotionThreshold = 0.8; // 노멀: 민감하게
+  static const double _idleMotionThreshold = 1.8; // idle: 살짝 흔들림 무시
 
-  // 이동 판정: N초 동안 M% 이상 움직임 감지되면 "이동 중"
-  static const int _movingWindowSeconds = 15; // 15초 윈도우
-  static const double _movingRatioThreshold = 0.4; // 40% 이상 움직임
+  // ===== 노멀 모드 파라미터 =====
+  static const int _normalWindowSeconds = 15; // 15초 윈도우
+  static const double _normalRatioThreshold = 0.4; // 40% 이상 움직임
+  static const int _normalStillSeconds = 30; // 30초 (이동 후 정지 판정)
 
-  // 정지 판정: N분 동안 움직임 없으면 "정지"
-  static const int _stillTimeoutMinutes = 5; // 5분
+  // ===== idle 모드 파라미터 (확정 내부, 살짝 흔들림 무시) =====
+  static const int _idleWindowSeconds = 10; // 10초 윈도우
+  static const double _idleRatioThreshold = 0.4; // 40% 이상 (4초 이상 걸어야)
+  static const int _idleStillSeconds = 10; // 10초 (idle 중 정지 재확인)
+
+  // 현재 활성 파라미터 (모드에 따라 전환)
+  int _movingWindowSeconds = _normalWindowSeconds;
+  double _movingRatioThreshold = _normalRatioThreshold;
+  int _stillTimeoutSeconds = _normalStillSeconds;
+  double _motionThreshold = _normalMotionThreshold;
+  bool _isIdleMode = false;
+
+  // 정지 판정: N초 동안 움직임 없으면 "정지"
 
   // 샘플링 간격 - ✅ 배터리 최적화: 2초로 증가
   static const int _sampleIntervalMs = 2000; // 2초마다 샘플링 (기존 200ms)
 
   DateTime? _lastSampleTime;
+
+  /// idle 모드 전환 (LMS에서 확정 내부 진입/해제 시 호출)
+  void setInsideIdleMode(bool idle) {
+    if (_isIdleMode == idle) return;
+    _isIdleMode = idle;
+    if (idle) {
+      _movingWindowSeconds = _idleWindowSeconds;
+      _movingRatioThreshold = _idleRatioThreshold;
+      _stillTimeoutSeconds = _idleStillSeconds;
+      _motionThreshold = _idleMotionThreshold;
+      print(
+        '📱 MotionDetector: idle 모드 (10초 윈도우/40%/1.8m/s²/10초 정지) - 살짝 흔들림 무시',
+      );
+    } else {
+      _movingWindowSeconds = _normalWindowSeconds;
+      _movingRatioThreshold = _normalRatioThreshold;
+      _stillTimeoutSeconds = _normalStillSeconds;
+      _motionThreshold = _normalMotionThreshold;
+      print('📱 MotionDetector: normal 모드 (15초 윈도우/40%/0.8m/s²/30초 정지)');
+    }
+  }
 
   /// 모니터링 시작
   Future<void> startMonitoring() async {
@@ -127,14 +161,14 @@ class MotionDetector {
         _lastMovementTime = now;
       }
 
-      // 5분간 움직임 없으면 정지로 전환
+      // N초간 움직임 없으면 정지로 전환
       if (_lastMovementTime != null) {
         final stillDuration = now.difference(_lastMovementTime!);
-        if (stillDuration.inMinutes >= _stillTimeoutMinutes) {
+        if (stillDuration.inSeconds >= _stillTimeoutSeconds) {
           _isMoving = false;
           print(
             '🛑 MotionDetector: 정지 감지 '
-            '(${stillDuration.inMinutes}분간 움직임 없음)',
+            '(${stillDuration.inSeconds}초간 움직임 없음)',
           );
         }
       }

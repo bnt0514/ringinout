@@ -1,25 +1,18 @@
 // lib/services/smart_location_service.dart
 
-import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/alarm_notification_helper.dart';
 import 'package:ringinout/services/app_log_buffer.dart';
+import 'package:ringinout/services/location_monitor_service.dart';
+import 'package:ringinout/services/smart_location_monitor.dart';
 
-/// 🎯 SmartLocationService - 네이티브 3단계 위치 모니터링 연동
+/// 🎯 SmartLocationService - Flutter 기반 위치 모니터링 파사드
 ///
-/// 기존 Flutter 기반 GeofenceService를 대체
-/// 네이티브 Android SmartLocationManager와 통신
-///
-/// 모드:
-/// - IDLE: 배터리 0% (Activity Transition + 큰 지오펜스)
-/// - ARMED: 배터리 ~1% (작은 지오펜스 + 저전력 위치)
-/// - HOT: 30~60초 고정밀 GPS 버스트
+/// 린 하이브리드 아키텍처: 외부 인터페이스 유지, 내부는
+/// SmartLocationMonitor → LocationMonitorService (Timer+Geolocator) 체인으로 수행.
 class SmartLocationService {
-  static const MethodChannel _channel = MethodChannel(
-    'com.example.ringinout/smart_location',
-  );
-
   static void _log(String message) {
     AppLogBuffer.record('SmartLocationService', message);
     debugPrint(message);
@@ -37,188 +30,155 @@ class SmartLocationService {
     if (_isInitialized) return;
 
     _onAlarmTriggered = onAlarmTriggered;
-
-    // 네이티브에서 알람 트리거 수신
-    _channel.setMethodCallHandler((call) async {
-      if (call.method == 'onAlarmTriggered') {
-        final args = call.arguments as Map<dynamic, dynamic>;
-        final placeId = args['placeId'] as String;
-        final placeName = args['placeName'] as String;
-        final triggerType = args['triggerType'] as String;
-
-        _log('🚨 네이티브 알람 수신: $placeName ($triggerType)');
-
-        // 콜백 호출
-        _onAlarmTriggered?.call(placeId, placeName, triggerType);
-
-        // 알람 처리
-        await _handleAlarmTrigger(placeId, placeName, triggerType);
-      }
-    });
-
     _isInitialized = true;
-    _log('✅ SmartLocationService 초기화 완료');
+    _log('✅ SmartLocationService 초기화 완료 (Flutter 기반)');
   }
 
-  /// 모니터링 시작
+  /// 모니터링 시작 → SmartLocationMonitor로 위임
   static Future<void> startMonitoring() async {
     try {
-      // Hive에서 활성 알람 가져오기
-      final alarms = HiveHelper.getActiveAlarmsForMonitoring();
-
-      _log('🧭 startMonitoring 활성 알람 수: ${alarms.length}');
-
-      if (alarms.isEmpty) {
-        _log('📭 활성 알람 없음 - 모니터링 시작하지 않음');
-        await stopMonitoring();
-        return;
-      }
-
-      // 장소 정보 가져오기
-      final places = HiveHelper.getSavedLocations();
-      final alarmPlaces = <Map<String, dynamic>>[];
-
-      for (final alarm in alarms) {
-        final placeName = alarm['place'] ?? alarm['locationName'];
-        if (placeName == null) continue;
-
-        final alarmId = alarm['id']?.toString() ?? '';
-        final trigger = alarm['trigger'] as String? ?? 'entry';
-        _log('🧭 알람 확인: id=$alarmId, place=$placeName, trigger=$trigger');
-
-        final place = places.firstWhere(
-          (p) => p['name'] == placeName,
-          orElse: () => <String, dynamic>{},
-        );
-
-        if (place.isEmpty) continue;
-
-        final lat = (place['latitude'] ?? place['lat']) as double?;
-        final lng = (place['longitude'] ?? place['lng']) as double?;
-        final radius = (alarm['radius'] ?? place['radius'] ?? 100) as num;
-
-        if (lat == null || lng == null) continue;
-
-        // ✅ 고유 ID 생성: 알람ID_장소명_트리거타입 (같은 장소에 여러 알람 지원)
-        final uniqueId = '${alarmId}_${placeName}_$trigger';
-
-        alarmPlaces.add({
-          'id': uniqueId,
-          'name': placeName,
-          'latitude': lat,
-          'longitude': lng,
-          'radiusMeters': radius.toDouble(),
-          'triggerType': trigger == 'exit' ? 'exit' : 'entry',
-          'enabled': true,
-        });
-      }
-
-      if (alarmPlaces.isEmpty) {
-        _log('📭 유효한 알람 장소 없음');
-        return;
-      }
-
-      // 네이티브 모니터링 시작
-      await _channel.invokeMethod('startMonitoring', {'places': alarmPlaces});
-
-      _log('🎯 SmartLocationService 모니터링 시작: ${alarmPlaces.length}개 장소');
-      for (final place in alarmPlaces) {
-        _log(
-          '   📍 ${place['name']} (${place['triggerType']}) - ID: ${place['id']}',
-        );
-      }
+      _log('🧭 startMonitoring → SmartLocationMonitor로 위임');
+      await SmartLocationMonitor.startSmartMonitoring();
     } catch (e) {
       _log('❌ SmartLocationService 모니터링 시작 실패: $e');
     }
   }
 
-  static Future<void> sendErrorReport(Map<String, dynamic> payload) async {
-    try {
-      await _channel.invokeMethod('sendErrorReport', payload);
-      _log('✅ 에러 리포트 전송 요청 완료');
-    } catch (e) {
-      _log('❌ 에러 리포트 전송 실패: $e');
-      _log(payload.toString());
-    }
-  }
-
-  /// 모니터링 중지
+  /// 모니터링 중지 → SmartLocationMonitor로 위임
   static Future<void> stopMonitoring() async {
     try {
-      await _channel.invokeMethod('stopMonitoring');
+      await SmartLocationMonitor.stopMonitoring();
       _log('🛑 SmartLocationService 모니터링 중지');
     } catch (e) {
       _log('❌ SmartLocationService 모니터링 중지 실패: $e');
     }
   }
 
-  /// 알람 장소 업데이트
+  /// 알람 장소 업데이트 → LMS에 반영
   static Future<void> updatePlaces() async {
     try {
-      final alarms = HiveHelper.getActiveAlarmsForMonitoring();
-
-      _log('🧭 updatePlaces 활성 알람 수: ${alarms.length}');
-
-      if (alarms.isEmpty) {
-        _log('📭 활성 알람 없음 - 모니터링 중지');
-        await stopMonitoring();
-        return;
-      }
-
-      final places = HiveHelper.getSavedLocations();
-      final alarmPlaces = <Map<String, dynamic>>[];
-
-      for (final alarm in alarms) {
-        final placeName = alarm['place'] ?? alarm['locationName'];
-        if (placeName == null) continue;
-
-        final alarmId = alarm['id']?.toString() ?? '';
-        final trigger = alarm['trigger'] as String? ?? 'entry';
-        _log(
-          '🧭 updatePlaces 알람: id=$alarmId, place=$placeName, trigger=$trigger',
-        );
-
-        final place = places.firstWhere(
-          (p) => p['name'] == placeName,
-          orElse: () => <String, dynamic>{},
-        );
-
-        if (place.isEmpty) continue;
-
-        final lat = (place['latitude'] ?? place['lat']) as double?;
-        final lng = (place['longitude'] ?? place['lng']) as double?;
-        final radius = (alarm['radius'] ?? 100) as num;
-
-        if (lat == null || lng == null) continue;
-
-        alarmPlaces.add({
-          'id': '${alarmId}_${placeName}_$trigger',
-          'name': placeName,
-          'latitude': lat,
-          'longitude': lng,
-          'radiusMeters': radius.toDouble(),
-          'triggerType': trigger == 'exit' ? 'exit' : 'entry',
-          'enabled': true,
-        });
-      }
-
-      await _channel.invokeMethod('updatePlaces', {'places': alarmPlaces});
-      _log('🔄 SmartLocationService 장소 업데이트: ${alarmPlaces.length}개');
-      for (final place in alarmPlaces) {
-        _log(
-          '   📍 ${place['name']} (${place['triggerType']}) - ID: ${place['id']}',
-        );
-      }
+      _log('🔄 updatePlaces');
+      await SmartLocationMonitor.updatePlaces();
     } catch (e) {
       _log('❌ SmartLocationService 장소 업데이트 실패: $e');
     }
   }
 
+  /// 상태 조회 → SmartLocationMonitor + LocationMonitorService에서 조합
+  static Future<Map<String, dynamic>> getStatus() async {
+    try {
+      final monitorStatus = SmartLocationMonitor.getStatus();
+      final locationService = LocationMonitorService.instance;
+      final isRunning = monitorStatus['isRunning'] as bool? ?? false;
+
+      // v2: placeStates 기반으로 insideStatus 문자열 생성 (하위 호환)
+      final placeStates = locationService.getAllPlaceStates();
+      final insideParts = <String>[];
+      for (final entry in placeStates.entries) {
+        insideParts.add('${entry.key}=${entry.value.name}');
+      }
+      final insideStatusStr = insideParts.join(',');
+
+      // 활성 알람 개수
+      int alarmCount = 0;
+      try {
+        final alarms = HiveHelper.getActiveAlarmsForMonitoring();
+        alarmCount = alarms.length;
+      } catch (_) {}
+
+      return {
+        'state': isRunning ? 'MONITORING' : 'IDLE',
+        'alarmCount': alarmCount,
+        'targetPlace': '없음',
+        'insideStatus': insideStatusStr,
+        'exitWatchActive': false,
+        'isMoving': false,
+        'precisionMode': false,
+        'profile': locationService.currentMonitoringProfile,
+      };
+    } catch (e) {
+      _log('❌ SmartLocationService 상태 조회 실패: $e');
+      return {'state': 'UNKNOWN', 'error': e.toString()};
+    }
+  }
+
+  /// 장소별 inside 상태 조회 (v2: PlaceState 기반)
+  /// SharedPreferences `place_state_{alarmId}` 에서 읽음
+  static Future<Map<String, bool>> getInsideStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final result = <String, bool>{};
+      for (final key in prefs.getKeys()) {
+        if (key.startsWith('place_state_')) {
+          final alarmId = key.substring('place_state_'.length);
+          final stateStr = prefs.getString(key) ?? 'outside';
+          // inside/exitVerify → true, outside → false
+          result[alarmId] = (stateStr != 'outside');
+        }
+      }
+      // 메인 isolate LMS가 실행 중이면 그 값도 병합 (우선 적용)
+      final lmsStates = LocationMonitorService.instance.getAllPlaceStates();
+      for (final entry in lmsStates.entries) {
+        result[entry.key] = (entry.value != PlaceState.outside);
+      }
+      return result;
+    } catch (e) {
+      _log('⚠️ getInsideStatus 실패: $e');
+      final lmsStates = LocationMonitorService.instance.getAllPlaceStates();
+      return lmsStates.map((k, v) => MapEntry(k, v != PlaceState.outside));
+    }
+  }
+
+  /// LMS가 현재 실제로 추적(폴링) 중인 장소 이름 집합
+  /// 백그라운드 isolate 여부와 무관하게 geofence_running + 활성 알람으로 판단
+  static Set<String> getTrackedPlaceNames() {
+    // 메인 isolate LMS가 실행 중이면 그걸 우선 사용
+    final lmsNames = LocationMonitorService.instance.trackedPlaceNames;
+    if (lmsNames.isNotEmpty) return lmsNames;
+
+    // 백그라운드 서비스가 실행 중인지는 SharedPreferences로 판단
+    // (비동기 불가 → 활성 알람 장소 이름을 직접 반환)
+    try {
+      final alarms = HiveHelper.getActiveAlarmsForMonitoring();
+      return alarms
+          .map((a) => (a['place'] ?? a['locationName'] ?? '') as String)
+          .where((n) => n.isNotEmpty)
+          .toSet();
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// 서비스 실행 여부
+  static bool get isRunning => _isInitialized;
+
+  /// 현재 모니터링 모드
+  static Future<String> getCurrentState() async {
+    final status = await getStatus();
+    return status['state'] as String? ?? 'UNKNOWN';
+  }
+
+  /// 활성 알람 수
+  static Future<int> getAlarmCount() async {
+    final status = await getStatus();
+    return status['alarmCount'] as int? ?? 0;
+  }
+
+  /// 현재 타겟 장소
+  static Future<String?> getTargetPlace() async {
+    return null; // Flutter 모드에서는 단일 타겟 개념 없음
+  }
+
   /// 특정 알람 트리거 기록 제거 (재활성화 시 사용)
   static Future<void> clearTriggeredAlarm(String placeId) async {
+    // Flutter 모드에서는 _lastInside 상태를 리셋
     try {
-      await _channel.invokeMethod('clearTriggeredAlarm', {'placeId': placeId});
-      _log('🔔 트리거 기록 제거 요청: $placeId');
+      final parts = placeId.split('_');
+      if (parts.length >= 2) {
+        final placeName = parts.sublist(1, parts.length - 1).join('_');
+        await LocationMonitorService.instance.resetPlaceState(placeName);
+      }
+      _log('🔔 트리거 기록 제거: $placeId');
     } catch (e) {
       _log('❌ 트리거 기록 제거 실패: $e');
     }
@@ -232,135 +192,62 @@ class SmartLocationService {
     return '${alarmId}_${placeName}_$trigger';
   }
 
-  /// 상태 조회
-  static Future<Map<String, dynamic>> getStatus() async {
+  /// 에러 리포트 (no-op in Flutter mode)
+  static Future<void> sendErrorReport(Map<String, dynamic> payload) async {
+    _log('ℹ️ sendErrorReport: Flutter 모드 - 로그만 기록');
+    _log(payload.toString());
+  }
+
+  /// 알람 모드 전환 (Flutter 모드에서는 항상 Flutter)
+  static Future<void> setAlarmMode({required bool useFlutter}) async {
+    _log('ℹ️ setAlarmMode: Flutter 기반 모드 고정 (useFlutter=$useFlutter)');
+  }
+
+  /// 테스트 알람 (Flutter 모드)
+  static Future<void> testAlarm() async {
     try {
-      final result = await _channel.invokeMethod('getStatus');
-      return Map<String, dynamic>.from(result as Map);
-    } catch (e) {
-      print('❌ SmartLocationService 상태 조회 실패: $e');
-      return {'state': 'UNKNOWN', 'error': e.toString()};
-    }
-  }
-
-  /// 서비스 실행 여부
-  static bool get isRunning => _isInitialized;
-
-  /// 현재 모니터링 모드 (IDLE, ARMED, HOT)
-  static Future<String> getCurrentState() async {
-    final status = await getStatus();
-    return status['state'] as String? ?? 'UNKNOWN';
-  }
-
-  /// 장소별 inside 상태 조회
-  static Future<Map<String, bool>> getInsideStatus() async {
-    final status = await getStatus();
-    final insideStr = status['insideStatus'] as String? ?? '';
-
-    final result = <String, bool>{};
-    if (insideStr.isEmpty) return result;
-
-    // "시흥집=true,회사=false" 형식 파싱
-    for (final pair in insideStr.split(',')) {
-      final parts = pair.split('=');
-      if (parts.length == 2) {
-        final name = parts[0].trim();
-        final value = parts[1].trim().toLowerCase() == 'true';
-        result[name] = value;
-      }
-    }
-    return result;
-  }
-
-  /// 활성 알람 수
-  static Future<int> getAlarmCount() async {
-    final status = await getStatus();
-    return status['alarmCount'] as int? ?? 0;
-  }
-
-  /// 현재 타겟 장소 (ARMED/HOT 모드일 때)
-  static Future<String?> getTargetPlace() async {
-    final status = await getStatus();
-    final target = status['targetPlace'] as String?;
-    return (target == '없음' || target == null) ? null : target;
-  }
-
-  /// 알람 트리거 처리
-  static Future<void> _handleAlarmTrigger(
-    String placeId,
-    String placeName,
-    String triggerType,
-  ) async {
-    try {
-      print('🚨 알람 트리거: $placeName ($triggerType)');
-
-      // 알람 정보 찾기 (고유 ID + 트리거 타입 기준)
-      final alarms = HiveHelper.getLocationAlarms();
-      final alarm = alarms.firstWhere((a) {
-        if (a['enabled'] != true) return false;
-
-        final alarmPlace = a['place'] ?? a['locationName'];
-        final alarmTrigger = a['trigger'] as String? ?? 'entry';
-        final alarmId = a['id']?.toString() ?? '';
-        final uniqueId = '${alarmId}_${alarmPlace}_$alarmTrigger';
-
-        return uniqueId == placeId ||
-            (alarmPlace == placeName && alarmTrigger == triggerType);
-      }, orElse: () => <String, dynamic>{});
-
-      if (alarm.isEmpty) {
-        print('⚠️ 활성 알람 정보를 찾을 수 없음: $placeId');
-        return;
-      }
-
-      // 전체화면 알람 표시
       await AlarmNotificationHelper.showNativeAlarm(
-        title: alarm['name'] ?? placeName,
-        message: triggerType == 'entry' ? '도착했습니다!' : '출발했습니다!',
+        title: '테스트 알람',
+        message: 'Flutter 모니터링 테스트입니다!',
+        alarmData: {'name': '테스트 알람', 'trigger': 'entry'},
       );
-
-      // 알람 비활성화 (1회성 알람인 경우)
-      // - repeat == null: 최초 진입/진출 (1회성)
-      // - repeat is String: 특정 날짜 (1회성)
-      // - repeat is List && notEmpty: 요일 반복 (반복)
-      final repeat = alarm['repeat'];
-      final isOneShot = repeat == null || repeat is String;
-      if (isOneShot) {
-        await _disableAlarm(placeId, placeName);
-      }
+      _log('🧪 테스트 알람 발동');
     } catch (e) {
-      print('❌ 알람 트리거 처리 실패: $e');
+      _log('❌ 테스트 알람 실패: $e');
     }
   }
 
-  /// 알람 비활성화
-  static Future<void> _disableAlarm(String placeId, String placeName) async {
+  // ========== GPS 시뮬레이터 (제거됨 - 린 하이브리드에서 불필요) ==========
+
+  /// GPS 시뮬레이션 주입 (no-op — 린 하이브리드에서 시뮬레이터 제거됨)
+  static Future<void> injectSimulatedLocation({
+    required double lat,
+    required double lng,
+    double accuracy = 5.0,
+    double speed = 0.0,
+  }) async {
+    _log('⚠️ injectSimulatedLocation 호출됨 (no-op — 린 하이브리드 모드)');
+  }
+
+  /// GPS 시뮬레이션 중지 (no-op — 린 하이브리드에서 시뮬레이터 제거됨)
+  static Future<void> stopSimulation() async {
+    _log('⚠️ stopSimulation 호출됨 (no-op — 린 하이브리드 모드)');
+  }
+
+  /// Passing 알람 (알람 정지 후 재세팅)
+  static Future<void> passingAlarm(
+    String placeId, {
+    int snoozeDurationMs = 0,
+  }) async {
+    _log('👋 Passing 요청: $placeId (Flutter 모드 - 장소 상태 리셋)');
     try {
-      final alarmBox = HiveHelper.alarmBox;
-
-      for (var key in alarmBox.keys) {
-        final alarm = alarmBox.get(key);
-        if (alarm is Map) {
-          final converted = Map<String, dynamic>.from(alarm);
-          final candidatePlaceId = buildPlaceIdFromAlarm(converted);
-
-          // 1) 네이티브가 준 placeId(고유 ID)로 정확히 매칭
-          // 2) 폴백: 장소명만 매칭 (레거시/데이터 이상 시)
-          final place = converted['place'] ?? converted['locationName'];
-          if (candidatePlaceId == placeId || place == placeName) {
-            final updatedAlarm = Map<String, dynamic>.from(alarm);
-            updatedAlarm['enabled'] = false;
-            await alarmBox.put(key, updatedAlarm);
-            print('🔕 알람 비활성화: $placeName');
-            break;
-          }
-        }
+      final parts = placeId.split('_');
+      if (parts.length >= 2) {
+        final placeName = parts.sublist(1, parts.length - 1).join('_');
+        await LocationMonitorService.instance.resetPlaceState(placeName);
       }
-
-      // 장소 목록 업데이트
-      await updatePlaces();
     } catch (e) {
-      print('❌ 알람 비활성화 실패: $e');
+      _log('❌ Passing 요청 실패: $e');
     }
   }
 }

@@ -127,17 +127,16 @@ class _EditPlacePageState extends State<EditPlacePage> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _buildRadiusChip(30),
                       _buildRadiusChip(50),
                       _buildRadiusChip(100),
                       _buildRadiusChip(200),
                       ChoiceChip(
                         label: Text(
-                          ![30, 50, 100, 200].contains(_radius)
+                          ![50, 100, 200].contains(_radius)
                               ? '${_radius}m'
                               : l10n.get('custom'),
                         ),
-                        selected: ![30, 50, 100, 200].contains(_radius),
+                        selected: ![50, 100, 200].contains(_radius),
                         onSelected: (_) => _showCustomRadiusDialog(),
                       ),
                     ],
@@ -146,6 +145,34 @@ class _EditPlacePageState extends State<EditPlacePage> {
               ],
             ),
           ),
+          if (_radius <= 50)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.orange.shade300),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      color: Colors.orange,
+                      size: 18,
+                    ),
+                    SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '전파 방해 지역(고층빌딩, 아파트, 지하 등)에서는 알람이 울리지 않을 수 있습니다. 100m 이상 권장',
+                        style: TextStyle(fontSize: 11, color: Colors.black87),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           Expanded(
             child: NaverMap(
               options: NaverMapViewOptions(
@@ -237,19 +264,19 @@ class _EditPlacePageState extends State<EditPlacePage> {
                       const SizedBox(height: 16),
                       Slider(
                         value: customRadius.toDouble(),
-                        min: 30,
+                        min: 50,
                         max: 500,
-                        divisions: 47, // (500-30)/10 = 47
+                        divisions: 45, // (500-50)/10 = 45
                         label: '${customRadius}m',
                         onChanged: (value) {
                           setDialogState(() {
                             customRadius = (value / 10).round() * 10; // 10m 단위
-                            if (customRadius < 30) customRadius = 30;
+                            if (customRadius < 50) customRadius = 50;
                           });
                         },
                       ),
                       const Text(
-                        '30m ~ 500m (10m 단위)',
+                        '50m ~ 500m (10m 단위)',
                         style: TextStyle(
                           fontSize: 12,
                           color: AppColors.textSecondary,

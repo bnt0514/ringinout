@@ -69,6 +69,13 @@ class SubscriptionService {
     }
   }
 
+  /// 인덱스가 한도 초과인지 여부 (초과분은 잠금 처리)
+  /// items는 0번부터 순서대로, limit 이상 인덱스가 잠김
+  static bool isIndexLocked(int index, int? limit) {
+    if (limit == null) return false;
+    return index >= limit;
+  }
+
   static bool isAdFree(SubscriptionPlan plan) {
     return plan == SubscriptionPlan.basic ||
         plan == SubscriptionPlan.premium ||

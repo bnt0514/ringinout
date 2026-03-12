@@ -13,6 +13,7 @@ import 'package:ringinout/widgets/permission_gate.dart';
 import 'package:ringinout/app/routes.dart';
 import 'package:ringinout/services/locale_provider.dart';
 import 'package:ringinout/services/app_localizations.dart';
+import 'package:ringinout/services/billing_service.dart';
 import 'package:ringinout/config/app_theme.dart';
 
 class RinginoutApp extends StatelessWidget {
@@ -52,6 +53,8 @@ class RinginoutApp extends StatelessWidget {
               // 로그인된 경우 메인 화면
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 _handlePendingAlarm(context);
+                // 로그인 상태 변경 시 플랜 강제 새로고침
+                context.read<BillingService>().fetchStatus(forceRefresh: true);
               });
               return const PermissionGate(
                 child: TermsGate(child: MainNavigationPage()),

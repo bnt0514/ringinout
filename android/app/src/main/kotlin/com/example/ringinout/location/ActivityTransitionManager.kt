@@ -187,8 +187,8 @@ class ActivityTransitionReceiver : BroadcastReceiver() {
                 // 콜백 호출
                 onTransitionCallback?.invoke(moving)
 
-                // SmartLocationManager에 알림
-                SmartLocationManager.getInstance(context)?.onActivityTransition(moving)
+                // 참고: SmartLocationManager에서 ActivityTransition은 더 이상 사용하지 않음
+                // 지오펜스 중심 구조로 전환됨
             }
         }
     }

@@ -148,14 +148,7 @@ class HiveHelper {
   static List<Map<String, dynamic>> getSavedLocations() {
     try {
       final values = _placeBox.values.toList();
-      for (var v in values) {
-        debugPrint('📦 저장된 값 타입: ${v.runtimeType}, 값: $v');
-      }
-      debugPrint('📥 getSavedLocations 원본 값: $values');
-      final mapped =
-          values.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-      debugPrint('📥 getSavedLocations 반환값: $mapped');
-      return mapped;
+      return values.map((e) => Map<String, dynamic>.from(e as Map)).toList();
     } catch (e) {
       debugPrint('❌ getSavedLocations 에러: $e');
       return [];
@@ -333,6 +326,8 @@ class HiveHelper {
         await snoozeBox.delete(alarmId);
         await prefs.remove('alarm_name_$alarmId');
         await prefs.remove('alarm_disabled_$alarmId');
+        await prefs.remove('place_state_$alarmId');
+        await prefs.remove('cooldown_until_$alarmId');
 
         print('🗑️ 알람 인덱스 $index (ID: $alarmId) 관련 데이터 삭제 완료');
       }
@@ -384,8 +379,10 @@ class HiveHelper {
       await snoozeBox.delete(id); // ✅ 스누즈 스케줄 삭제 (삭제된 알람이 울리는 버그 방지)
       await prefs.remove('alarm_name_$id'); // 캐시 삭제
       await prefs.remove('alarm_disabled_$id'); // ✅ 비활성화 플래그도 삭제
+      await prefs.remove('place_state_$id'); // ✅ v3: stale 상태 정리
+      await prefs.remove('cooldown_until_$id'); // ✅ v3: 쿨다운 정리
 
-      print('🗑️ 알람 $id 삭제 완료 (알람 + 트리거 + 스누즈 + 캐시)');
+      print('🗑️ 알람 $id 삭제 완료 (알람 + 트리거 + 스누즈 + 상태 + 캐시)');
     } catch (e) {
       debugPrint('❌ deleteAlarmById 에러: $e');
       rethrow;

@@ -6,12 +6,12 @@ import 'package:ringinout/pages/add_location_alarm_page.dart';
 import 'package:ringinout/pages/edit_places_page.dart';
 import 'package:ringinout/pages/add_myplaces_page.dart';
 import 'package:ringinout/services/hive_helper.dart';
-import 'package:geofence_service/geofence_service.dart';
 import 'package:ringinout/services/app_localizations.dart';
 import 'package:ringinout/services/subscription_service.dart';
 import 'package:ringinout/widgets/subscription_limit_dialog.dart';
 
 import 'package:provider/provider.dart';
+import 'package:ringinout/services/billing_service.dart';
 
 class MyPlacesPage extends StatefulWidget {
   const MyPlacesPage({super.key});
@@ -26,6 +26,7 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
   bool isSelectionMode = false;
   Set<int> selectedIndexes = {};
   List<Map<String, dynamic>> items = [];
+  SubscriptionPlan _plan = SubscriptionPlan.free;
 
   @override
   void initState() {
@@ -33,6 +34,9 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
     HiveHelper.init().then((_) async {
       final pos = await HiveHelper.getFabPosition();
       setState(() => fabPosition = pos);
+    });
+    SubscriptionService.getCurrentPlan().then((plan) {
+      if (mounted) setState(() => _plan = plan);
     });
   }
 
@@ -98,15 +102,7 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
                   'radius': radius,
                 });
 
-                final geofence = Geofence(
-                  id: name,
-                  latitude: lat,
-                  longitude: lng,
-                  radius: [
-                    GeofenceRadius(id: 'default', length: radius.toDouble()),
-                  ],
-                );
-                GeofenceService.instance.addGeofence(geofence);
+                // 린 하이브리드: Hive에 저장하면 LMS가 자동으로 반영
 
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -215,6 +211,7 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
                               .toList();
 
                       items = _sortItems(rawItems, _sortOption);
+                      final placeLimit = SubscriptionService.placeLimit(_plan);
 
                       if (items.isEmpty) {
                         return Column(
@@ -239,103 +236,122 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
                               itemCount: items.length,
                               itemBuilder: (context, index) {
                                 final location = items[index];
+                                final isLocked =
+                                    SubscriptionService.isIndexLocked(
+                                      index,
+                                      placeLimit,
+                                    );
                                 return AnimatedPadding(
                                   duration: const Duration(milliseconds: 200),
                                   padding: EdgeInsets.only(
                                     left: isSelectionMode ? 8.0 : 0.0,
                                     top: isSelectionMode ? 4.0 : 0.0,
                                   ),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: AppColors.card,
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
+                                  child: Opacity(
+                                    opacity: isLocked ? 0.5 : 1.0,
+                                    child: Container(
+                                      decoration: BoxDecoration(
                                         color:
-                                            selectedIndexes.contains(index)
-                                                ? AppColors.primary.withValues(
-                                                  alpha: 0.5,
+                                            isLocked
+                                                ? AppColors.shimmer
+                                                : AppColors.card,
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(
+                                          color:
+                                              isLocked
+                                                  ? AppColors.divider
+                                                  : selectedIndexes.contains(
+                                                    index,
+                                                  )
+                                                  ? AppColors.primary
+                                                      .withValues(alpha: 0.5)
+                                                  : AppColors.divider,
+                                          width:
+                                              selectedIndexes.contains(index)
+                                                  ? 1.5
+                                                  : 1,
+                                        ),
+                                        boxShadow: AppStyle.softShadow,
+                                      ),
+                                      child: ListTile(
+                                        leading:
+                                            isLocked
+                                                ? const Icon(
+                                                  Icons.lock,
+                                                  color: AppColors.divider,
                                                 )
-                                                : AppColors.divider,
-                                        width:
-                                            selectedIndexes.contains(index)
-                                                ? 1.5
-                                                : 1,
-                                      ),
-                                      boxShadow: AppStyle.softShadow,
-                                    ),
-                                    child: ListTile(
-                                      leading:
-                                          isSelectionMode
-                                              ? Checkbox(
-                                                value: selectedIndexes.contains(
-                                                  index,
-                                                ),
-                                                onChanged: (_) {
-                                                  setState(() {
-                                                    if (selectedIndexes
-                                                        .contains(index)) {
-                                                      selectedIndexes.remove(
-                                                        index,
-                                                      );
+                                                : isSelectionMode
+                                                ? Checkbox(
+                                                  value: selectedIndexes
+                                                      .contains(index),
+                                                  onChanged: (_) {
+                                                    setState(() {
                                                       if (selectedIndexes
-                                                          .isEmpty) {
-                                                        isSelectionMode = false;
+                                                          .contains(index)) {
+                                                        selectedIndexes.remove(
+                                                          index,
+                                                        );
+                                                        if (selectedIndexes
+                                                            .isEmpty) {
+                                                          isSelectionMode =
+                                                              false;
+                                                        }
+                                                      } else {
+                                                        selectedIndexes.add(
+                                                          index,
+                                                        );
                                                       }
-                                                    } else {
-                                                      selectedIndexes.add(
-                                                        index,
-                                                      );
-                                                    }
-                                                  });
-                                                },
-                                              )
-                                              : const Icon(
-                                                Icons.place,
-                                                color: AppColors.primary,
-                                              ),
-                                      title: Text(location['name'] ?? '이름 없음'),
-                                      subtitle: Text(
-                                        '반경: ${location["radius"] ?? '?'}m',
-                                      ),
-                                      onTap: () async {
-                                        if (isSelectionMode) {
-                                          setState(() {
-                                            if (selectedIndexes.contains(
-                                              index,
-                                            )) {
-                                              selectedIndexes.remove(index);
-                                              if (selectedIndexes.isEmpty) {
-                                                isSelectionMode = false;
-                                              }
-                                            } else {
-                                              selectedIndexes.add(index);
-                                            }
-                                          });
-                                        } else {
-                                          final updated = await Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder:
-                                                  (_) => EditPlacePage(
-                                                    initialData: location,
-                                                    index: index,
+                                                    });
+                                                  },
+                                                )
+                                                : const Icon(
+                                                  Icons.place,
+                                                  color: AppColors.primary,
+                                                ),
+                                        title: Text(
+                                          location['name'] ?? '이름 없음',
+                                          style: TextStyle(
+                                            color:
+                                                isLocked
+                                                    ? AppColors.divider
+                                                    : null,
+                                          ),
+                                        ),
+                                        subtitle:
+                                            isLocked
+                                                ? Text(
+                                                  '플랜 업그레이드 필요',
+                                                  style: TextStyle(
+                                                    color: AppColors.warning,
+                                                    fontSize: 12,
                                                   ),
-                                            ),
-                                          );
-                                          if (updated == true) {
-                                            setState(() {});
+                                                )
+                                                : Text(
+                                                  '반경: ${location["radius"] ?? '?'}m',
+                                                ),
+                                        onTap: () async {
+                                          if (isLocked) {
+                                            await SubscriptionLimitDialog.showPlaceLimit(
+                                              context,
+                                              plan: _plan,
+                                              limit: placeLimit!,
+                                            );
+                                            return;
                                           }
-                                        }
-                                      },
-                                      onLongPress: () {
-                                        setState(() {
-                                          isSelectionMode = true;
-                                          selectedIndexes.add(index);
-                                        });
-                                      },
-                                      trailing: PopupMenuButton<String>(
-                                        onSelected: (value) async {
-                                          if (value == 'edit_places') {
+                                          if (isSelectionMode) {
+                                            setState(() {
+                                              if (selectedIndexes.contains(
+                                                index,
+                                              )) {
+                                                selectedIndexes.remove(index);
+                                                if (selectedIndexes.isEmpty) {
+                                                  isSelectionMode = false;
+                                                }
+                                              } else {
+                                                selectedIndexes.add(index);
+                                              }
+                                            });
+                                          } else {
                                             final updated =
                                                 await Navigator.push(
                                                   context,
@@ -347,78 +363,193 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
                                                         ),
                                                   ),
                                                 );
-                                            if (updated == true)
-                                              setState(() {});
-                                          } else if (value == 'add_alarm') {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder:
-                                                    (_) => AddLocationAlarmPage(
-                                                      preSelectedPlace:
-                                                          location,
-                                                    ),
-                                              ),
-                                            );
-                                          } else if (value == 'delete') {
-                                            final confirm = await showDialog<
-                                              bool
-                                            >(
-                                              context: context,
-                                              builder:
-                                                  (_) => AlertDialog(
-                                                    title: const Text('삭제 확인'),
-                                                    content: const Text(
-                                                      '정말로 이 위치를 삭제하시겠습니까?',
-                                                    ),
-                                                    actions: [
-                                                      TextButton(
-                                                        onPressed:
-                                                            () => Navigator.pop(
-                                                              context,
-                                                              false,
-                                                            ),
-                                                        child: const Text('취소'),
-                                                      ),
-                                                      TextButton(
-                                                        onPressed:
-                                                            () => Navigator.pop(
-                                                              context,
-                                                              true,
-                                                            ),
-                                                        child: const Text('삭제'),
-                                                      ),
-                                                    ],
-                                                  ),
-                                            );
-                                            if (confirm == true) {
-                                              await HiveHelper.deleteLocation(
-                                                index,
-                                              );
+                                            if (updated == true) {
                                               setState(() {});
                                             }
                                           }
                                         },
-                                        itemBuilder:
-                                            (context) => const [
-                                              PopupMenuItem(
-                                                value: 'edit_places',
-                                                child: Text('MyPlaces 편집'),
-                                              ),
-                                              PopupMenuItem(
-                                                value: 'add_alarm',
-                                                child: Text('새 알람 추가'),
-                                              ),
-                                              PopupMenuItem(
-                                                value: 'delete',
-                                                child: Text(
-                                                  '삭제',
-                                                  style: TextStyle(
-                                                    color: AppColors.danger,
-                                                  ),
+                                        onLongPress: () {
+                                          setState(() {
+                                            isSelectionMode = true;
+                                            selectedIndexes.add(index);
+                                          });
+                                        },
+                                        trailing:
+                                            isLocked
+                                                ? PopupMenuButton<String>(
+                                                  onSelected: (value) async {
+                                                    if (value == 'delete') {
+                                                      final confirm = await showDialog<
+                                                        bool
+                                                      >(
+                                                        context: context,
+                                                        builder:
+                                                            (_) => AlertDialog(
+                                                              title: const Text(
+                                                                '삭제 확인',
+                                                              ),
+                                                              content: const Text(
+                                                                '잠긴 위치를 삭제하시겠습니까?',
+                                                              ),
+                                                              actions: [
+                                                                TextButton(
+                                                                  onPressed:
+                                                                      () => Navigator.pop(
+                                                                        context,
+                                                                        false,
+                                                                      ),
+                                                                  child:
+                                                                      const Text(
+                                                                        '취소',
+                                                                      ),
+                                                                ),
+                                                                TextButton(
+                                                                  onPressed:
+                                                                      () => Navigator.pop(
+                                                                        context,
+                                                                        true,
+                                                                      ),
+                                                                  child:
+                                                                      const Text(
+                                                                        '삭제',
+                                                                      ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                      );
+                                                      if (confirm == true) {
+                                                        await HiveHelper.deleteLocation(
+                                                          index,
+                                                        );
+                                                        setState(() {});
+                                                      }
+                                                    }
+                                                  },
+                                                  itemBuilder:
+                                                      (context) => [
+                                                        PopupMenuItem(
+                                                          value: 'delete',
+                                                          child: Text(
+                                                            '삭제',
+                                                            style: TextStyle(
+                                                              color:
+                                                                  AppColors
+                                                                      .danger,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                )
+                                                : PopupMenuButton<String>(
+                                                  onSelected: (value) async {
+                                                    if (value ==
+                                                        'edit_places') {
+                                                      final updated =
+                                                          await Navigator.push(
+                                                            context,
+                                                            MaterialPageRoute(
+                                                              builder:
+                                                                  (
+                                                                    _,
+                                                                  ) => EditPlacePage(
+                                                                    initialData:
+                                                                        location,
+                                                                    index:
+                                                                        index,
+                                                                  ),
+                                                            ),
+                                                          );
+                                                      if (updated == true)
+                                                        setState(() {});
+                                                    } else if (value ==
+                                                        'add_alarm') {
+                                                      Navigator.push(
+                                                        context,
+                                                        MaterialPageRoute(
+                                                          builder:
+                                                              (
+                                                                _,
+                                                              ) => AddLocationAlarmPage(
+                                                                preSelectedPlace:
+                                                                    location,
+                                                              ),
+                                                        ),
+                                                      );
+                                                    } else if (value ==
+                                                        'delete') {
+                                                      final confirm = await showDialog<
+                                                        bool
+                                                      >(
+                                                        context: context,
+                                                        builder:
+                                                            (_) => AlertDialog(
+                                                              title: const Text(
+                                                                '삭제 확인',
+                                                              ),
+                                                              content: const Text(
+                                                                '정말로 이 위치를 삭제하시겠습니까?',
+                                                              ),
+                                                              actions: [
+                                                                TextButton(
+                                                                  onPressed:
+                                                                      () => Navigator.pop(
+                                                                        context,
+                                                                        false,
+                                                                      ),
+                                                                  child:
+                                                                      const Text(
+                                                                        '취소',
+                                                                      ),
+                                                                ),
+                                                                TextButton(
+                                                                  onPressed:
+                                                                      () => Navigator.pop(
+                                                                        context,
+                                                                        true,
+                                                                      ),
+                                                                  child:
+                                                                      const Text(
+                                                                        '삭제',
+                                                                      ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                      );
+                                                      if (confirm == true) {
+                                                        await HiveHelper.deleteLocation(
+                                                          index,
+                                                        );
+                                                        setState(() {});
+                                                      }
+                                                    }
+                                                  },
+                                                  itemBuilder:
+                                                      (context) => const [
+                                                        PopupMenuItem(
+                                                          value: 'edit_places',
+                                                          child: Text(
+                                                            'MyPlaces 편집',
+                                                          ),
+                                                        ),
+                                                        PopupMenuItem(
+                                                          value: 'add_alarm',
+                                                          child: Text(
+                                                            '새 알람 추가',
+                                                          ),
+                                                        ),
+                                                        PopupMenuItem(
+                                                          value: 'delete',
+                                                          child: Text(
+                                                            '삭제',
+                                                            style: TextStyle(
+                                                              color:
+                                                                  AppColors
+                                                                      .danger,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
                                                 ),
-                                              ),
-                                            ],
                                       ),
                                     ),
                                   ),

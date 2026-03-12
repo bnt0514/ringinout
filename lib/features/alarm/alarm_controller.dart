@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Project imports
 import 'package:ringinout/config/constants.dart';
@@ -141,6 +142,14 @@ class AlarmController extends ChangeNotifier {
     if (enabled) {
       final placeId = SmartLocationService.buildPlaceIdFromAlarm(alarm);
       await SmartLocationService.clearTriggeredAlarm(placeId);
+
+      // ✅ alarm_disabled_ 플래그 제거 (Problem 4 수정)
+      final alarmId = alarm['id'];
+      if (alarmId is String) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('alarm_disabled_$alarmId');
+        print('🗑️ alarm_disabled_ 플래그 제거: $alarmId');
+      }
     }
     await updateAlarm(index, alarm);
   }

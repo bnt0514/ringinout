@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:ringinout/config/app_theme.dart';
 import 'package:provider/provider.dart';
-
-import 'package:ringinout/services/locale_provider.dart';
+import 'package:ringinout/config/app_theme.dart';
 import 'package:ringinout/services/app_localizations.dart';
 import 'package:ringinout/services/auth_service.dart';
 import 'package:ringinout/services/billing_service.dart';
+import 'package:ringinout/services/locale_provider.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -20,7 +19,6 @@ class _SettingsPageState extends State<SettingsPage> {
     final authService = Provider.of<AuthService>(context, listen: false);
     final billingService = Provider.of<BillingService>(context, listen: false);
 
-    // 로그아웃 확인 다이얼로그
     final confirm = await showDialog<bool>(
       context: context,
       builder:
@@ -42,22 +40,18 @@ class _SettingsPageState extends State<SettingsPage> {
 
     if (confirm != true) return;
 
-    if (confirm != true) return;
-
     try {
       await authService.signOut();
       billingService.clearCache();
 
       if (!mounted) return;
-
-      // 로그인 화면으로 이동 (뒤로가기 불가)
       Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
     } catch (e) {
-      print('로그아웃 실패: $e');
+      debugPrint('로그아웃 실패: $e');
     }
   }
 
-  oid _showLanguageDialog() {
+  void _showLanguageDialog() {
     final l10n = AppLocalizations.of(context);
     final localeProvider = Provider.of<LocaleProvider>(context, listen: false);
 
@@ -80,9 +74,10 @@ class _SettingsPageState extends State<SettingsPage> {
                               )
                               : null,
                       onTap: () async {
+                        final nav = Navigator.of(context);
                         await localeProvider.setLanguage(language);
                         if (!mounted) return;
-                        Navigator.pop(context);
+                        nav.pop();
                       },
                     );
                   }).toList(),
@@ -94,6 +89,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void _showFeedbackDialog() {
     final l10n = AppLocalizations.of(context);
     final controller = TextEditingController();
+
     showDialog(
       context: context,
       builder:
@@ -114,7 +110,6 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               ElevatedButton(
                 onPressed: () {
-                  // TODO: 실제 피드백 전송 로직 구현 (이메일 또는 서버)
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text(l10n.get('feedback_sent'))),
@@ -129,6 +124,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _showAppInfoDialog() {
     final l10n = AppLocalizations.of(context);
+
     showDialog(
       context: context,
       builder:
@@ -168,6 +164,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _showPrivacyPolicy() {
     final l10n = AppLocalizations.of(context);
+
     showDialog(
       context: context,
       builder:
@@ -200,27 +197,6 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(l10n.get('privacy_section_2_content')),
-                  const SizedBox(height: 16),
-                  Text(
-                    l10n.get('privacy_section_3_title'),
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(l10n.get('privacy_section_3_content')),
-                  const SizedBox(height: 16),
-                  Text(
-                    l10n.get('privacy_section_4_title'),
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(l10n.get('privacy_section_4_content')),
-                  const SizedBox(height: 16),
-                  Text(
-                    l10n.get('privacy_section_5_title'),
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(l10n.get('privacy_section_5_content')),
                 ],
               ),
             ),
@@ -238,12 +214,12 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final localeProvider = Provider.of<LocaleProvider>(context);
+    final authService = Provider.of<AuthService>(context, listen: false);
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.get('settings'))),
       body: ListView(
         children: [
-          // 언어 설정
           ListTile(
             leading: const Icon(Icons.language),
             title: Text(l10n.get('language')),
@@ -252,25 +228,20 @@ class _SettingsPageState extends State<SettingsPage> {
             onTap: _showLanguageDialog,
           ),
           const Divider(),
-
-          // 계정 설정
           ListTile(
             leading: const Icon(Icons.account_circle),
             title: Text(l10n.get('account')),
-            subtitle:
-                _currentUser != null
-                    ? Text(
-                      _currentUser!.displayName ?? _currentUser!.email ?? '',
-                    )
-                    : null,
+            subtitle: Text(
+              authService.currentUser?.email ??
+                  authService.currentUser?.displayName ??
+                  'Not logged in',
+            ),
             trailing: TextButton(
               onPressed: _handleGoogleSignOut,
               child: Text(l10n.get('logout')),
             ),
           ),
           const Divider(),
-
-          // 건의사항
           ListTile(
             leading: const Icon(Icons.feedback),
             title: Text(l10n.get('feedback')),
@@ -278,8 +249,6 @@ class _SettingsPageState extends State<SettingsPage> {
             onTap: _showFeedbackDialog,
           ),
           const Divider(),
-
-          // 앱 정보
           ListTile(
             leading: const Icon(Icons.info),
             title: Text(l10n.get('app_info')),

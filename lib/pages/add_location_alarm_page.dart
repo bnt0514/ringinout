@@ -9,7 +9,6 @@ import 'package:uuid/uuid.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 // Project imports:
-import 'package:geofence_service/geofence_service.dart';
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/location_monitor_service.dart';
 import 'package:ringinout/services/smart_location_monitor.dart';
@@ -54,6 +53,9 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
   String alarmSound = 'thoughtfulringtone';
   bool alarmSoundEnabled = true;
 
+  // ✅ 조건 설정 (선택사항) - 모든 알람은 "최초 1회"
+  TimeOfDay? conditionTime; // 시간 조건 (선택적)
+
   // ✅ 음성인식 관련
   late stt.SpeechToText _speech;
   bool _isListening = false;
@@ -63,6 +65,7 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
 
   List<Map<String, dynamic>> places = [];
   Map<String, dynamic>? selectedPlace;
+  int? _placeLimit; // null = unlimited
 
   @override
   void initState() {
@@ -80,6 +83,15 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
 
     final box = HiveHelper.placeBox;
     places = box.values.map((e) => Map<String, dynamic>.from(e)).toList();
+
+    // 잠긴 장소 파악용 플랜 로드
+    SubscriptionService.getCurrentPlan().then((plan) {
+      if (mounted) {
+        setState(() {
+          _placeLimit = SubscriptionService.placeLimit(plan);
+        });
+      }
+    });
 
     // ✅ 음성인식에서 전달받은 데이터 초기화
     if (widget.preSelectedPlace != null) {
@@ -256,18 +268,30 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
   }
 
   String getSelectedDaySummary() {
+    final trigger = triggerOnEntry ? '진입' : (triggerOnExit ? '진출' : '진입/진출');
+    final parts = <String>[];
+
     if (selectedDate != null) {
       final weekday = weekdays[selectedDate!.weekday % 7];
-      return '${selectedDate!.month}월 ${selectedDate!.day}일 ($weekday)';
+      parts.add('${selectedDate!.month}월 ${selectedDate!.day}일($weekday)');
     } else if (selectedWeekdays.isNotEmpty) {
       final sorted =
           weekdays.where((d) => selectedWeekdays.contains(d)).toList();
-      return '매주 ${sorted.join(', ')}';
-    } else {
-      if (triggerOnEntry) return '알람 설정 후 최초 진입 시';
-      if (triggerOnExit) return '알람 설정 후 최초 진출 시';
+      parts.add('매주 ${sorted.join(', ')}');
     }
-    return '선택 없음';
+
+    if (conditionTime != null) {
+      final h = conditionTime!.hour;
+      final m = conditionTime!.minute;
+      final period = h >= 12 ? '오후' : '오전';
+      final hour12 = h == 0 ? 12 : (h > 12 ? h - 12 : h);
+      parts.add('$period ${hour12}시${m.toString().padLeft(2, '0')}분 이후');
+    }
+
+    if (parts.isEmpty) {
+      return '최초 $trigger 시 즉시 알람';
+    }
+    return '${parts.join(' ')} 최초 $trigger 시';
   }
 
   void _showCalendar() async {
@@ -282,6 +306,25 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
       setState(() {
         selectedDate = picked;
         selectedWeekdays.clear();
+      });
+    }
+  }
+
+  // ✅ TimePicker 표시 (시간 조건 선택용)
+  void _showTimePicker() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: conditionTime ?? TimeOfDay.now(),
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() {
+        conditionTime = picked;
       });
     }
   }
@@ -405,7 +448,12 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('새 위치알람 추가')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          MediaQuery.of(context).padding.bottom + 80,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -465,10 +513,35 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
             DropdownButtonFormField<Map<String, dynamic>>(
               value: selectedPlace,
               items:
-                  places.map((place) {
+                  places.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final place = entry.value;
+                    final isLocked = SubscriptionService.isIndexLocked(
+                      idx,
+                      _placeLimit,
+                    );
                     return DropdownMenuItem(
                       value: place,
-                      child: Text(place['name'] ?? '이름 없음'),
+                      enabled: !isLocked,
+                      child: Row(
+                        children: [
+                          if (isLocked)
+                            const Padding(
+                              padding: EdgeInsets.only(right: 6),
+                              child: Icon(
+                                Icons.lock,
+                                size: 14,
+                                color: AppColors.divider,
+                              ),
+                            ),
+                          Text(
+                            place['name'] ?? '이름 없음',
+                            style: TextStyle(
+                              color: isLocked ? AppColors.divider : null,
+                            ),
+                          ),
+                        ],
+                      ),
                     );
                   }).toList(),
               onChanged: (place) => setState(() => selectedPlace = place),
@@ -486,64 +559,224 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
               triggerOnExit,
               () => _toggleExclusive(false),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber.shade300),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('⚠️', style: TextStyle(fontSize: 16)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '반경 경계 근처에서 머무르거나 왔다갔다 하면 알람이 여러 번 울릴 수 있습니다. '
+                      '"다시 울림" 버튼으로 알람을 잠시 뒤로 미룰 수 있습니다.',
+                      style: TextStyle(fontSize: 12, color: Colors.black87),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // ✅ 조건 설정 (선택사항) - 통합 UI
+            const Text(
+              '조건 설정 (선택사항)',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '조건 없이 저장하면 즉시 최초 진입/진출 시 알람이 울립니다.',
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 12),
+
+            // 📅 날짜 선택
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  getSelectedDaySummary(),
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  selectedDate != null
+                      ? '📅 ${selectedDate!.year}.${selectedDate!.month.toString().padLeft(2, '0')}.${selectedDate!.day.toString().padLeft(2, '0')}'
+                      : '날짜 지정 없음',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    color:
+                        selectedDate != null
+                            ? AppColors.primary
+                            : AppColors.textSecondary,
+                  ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.calendar_today),
-                  onPressed: _showCalendar,
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.calendar_today),
+                      onPressed: () {
+                        _showCalendar();
+                        // 날짜 선택하면 요일 해제
+                      },
+                    ),
+                    if (selectedDate != null)
+                      GestureDetector(
+                        onTap: () => setState(() => selectedDate = null),
+                        child: Icon(
+                          Icons.close,
+                          size: 18,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children:
-                  weekdays.map((day) {
-                    final selected = selectedWeekdays.contains(day);
-                    final color =
-                        day == '일'
-                            ? AppColors.sunday
-                            : day == '토'
-                            ? AppColors.saturday
-                            : AppColors.textPrimary;
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          if (selected) {
-                            selectedWeekdays.remove(day);
-                          } else {
-                            selectedWeekdays.add(day);
-                            selectedDate = null;
-                          }
-                        });
-                      },
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        alignment: Alignment.center,
-                        decoration:
-                            selected
-                                ? BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: AppColors.primary.withValues(
-                                    alpha: 0.2,
-                                  ),
-                                )
-                                : null,
-                        child: Text(
-                          day,
-                          style: TextStyle(fontSize: 14, color: color),
+
+            // 📆 요일 선택 (날짜와 배타적)
+            if (selectedDate == null) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children:
+                    weekdays.map((day) {
+                      final selected = selectedWeekdays.contains(day);
+                      final color =
+                          day == '일'
+                              ? AppColors.sunday
+                              : day == '토'
+                              ? AppColors.saturday
+                              : AppColors.textPrimary;
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            if (selected) {
+                              selectedWeekdays.remove(day);
+                            } else {
+                              selectedWeekdays.add(day);
+                              selectedDate = null;
+                            }
+                          });
+                        },
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          alignment: Alignment.center,
+                          decoration:
+                              selected
+                                  ? BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.2,
+                                    ),
+                                  )
+                                  : null,
+                          child: Text(
+                            day,
+                            style: TextStyle(fontSize: 14, color: color),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            // ⏰ 시간 조건 설정
+            GestureDetector(
+              onTap: _showTimePicker,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color:
+                      conditionTime != null
+                          ? AppColors.primary.withValues(alpha: 0.08)
+                          : Colors.grey.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color:
+                        conditionTime != null
+                            ? AppColors.primary
+                            : AppColors.divider,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.access_time,
+                      size: 20,
+                      color:
+                          conditionTime != null
+                              ? AppColors.primary
+                              : AppColors.textSecondary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      conditionTime != null
+                          ? '⏰ ${conditionTime!.format(context)} 이후'
+                          : '시간 조건 설정 (선택사항)',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color:
+                            conditionTime != null
+                                ? AppColors.primary
+                                : AppColors.textSecondary,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (conditionTime != null)
+                      GestureDetector(
+                        onTap: () => setState(() => conditionTime = null),
+                        child: Icon(
+                          Icons.close,
+                          size: 18,
+                          color: AppColors.textSecondary,
                         ),
                       ),
-                    );
-                  }).toList(),
+                  ],
+                ),
+              ),
             ),
+            const SizedBox(height: 12),
+
+            // ✅ 설정 요약
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.info_outline,
+                    size: 20,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      getSelectedDaySummary(),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
             const SizedBox(height: 20),
             _buildToggleRow(
               '공휴일에는 끄기',
@@ -612,6 +845,22 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
                                   .where((d) => selectedWeekdays.contains(d))
                                   .toList();
 
+                          // ✅ startTimeMs 계산 (시간 조건이 있고 날짜/요일 없을 때)
+                          int startTimeMs = 0;
+                          if (conditionTime != null &&
+                              selectedDate == null &&
+                              sortedWeekdays.isEmpty) {
+                            final now = DateTime.now();
+                            final scheduledTime = DateTime(
+                              now.year,
+                              now.month,
+                              now.day,
+                              conditionTime!.hour,
+                              conditionTime!.minute,
+                            );
+                            startTimeMs = scheduledTime.millisecondsSinceEpoch;
+                          }
+
                           final id = const Uuid().v4();
                           final alarm = {
                             'id': id,
@@ -626,6 +875,14 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
                                         : null),
                             'enabled': true,
                             'triggerCount': 0,
+                            'startTimeMs': startTimeMs,
+                            // ✅ 날짜/요일 + 시간 조건
+                            if (conditionTime != null &&
+                                (selectedDate != null ||
+                                    sortedWeekdays.isNotEmpty)) ...{
+                              'hour': conditionTime!.hour,
+                              'minute': conditionTime!.minute,
+                            },
                           };
 
                           await HiveHelper.alarmBox.put(
@@ -648,50 +905,6 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
                           print('🎯 SmartLocationService 장소 업데이트 완료');
 
                           await SmartLocationMonitor.startSmartMonitoring();
-                          if (selectedPlace != null) {
-                            final latitude =
-                                (selectedPlace?['latitude'] as double?) ?? 0.0;
-                            final longitude =
-                                (selectedPlace?['longitude'] as double?) ?? 0.0;
-
-                            final geofence = Geofence(
-                              id: alarmName,
-                              latitude: latitude,
-                              longitude: longitude,
-                              radius: [
-                                GeofenceRadius(id: 'default', length: 100),
-                              ],
-                            );
-
-                            GeofenceService.instance.addGeofence(geofence);
-                            debugPrint('✅ 지오펜스 등록됨!');
-                            debugPrint('ID: \${geofence.id}');
-                            debugPrint('위도: \${geofence.latitude}');
-                            debugPrint('경도: \${geofence.longitude}');
-                            debugPrint('반경: \${geofence.radius.first.length}m');
-
-                            // ✅ 모니터링 재시작 추가
-                            final monitorService = LocationMonitorService();
-                            monitorService.stopMonitoring();
-
-                            Future.delayed(
-                              const Duration(milliseconds: 300),
-                              () {
-                                monitorService.prepareMonitoringOnly((
-                                  type,
-                                  alarm,
-                                ) {
-                                  // 필요 시 트리거 처리
-                                });
-
-                                WidgetsBinding.instance.addPostFrameCallback((
-                                  _,
-                                ) {
-                                  monitorService.startServiceIfSafe();
-                                });
-                              },
-                            );
-                          }
                         }();
                       },
               child: const Center(child: Text('저장')),

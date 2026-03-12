@@ -9,6 +9,7 @@ import 'package:ringinout/pages/testpage.dart';
 import 'package:ringinout/pages/server_subscription_page.dart';
 import 'package:ringinout/pages/add_location_alarm_page.dart';
 import 'package:ringinout/services/app_localizations.dart';
+import 'package:ringinout/services/location_monitor_service.dart';
 
 class MainNavigationPage extends StatefulWidget {
   const MainNavigationPage({super.key});
@@ -55,6 +56,8 @@ class _MainNavigationPageState extends State<MainNavigationPage>
     if (state == AppLifecycleState.resumed) {
       // 앱이 포그라운드로 돌아올 때마다 체크
       _checkVoiceAlarmMode();
+      // ★ 네이티브에서 알람 종료 시 설정한 disabled 플래그 즉시 반영
+      LocationMonitorService.processNativeDisabledFlagsNow();
     }
   }
 
@@ -80,16 +83,32 @@ class _MainNavigationPageState extends State<MainNavigationPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(index: _selectedIndex, children: _pages),
-      bottomNavigationBar: AnimatedCrossFade(
-        duration: const Duration(milliseconds: 300),
-        firstChild: _buildBottomNav(),
-        secondChild: _buildSelectionBar(),
-        crossFadeState:
-            isSelectionMode
-                ? CrossFadeState.showSecond
-                : CrossFadeState.showFirst,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+
+        // 기본 페이지(알람)가 아니면 기본 페이지로 이동
+        if (_selectedIndex != 0) {
+          setState(() => _selectedIndex = 0);
+        } else {
+          // 기본 페이지에서 뒤로가기하면 로그인 페이지로
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil('/login', (route) => false);
+        }
+      },
+      child: Scaffold(
+        body: IndexedStack(index: _selectedIndex, children: _pages),
+        bottomNavigationBar: AnimatedCrossFade(
+          duration: const Duration(milliseconds: 300),
+          firstChild: _buildBottomNav(),
+          secondChild: _buildSelectionBar(),
+          crossFadeState:
+              isSelectionMode
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+        ),
       ),
     );
   }

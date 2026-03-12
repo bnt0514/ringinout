@@ -31,7 +31,6 @@ void main() async {
 
   // AuthService 및 BillingService 초기화
   final authService = AuthService();
-  await authService.initialize();
   final billingService = BillingService(authService);
   SubscriptionService.initialize(billingService);
 
@@ -62,10 +61,13 @@ void main() async {
   // ✅ AlarmNotificationHelper에 같은 키 설정
   AlarmNotificationHelper.setNavigatorKey(globalNavigatorKey);
 
-  print('🔑 NavigatorKey 통일 설정 완료');
+  debugPrint('🔑 NavigatorKey 통일 설정 완료');
 
   // ✅ SmartLocationMonitor는 메인 앱용만 (백그라운드 중복 방지)
   WidgetsBinding.instance.addPostFrameCallback((_) async {
+    // SmartLocationMonitor 초기화는 여기서
+  });
+
   // 앱 실행
   runApp(
     MultiProvider(
@@ -76,12 +78,6 @@ void main() async {
         ChangeNotifierProvider.value(value: testGeofenceController),
         Provider.value(value: authService),
         ChangeNotifierProvider.value(value: billingService),
-      ],
-      child: RinginoutApp(navigatorKey: globalNavigatorKey),
-    ),
-  );
-}       ChangeNotifierProvider.value(value: alarmController),
-        ChangeNotifierProvider.value(value: testGeofenceController),
       ],
       child: RinginoutApp(navigatorKey: globalNavigatorKey),
     ),

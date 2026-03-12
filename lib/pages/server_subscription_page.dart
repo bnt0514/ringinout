@@ -175,9 +175,25 @@ class _ServerSubscriptionView extends StatelessWidget {
   }
 
   void _openPolicy(BuildContext context, String title) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => PolicyPage(title: title)),
+    showDialog(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(title),
+            content: SingleChildScrollView(
+              child: Text(
+                title == '구독 정책'
+                    ? getSubscriptionPolicyText(isBeta: AppConfig.isBetaVersion)
+                    : getRefundPolicyText(isBeta: AppConfig.isBetaVersion),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('닫기'),
+              ),
+            ],
+          ),
     );
   }
 }

@@ -18,6 +18,7 @@ class SnoozeReceiver : BroadcastReceiver() {
         const val EXTRA_ALARM_ID = "alarm_id"
         const val EXTRA_ALARM_TITLE = "alarm_title"
         const val EXTRA_ALARM_DATA = "alarm_data"
+        const val EXTRA_PLACE_ID = "place_id"
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -26,24 +27,32 @@ class SnoozeReceiver : BroadcastReceiver() {
         if (intent.action == ACTION_SNOOZE_ALARM) {
             val alarmId = intent.getIntExtra(EXTRA_ALARM_ID, -1)
             val alarmTitle = intent.getStringExtra(EXTRA_ALARM_TITLE) ?: "위치 알람"
+            val placeId = intent.getStringExtra(EXTRA_PLACE_ID) ?: ""
 
-            Log.d("SnoozeReceiver", "📢 스누즈 알람 트리거: $alarmTitle (ID: $alarmId)")
+            Log.d("SnoozeReceiver", "📢 스누즈 알람 트리거: $alarmTitle (ID: $alarmId, placeId: $placeId)")
 
-            // 1. 전체화면 알람 Activity 시작
-            launchFullScreenAlarm(context, alarmId, alarmTitle)
+            // 1. 전체화면 알람 Activity 시작 (벨소리도 Activity 내에서 재생)
+            launchFullScreenAlarm(context, alarmId, alarmTitle, placeId)
 
-            // 2. 벨소리 재생 (서비스에서 처리)
-            startAlarmService(context, alarmId, alarmTitle)
+            // ✅ 제거: startAlarmService()가 MainActivity를 띄워서
+            //    AlarmFullscreenActivity를 가리는 문제 해결
+            //    벨소리는 AlarmFullscreenActivity.onCreate에서 직접 재생
         }
     }
 
-    private fun launchFullScreenAlarm(context: Context, alarmId: Int, title: String) {
+    private fun launchFullScreenAlarm(
+            context: Context,
+            alarmId: Int,
+            title: String,
+            placeId: String
+    ) {
         try {
             val intent =
                     Intent(context, AlarmFullscreenActivity::class.java).apply {
                         putExtra("title", title)
                         putExtra("message", "스누즈 알람이 울립니다")
                         putExtra("alarmId", alarmId)
+                        putExtra("placeId", placeId) // ✅ placeId 전달
                         putExtra("isSnoozeAlarm", true)
                         addFlags(
                                 Intent.FLAG_ACTIVITY_NEW_TASK or
@@ -60,21 +69,8 @@ class SnoozeReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun startAlarmService(context: Context, alarmId: Int, title: String) {
-        try {
-            // MainActivity로 알람 재생 요청
-            val serviceIntent =
-                    Intent(context, MainActivity::class.java).apply {
-                        action = "PLAY_SNOOZE_ALARM"
-                        putExtra("alarmId", alarmId)
-                        putExtra("title", title)
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-            context.startActivity(serviceIntent)
-        } catch (e: Exception) {
-            Log.e("SnoozeReceiver", "❌ 알람 서비스 시작 실패: ${e.message}")
-        }
-    }
+    // ✅ startAlarmService 제거 — MainActivity를 띄우면 AlarmFullscreenActivity를 가림
+    // 벨소리는 AlarmFullscreenActivity.onCreate에서 직접 재생
 
     private fun showFallbackNotification(context: Context, alarmId: Int, title: String) {
         try {

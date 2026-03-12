@@ -2,9 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:ringinout/config/app_theme.dart';
-import 'package:geofence_service/geofence_service.dart' as fence;
-import 'package:geofence_service/models/geofence.dart';
-import 'package:geofence_service/models/geofence_radius.dart';
 import 'package:geolocator/geolocator.dart' as geo;
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:ringinout/services/hive_helper.dart';
@@ -27,7 +24,13 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
   NaverMapController? _mapController;
   NLatLng? _selectedLatLng;
   String _address = '';
-  int _selectedRadius = 30; // ✅ 기본값 30m
+  int _selectedRadius = 100; // ✅ 기본값 100m
+  final TextEditingController _searchController = TextEditingController();
+  List<LocalSearchResult> _searchResults = [];
+  bool _showSearchResults = false;
+  bool _isSearching = false;
+  double? _currentLat; // ✅ 현재 사용자 위치 (검색 기준)
+  double? _currentLng;
 
   @override
   void initState() {
@@ -44,6 +47,8 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
       return;
     }
     geo.Position position = await geo.Geolocator.getCurrentPosition();
+    _currentLat = position.latitude;
+    _currentLng = position.longitude;
     _moveCamera(position.latitude, position.longitude);
   }
 
@@ -98,9 +103,75 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
   void _onMapTapped(NPoint point, NLatLng latLng) {
     setState(() {
       _selectedLatLng = latLng;
+      _showSearchResults = false;
     });
     _reverseGeocode(latLng);
     _updateMarker();
+  }
+
+  /// 주소 + 장소명 통합 검색
+  Future<void> _performSearch(String query) async {
+    if (query.trim().isEmpty) return;
+
+    setState(() {
+      _isSearching = true;
+      _showSearchResults = true;
+      _searchResults = [];
+    });
+
+    try {
+      // 1️⃣ 장소명 검색 (Local Search API) — 현재 위치 기준
+      final placeResults = await NaverGeocodingService.searchPlace(
+        query,
+        lat: _currentLat,
+        lng: _currentLng,
+      );
+
+      // 2️⃣ 주소 검색 (Geocoding API) — 결과가 있으면 첫 번째에 추가
+      final geoResult = await NaverGeocodingService.searchAddress(query);
+
+      final combinedResults = <LocalSearchResult>[];
+
+      // 주소 결과가 있으면 맨 위에 추가
+      if (geoResult != null) {
+        combinedResults.add(
+          LocalSearchResult(
+            title: '📍 ${geoResult.displayAddress}',
+            address: geoResult.jibunAddress,
+            roadAddress: geoResult.roadAddress,
+            category: '주소 검색 결과',
+            lat: geoResult.lat,
+            lng: geoResult.lng,
+          ),
+        );
+      }
+
+      // 장소 검색 결과 추가
+      combinedResults.addAll(placeResults);
+
+      if (mounted) {
+        setState(() {
+          _searchResults = combinedResults;
+          _isSearching = false;
+        });
+
+        // 결과가 딱 1개(주소만)이면 바로 이동
+        if (combinedResults.length == 1 && geoResult != null) {
+          _moveCamera(geoResult.lat, geoResult.lng);
+          setState(() {
+            _address = geoResult.displayAddress;
+            _showSearchResults = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ 통합 검색 실패: $e');
+      if (mounted) {
+        setState(() {
+          _isSearching = false;
+        });
+      }
+    }
   }
 
   void _saveLocation() async {
@@ -176,21 +247,7 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                       'radius': _selectedRadius,
                     });
 
-                    fence.GeofenceService.instance.addGeofence(
-                      Geofence(
-                        id: name,
-                        latitude: _selectedLatLng!.latitude,
-                        longitude: _selectedLatLng!.longitude,
-                        radius: [
-                          GeofenceRadius(
-                            id: 'default',
-                            length: _selectedRadius.toDouble(),
-                          ),
-                        ],
-                      ),
-                    );
-
-                    // 🔄 네이티브 지오펜스 실시간 업데이트
+                    // 🔄 장소 업데이트 → LocationMonitorService에서 자동 반영
                     await SmartLocationService.updatePlaces();
 
                     if (mounted) {
@@ -229,51 +286,172 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: TextField(
-              onSubmitted: (value) async {
-                try {
-                  final result = await NaverGeocodingService.searchAddress(
-                    value,
-                  );
-                  if (result != null) {
-                    _moveCamera(result.lat, result.lng);
-                    setState(() {
-                      _address = result.displayAddress;
-                    });
-                  } else {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('주소를 찾을 수 없습니다')),
-                      );
-                    }
-                  }
-                } catch (e) {
-                  debugPrint('주소 검색 실패: $e');
+              controller: _searchController,
+              onSubmitted: (value) => _performSearch(value),
+              onChanged: (value) {
+                // 검색어 지우면 결과도 숨김
+                if (value.isEmpty) {
+                  setState(() {
+                    _searchResults = [];
+                    _showSearchResults = false;
+                  });
                 }
               },
-              decoration: const InputDecoration(
-                hintText: '주소를 입력하세요',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                hintText: '주소 또는 지역+장소명 (예: 시흥 롯데마트)',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon:
+                    _searchController.text.isNotEmpty
+                        ? IconButton(
+                          icon: const Icon(Icons.clear, size: 20),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() {
+                              _searchResults = [];
+                              _showSearchResults = false;
+                            });
+                          },
+                        )
+                        : null,
+                border: const OutlineInputBorder(),
               ),
             ),
           ),
+          // ✅ 지도 + 검색 결과 오버레이 (Stack으로 overflow 방지)
           Expanded(
-            child: NaverMap(
-              options: const NaverMapViewOptions(
-                initialCameraPosition: NCameraPosition(
-                  target: NLatLng(37.5665, 126.9780),
-                  zoom: 12,
+            child: Stack(
+              children: [
+                NaverMap(
+                  options: const NaverMapViewOptions(
+                    initialCameraPosition: NCameraPosition(
+                      target: NLatLng(37.5665, 126.9780),
+                      zoom: 12,
+                    ),
+                    locationButtonEnable: true,
+                    indoorEnable: true,
+                    buildingHeight: 1.0,
+                    contentPadding: EdgeInsets.only(
+                      bottom: 100,
+                    ), // 하단 버튼과 겹침 방지
+                  ),
+                  onMapReady: (controller) {
+                    _mapController = controller;
+                    if (_selectedLatLng != null) _updateMarker();
+                  },
+                  onMapTapped: (point, latLng) {
+                    _onMapTapped(point, latLng);
+                    // 지도 탭하면 검색 결과 닫기
+                    FocusScope.of(context).unfocus();
+                  },
                 ),
-                locationButtonEnable: true,
-                indoorEnable: true,
-                buildingHeight: 1.0,
-                contentPadding: EdgeInsets.only(bottom: 100), // 하단 버튼과 겹침 방지
-              ),
-              onMapReady: (controller) {
-                _mapController = controller;
-                if (_selectedLatLng != null) _updateMarker();
-              },
-              onMapTapped: _onMapTapped,
+                // ✅ 검색 결과 오버레이 (지도 위에 표시)
+                if (_isSearching)
+                  const Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  ),
+                if (_showSearchResults && _searchResults.isNotEmpty)
+                  Positioned(
+                    top: 0,
+                    left: 8,
+                    right: 8,
+                    child: Material(
+                      elevation: 4,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        constraints: const BoxConstraints(maxHeight: 280),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).cardColor,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          padding: EdgeInsets.zero,
+                          itemCount: _searchResults.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final result = _searchResults[index];
+                            return ListTile(
+                              dense: true,
+                              leading: const Icon(
+                                Icons.place,
+                                color: AppColors.primary,
+                                size: 22,
+                              ),
+                              title: Text(
+                                result.title,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    result.displayAddress,
+                                    style: const TextStyle(fontSize: 12),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (result.category.isNotEmpty)
+                                    Text(
+                                      result.category,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                ],
+                              ),
+                              onTap: () {
+                                _moveCamera(result.lat, result.lng);
+                                setState(() {
+                                  _address = result.displayAddress;
+                                  _showSearchResults = false;
+                                });
+                                FocusScope.of(context).unfocus();
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                if (_showSearchResults &&
+                    _searchResults.isEmpty &&
+                    !_isSearching)
+                  Positioned(
+                    top: 0,
+                    left: 8,
+                    right: 8,
+                    child: Material(
+                      elevation: 4,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).cardColor,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '검색 결과가 없습니다',
+                          style: TextStyle(color: AppColors.textSecondary),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
           if (_selectedLatLng != null)
@@ -313,7 +491,6 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                             spacing: 8,
                             runSpacing: 8,
                             children: [
-                              _buildRadiusChip(30),
                               _buildRadiusChip(50),
                               _buildRadiusChip(100),
                               _buildRadiusChip(200),
@@ -321,7 +498,6 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                                 label: Text(
                                   _selectedRadius > 200 ||
                                           ![
-                                            30,
                                             50,
                                             100,
                                             200,
@@ -330,12 +506,7 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                                       : '직접입력',
                                 ),
                                 selected:
-                                    ![
-                                      30,
-                                      50,
-                                      100,
-                                      200,
-                                    ].contains(_selectedRadius),
+                                    ![50, 100, 200].contains(_selectedRadius),
                                 onSelected: (_) => _showCustomRadiusDialog(),
                               ),
                             ],
@@ -343,6 +514,37 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                         ),
                       ],
                     ),
+                    if (_selectedRadius <= 50)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.orange.shade300),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(
+                                Icons.warning_amber_rounded,
+                                color: Colors.orange,
+                                size: 18,
+                              ),
+                              SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  '전파 방해 지역(고층빌딩, 아파트, 지하 등)에서는 알람이 울리지 않을 수 있습니다. 100m 이상 권장',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
@@ -401,19 +603,19 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                       const SizedBox(height: 16),
                       Slider(
                         value: customRadius.toDouble(),
-                        min: 30,
+                        min: 50,
                         max: 500,
-                        divisions: 47, // (500-30)/10 = 47
+                        divisions: 45, // (500-50)/10 = 45
                         label: '${customRadius}m',
                         onChanged: (value) {
                           setDialogState(() {
                             customRadius = (value / 10).round() * 10; // 10m 단위
-                            if (customRadius < 30) customRadius = 30;
+                            if (customRadius < 50) customRadius = 50;
                           });
                         },
                       ),
                       const Text(
-                        '30m ~ 500m (10m 단위)',
+                        '50m ~ 500m (10m 단위)',
                         style: TextStyle(
                           fontSize: 12,
                           color: AppColors.textSecondary,

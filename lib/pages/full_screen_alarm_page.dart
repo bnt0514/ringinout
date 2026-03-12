@@ -27,6 +27,9 @@ class FullScreenAlarmPage extends StatefulWidget {
 
 class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
   static const bellPlatform = MethodChannel('flutter.bell');
+  static const _smartChannel = MethodChannel(
+    'com.example.ringinout/smart_location',
+  );
   int _triggerCount = 0;
 
   @override
@@ -134,56 +137,38 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
     }
   }
 
-  Future<void> _disableAlarm(String alarmTitle) async {
+  Future<void> _disableAlarm(String alarmId) async {
     try {
-      print('🔕 알람 비활성화 시작: $alarmTitle');
+      print('🔕 알람 비활성화 시작 (ID): $alarmId');
 
       final box = HiveHelper.alarmBox;
-      final alarmsList = box.values.toList();
 
-      for (var i = 0; i < alarmsList.length; i++) {
-        final alarm = alarmsList[i];
-
-        if (alarm['name'] == alarmTitle && alarm['enabled'] == true) {
-          // ✅ Map을 복사하여 수정
-          final updatedAlarm = Map<String, dynamic>.from(alarm);
-          updatedAlarm['enabled'] = false;
-
-          // ✅ alarmId 가져오기
-          final alarmId = updatedAlarm['id'];
-          if (alarmId == null) {
-            print('❌ 알람 ID가 없음');
-            continue;
-          }
-
-          // ✅ Hive 박스에서 해당 id를 키로 찾아서 업데이트
-          final keys = box.keys.toList();
-          for (var key in keys) {
-            final item = box.get(key);
-            if (item != null && item['id'] == alarmId) {
-              await box.put(key, updatedAlarm);
-              print('✅ 알람 비활성화 완료 (key: $key, id: $alarmId)');
-
-              // ✅ 트리거 카운트 제거
-              final triggerBox = await Hive.openBox('trigger_counts_v2');
-              await triggerBox.delete(alarmId);
-              print('🗑️ 트리거 카운트 제거: $alarmId');
-
-              // ✅ 스누즈 스케줄도 제거 (ID로 삭제)
-              final snoozeBox = await Hive.openBox('snoozeSchedules');
-              await snoozeBox.delete(alarmId);
-              print('🗑️ 스누즈 스케줄 제거 (ID): $alarmId');
-
-              // ✅ Watchdog heartbeat 전송 (활성 알람 수 동기화)
-              await LocationMonitorService.sendWatchdogHeartbeat();
-              print('💓 알람 비활성화 후 Heartbeat 전송');
-
-              break;
-            }
-          }
-          break;
-        }
+      // ✅ Hive 키 = 알람 ID → 직접 조회
+      final alarm = box.get(alarmId);
+      if (alarm == null) {
+        print('⚠️ 알람을 찾을 수 없음 (ID: $alarmId)');
+        return;
       }
+
+      final updatedAlarm = Map<String, dynamic>.from(alarm);
+      updatedAlarm['enabled'] = false;
+      updatedAlarm['snoozePending'] = false;
+      await box.put(alarmId, updatedAlarm);
+      print('✅ 알람 비활성화 완료 (id: $alarmId)');
+
+      // ✅ 트리거 카운트 제거
+      final triggerBox = await Hive.openBox('trigger_counts_v2');
+      await triggerBox.delete(alarmId);
+      print('🗑️ 트리거 카운트 제거: $alarmId');
+
+      // ✅ 스누즈 스케줄도 제거
+      final snoozeBox = await Hive.openBox('snoozeSchedules');
+      await snoozeBox.delete(alarmId);
+      print('🗑️ 스누즈 스케줄 제거: $alarmId');
+
+      // ✅ Watchdog heartbeat 전송
+      await LocationMonitorService.sendWatchdogHeartbeat();
+      print('💓 알람 비활성화 후 Heartbeat 전송');
     } catch (e) {
       print('❌ 알람 비활성화 실패: $e');
       print('스택 트레이스: ${StackTrace.current}');
@@ -238,7 +223,7 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
     // ✅ 사용자에게 시간 선택 다이얼로그 표시
     int? selectedMinutes = await showDialog<int>(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       builder: (context) {
         return AlertDialog(
           title: const Text("다시 울림 시간 선택"),
@@ -259,44 +244,26 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
 
     // ✅ 시간을 선택한 경우에만 처리
     if (selectedMinutes != null && selectedMinutes > 0) {
-      // ✅ 알람을 일시 비활성화 상태로 설정 (snoozePending)
-      await _setAlarmSnoozePending(widget.alarmTitle, true);
-
+      // ★ 스누즈: 지금 비활성화 → n분 후 재트리거
+      final alarmId = widget.alarmData?['id'];
+      if (alarmId != null) {
+        await _disableAlarm(alarmId);
+      }
       await _saveSnoozeTime(selectedMinutes);
       await _scheduleSnoozeAlarm(selectedMinutes);
 
-      print("⏰ $selectedMinutes분 후 다시 울림 예약됨 (일시 비활성화)");
+      print("⏰ $selectedMinutes분 후 다시 울림 예약됨");
+
+      // ✅ 선택 완료 후 알람 페이지 종료
+      if (!mounted) return;
+      await _exitAlarmPageCompletely();
     } else {
-      print("! 다시 울림 취소됨");
-    }
-
-    // ✅ 선택 완료 후 알람 페이지 종료
-    if (!mounted) return;
-    await _exitAlarmPageCompletely();
-  }
-
-  // ✅ 알람 일시 비활성화 상태 설정 (snoozePending)
-  Future<void> _setAlarmSnoozePending(String alarmTitle, bool pending) async {
-    try {
-      final box = HiveHelper.alarmBox;
-
-      for (var key in box.keys) {
-        final alarm = box.get(key);
-        if (alarm != null && alarm['name'] == alarmTitle) {
-          final updatedAlarm = Map<String, dynamic>.from(alarm);
-          updatedAlarm['snoozePending'] = pending;
-          updatedAlarm['enabled'] = false; // ✅ 비활성화로 설정 (중복 트리거 방지)
-
-          await box.put(key, updatedAlarm);
-          print('⏰ 알람 snoozePending=$pending, enabled=false 설정: $alarmTitle');
-
-          // ✅ Heartbeat 전송
-          await LocationMonitorService.sendWatchdogHeartbeat();
-          break;
-        }
-      }
-    } catch (e) {
-      print('❌ snoozePending 설정 실패: $e');
+      // ★ 취소/미선택 → 알람 화면으로 돌아감 (종료하지 않음)
+      print("! 다시 울림 취소됨 → 알람 화면 유지");
+      // 소리 다시 재생 (사용자가 아직 선택 안 했으므로)
+      try {
+        await bellPlatform.invokeMethod('playSystemRingtone');
+      } catch (_) {}
     }
   }
 
@@ -312,8 +279,21 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
 
     print('✅ 목표 달성으로 기록');
 
-    // 알람 비활성화
-    await _disableAlarm(widget.alarmTitle);
+    // 알람 비활성화 (ID로 정확히 매칭)
+    final alarmId = widget.alarmData?['id'];
+    if (alarmId != null) {
+      await _disableAlarm(alarmId);
+
+      // ✅ SmartLocationManager에도 dismiss 처리 (GateState DISABLED → 반복 알람 차단)
+      try {
+        await _smartChannel.invokeMethod('dismissAlarm', {'placeId': alarmId});
+        print('✅ dismissAlarm 완료: $alarmId');
+      } catch (e) {
+        print('⚠️ dismissAlarm 채널 실패 (무시): $e');
+      }
+    } else {
+      print('⚠️ 알람 ID 없음 - 비활성화 스킵');
+    }
 
     // ✅ 즉시 알람 페이지 종료
     if (!mounted) return;
@@ -332,15 +312,10 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
 
     // ✅ PopScope로 Scaffold 전체를 감싸기
     return PopScope(
-      canPop: true, // ✅ true = 뒤로가기 허용
+      canPop: false, // ✅ 뒤로가기 차단 — 반드시 다시 울림/알람 종료 선택
       onPopInvokedWithResult: (bool didPop, dynamic result) async {
-        if (didPop) {
-          // ✅ 뒤로가기로 닫힐 때 알람 정지
-          print('🔙 뒤로가기 버튼 - 알람 정지');
-          await _stopAllSounds();
-          await cancelAllAlarmNotifications();
-          print('✅ 알람 정지 완료');
-        }
+        // 뒤로가기 무시 — 사용자가 반드시 버튼을 눌러야 함
+        print('🔙 뒤로가기 차단됨 — 다시 울림 또는 알람 종료를 선택하세요');
       },
       child: Scaffold(
         backgroundColor: AppColors.textPrimary,
@@ -361,9 +336,9 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
                   ),
                 ),
               ),
-              // ✅ 다시 울림 버튼 (항상 표시)
+              // ✅ 다시 울림 버튼
               Positioned(
-                bottom: screenSize.height * 0.35,
+                bottom: screenSize.height * 0.40,
                 left: 0,
                 right: 0,
                 child: Center(
@@ -386,9 +361,9 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
                   ),
                 ),
               ),
-              // ✅ 알람 종료 버튼 (항상 표시)
+              // ✅ 알람 종료 버튼
               Positioned(
-                bottom: screenSize.height * 0.2,
+                bottom: screenSize.height * 0.25,
                 left: 0,
                 right: 0,
                 child: Center(

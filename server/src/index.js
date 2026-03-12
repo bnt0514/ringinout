@@ -16,11 +16,17 @@ const authRoutes = require('./routes/auth');
 const billingRoutes = require('./routes/billing');
 const db = require('./db/database');
 
-// Firebase Admin SDK 초기화
-const serviceAccount = require(process.env.FIREBASE_SERVICE_ACCOUNT_PATH);
-admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-});
+// Firebase Admin SDK 초기화 (파일이 있으면)
+try {
+    const serviceAccount = require(process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './firebase-service-account.json');
+    admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+    });
+    console.log('✅ Firebase Admin SDK 초기화 완료');
+} catch (error) {
+    console.warn('⚠️  Firebase 서비스 계정 파일 없음 - 인증 기능 제한됨');
+    console.warn('   개발 모드로 실행 (ID 토큰 검증 스킵)');
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;

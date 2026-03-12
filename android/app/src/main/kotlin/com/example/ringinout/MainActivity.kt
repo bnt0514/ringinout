@@ -332,6 +332,7 @@ class MainActivity : FlutterActivity() {
                             val title = call.argument<String>("title") ?: "알람"
                             val message = call.argument<String>("message") ?: "위치 알람"
                             val alarmIdRaw = call.argument<Any>("alarmId") // ✅ Any로 받아서 변환
+                            val placeId = call.argument<String>("placeId") ?: ""
 
                             // ✅ String UUID를 hashCode로 변환
                             val alarmId =
@@ -341,7 +342,7 @@ class MainActivity : FlutterActivity() {
                                         else -> -1
                                     }
 
-                            showBackgroundFullScreenAlarm(title, message, alarmId)
+                            showBackgroundFullScreenAlarm(title, message, alarmId, placeId)
                             result.success(true)
                         }
                         else -> result.notImplemented()
@@ -397,6 +398,9 @@ class MainActivity : FlutterActivity() {
         // Flutter에서 알람 트리거 수신할 수 있도록 채널 연결
         SmartLocationManager.flutterChannel = smartLocationChannel
 
+        // ✅ Flutter 엔진 재연결 시 보류된 지오펜스 이벤트 전달
+        SmartLocationManager.getInstance(applicationContext).deliverPendingGeofenceEvents()
+
         smartLocationChannel.setMethodCallHandler { call, result ->
             val smartManager = SmartLocationManager.getInstance(applicationContext)
 
@@ -418,7 +422,12 @@ class MainActivity : FlutterActivity() {
                                                     if (data["triggerType"] == "exit")
                                                             AlarmTriggerType.EXIT
                                                     else AlarmTriggerType.ENTER,
-                                            enabled = data["enabled"] as? Boolean ?: true
+                                            enabled = data["enabled"] as? Boolean ?: true,
+                                            isFirstOnly = data["isFirstOnly"] as? Boolean ?: false,
+                                            startTimeMs = (data["startTimeMs"] as? Number)?.toLong()
+                                                            ?: 0L,
+                                            isTimeSpecified = data["isTimeSpecified"] as? Boolean
+                                                            ?: false,
                                     )
                                 }
                         smartManager.startMonitoring(places)
@@ -451,7 +460,12 @@ class MainActivity : FlutterActivity() {
                                                     if (data["triggerType"] == "exit")
                                                             AlarmTriggerType.EXIT
                                                     else AlarmTriggerType.ENTER,
-                                            enabled = data["enabled"] as? Boolean ?: true
+                                            enabled = data["enabled"] as? Boolean ?: true,
+                                            isFirstOnly = data["isFirstOnly"] as? Boolean ?: false,
+                                            startTimeMs = (data["startTimeMs"] as? Number)?.toLong()
+                                                            ?: 0L,
+                                            isTimeSpecified = data["isTimeSpecified"] as? Boolean
+                                                            ?: false,
                                     )
                                 }
                         smartManager.updateAlarmPlaces(places)
@@ -461,21 +475,45 @@ class MainActivity : FlutterActivity() {
                     }
                 }
                 "clearTriggeredAlarm" -> {
-                    try {
-                        val placeId = call.argument<String>("placeId")
-                        if (placeId.isNullOrBlank()) {
-                            result.error("ERROR", "placeId is required", null)
-                        } else {
-                            smartManager.clearTriggeredAlarm(placeId)
-                            result.success(true)
-                        }
-                    } catch (e: Exception) {
-                        result.error("ERROR", e.message, null)
-                    }
+                    // 린 하이브리드: 판정은 Flutter에서 관리, no-op
+                    result.success(true)
                 }
                 "getStatus" -> {
                     val status = smartManager.getStatus()
                     result.success(status)
+                }
+                "passingAlarm" -> {
+                    // 린 하이브리드: 판정은 Flutter에서 관리, no-op
+                    result.success(true)
+                }
+                "dismissAlarm" -> {
+                    // 린 하이브리드: 판정은 Flutter에서 관리, no-op
+                    result.success(true)
+                }
+                "setAlarmMode" -> {
+                    // 린 하이브리드: 항상 Flutter 모드
+                    result.success(true)
+                }
+                "testAlarm" -> {
+                    // 린 하이브리드: 테스트 알람은 Flutter에서 직접 처리
+                    result.success(true)
+                }
+                "sendErrorReport" -> {
+                    try {
+                        val payload = call.arguments as? Map<*, *> ?: emptyMap<String, Any>()
+                        Log.d("MainActivity", "📝 에러 리포트 수신: ${payload.keys}")
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("ERROR", e.message, null)
+                    }
+                }
+                "injectSimulatedLocation" -> {
+                    // 린 하이브리드: GPS 시뮬레이터 제거됨
+                    result.success(true)
+                }
+                "stopSimulation" -> {
+                    // 린 하이브리드: GPS 시뮬레이터 제거됨
+                    result.success(true)
                 }
                 else -> result.notImplemented()
             }
@@ -581,9 +619,14 @@ class MainActivity : FlutterActivity() {
     }
 
     // ✅ 백그라운드 전체화면 알람 표시
-    private fun showBackgroundFullScreenAlarm(title: String, message: String, alarmId: Int) {
+    private fun showBackgroundFullScreenAlarm(
+            title: String,
+            message: String,
+            alarmId: Int,
+            placeId: String = ""
+    ) {
         try {
-            Log.d("MainActivity", "📱 백그라운드 전체화면 알람 표시: $title (ID: $alarmId)")
+            Log.d("MainActivity", "📱 백그라운드 전체화면 알람 표시: $title (ID: $alarmId, placeId: $placeId)")
 
             // ✅ SharedPreferences에서 triggerCount 가져오기
             val prefs = applicationContext.getSharedPreferences("ringinout", Context.MODE_PRIVATE)
@@ -595,6 +638,7 @@ class MainActivity : FlutterActivity() {
                         putExtra("title", title)
                         putExtra("message", message)
                         putExtra("alarmId", alarmId) // ✅ alarmId 전달
+                        putExtra("placeId", placeId) // ✅ placeId 전달 (passing버튼용)
                         putExtra("isBackgroundAlarm", true)
                         addFlags(
                                 Intent.FLAG_ACTIVITY_NEW_TASK or
