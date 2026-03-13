@@ -490,8 +490,7 @@ class LocationMonitorService {
       }
 
       if (!isTestMode && position.accuracy > 200.0) {
-        _log('⚠️ GPS 정확도 낮음 (${position.accuracy.toInt()}m) — 스킵');
-        return;
+        _log('⚠️ GPS 정확도 낮음 (${position.accuracy.toInt()}m) — 정확도 보정 모드');
       }
 
       for (final alarmId in movingPlaces) {
@@ -526,12 +525,19 @@ class LocationMonitorService {
       placeLng,
     );
 
-    final exitThreshold = radius + _exitBufferMeters;
+    // GPS 정확도가 낮으면 (지하주차장 등) 정확도만큼 버퍼 확대
+    // 정확도 300m이더라도 distance > radius + 300m이면 확실히 나간 것
+    final accuracyBuffer =
+        position.accuracy > _exitBufferMeters
+            ? position.accuracy
+            : _exitBufferMeters;
+    final exitThreshold = radius + accuracyBuffer;
 
     if (distance > exitThreshold) {
       _log(
         '🚨 [$placeName] GPS EXIT 확정! '
-        'dist=${distance.toInt()}m > R+${_exitBufferMeters.toInt()}=${exitThreshold.toInt()}m',
+        'dist=${distance.toInt()}m > R+${accuracyBuffer.toInt()}=${exitThreshold.toInt()}m '
+        '(accuracy=${position.accuracy.toInt()}m)',
       );
       _setPlaceState(alarmId, PlaceState.outside);
       _evaluateMovingGpsNeed();
@@ -539,7 +545,8 @@ class LocationMonitorService {
     } else {
       _log(
         '📍 [$placeName] 아직 내부 '
-        '(dist=${distance.toInt()}m ≤ ${exitThreshold.toInt()}m)',
+        '(dist=${distance.toInt()}m ≤ ${exitThreshold.toInt()}m, '
+        'accuracy=${position.accuracy.toInt()}m)',
       );
     }
   }

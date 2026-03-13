@@ -24,6 +24,7 @@ class EditLocationAlarmPage extends StatefulWidget {
 
 class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
   String alarmName = '';
+  late TextEditingController _nameController;
   bool triggerOnEntry = false;
   bool triggerOnExit = false;
   Set<String> selectedWeekdays = {};
@@ -44,6 +45,7 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
     super.initState();
     final alarmData = widget.existingAlarmData;
     alarmName = alarmData['name'] ?? '';
+    _nameController = TextEditingController(text: alarmName);
     triggerOnEntry = alarmData['trigger'] == 'entry';
     triggerOnExit = alarmData['trigger'] == 'exit';
 
@@ -70,6 +72,12 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
 
     // 장소 목록 로드
     _loadPlaces(alarmData['place']);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
   }
 
   void _loadPlaces(String? currentPlace) {
@@ -303,7 +311,7 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextField(
-              controller: TextEditingController(text: alarmName),
+              controller: _nameController,
               decoration: const InputDecoration(labelText: '알람 이름'),
               minLines: 1,
               maxLines: 2,
