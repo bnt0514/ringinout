@@ -346,13 +346,10 @@ class AlarmListItem extends StatelessWidget {
           // 구독 한도 체크는 백그라운드에서
           Future.microtask(() async {
             final plan = await SubscriptionService.getCurrentPlan();
-            final limit = SubscriptionService.activeAlarmLimit(plan);
+            final limit = SubscriptionService.alarmLimit(plan);
             if (limit != null) {
-              final activeCount =
-                  HiveHelper.alarmBox.values
-                      .where((item) => item is Map && item['enabled'] == true)
-                      .length;
-              if (activeCount > limit) {
+              final totalCount = HiveHelper.alarmBox.length;
+              if (totalCount > limit) {
                 // 한도 초과: 롤백
                 final rollback = Map<String, dynamic>.from(alarm);
                 rollback['enabled'] = false;
@@ -741,9 +738,7 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
                           groupKey == '__other__'
                               ? l10n.get('other_places')
                               : groupKey;
-                      final alarmLimit = SubscriptionService.activeAlarmLimit(
-                        _plan,
-                      );
+                      final alarmLimit = SubscriptionService.alarmLimit(_plan);
 
                       return _PlaceGroupCard(
                         placeName: displayName,

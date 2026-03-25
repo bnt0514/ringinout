@@ -65,8 +65,8 @@ const _kLastUploadKey = 'map_last_upload_date';
 const _kFreeOpensPrefix = 'map_free_opens_';
 const _kForceUploadCheckedKey = 'map_force_upload_checked';
 
-/// 무료 유저 월 지도 오픈 허용 횟수
-const int kFreeMapOpenLimit = 15;
+/// 무료 유저 월 네이버/구글 맵 오픈 허용 횟수 (OSM은 무제한)
+const int kFreeMapOpenLimit = 20;
 
 class MapUsageService {
   // ──────────────────────────────────────────────
@@ -104,16 +104,19 @@ class MapUsageService {
     return prefs.getInt(key) ?? 0;
   }
 
-  /// 무료 유저가 지도를 열 수 있는지 확인
-  static Future<bool> canFreeUserOpenMap() async {
+  /// 무료 유저가 해당 provider로 지도를 열 수 있는지 확인
+  /// OSM은 항상 true (비용 없음)
+  static Future<bool> canFreeUserOpenMap({String provider = 'naver'}) async {
+    if (provider == 'osm') return true; // OSM은 무료, 제한 없음
     final plan = await SubscriptionService.getCurrentPlan();
     if (plan != SubscriptionPlan.free) return true; // 유료는 제한 없음
     final count = await getFreeUserOpenCount();
     return count < kFreeMapOpenLimit;
   }
 
-  /// 무료 유저 지도 오픈 카운트 증가 (실제 지도 로드 시 호출)
-  static Future<void> incrementFreeUserOpenCount() async {
+  /// 무료 유저 지도 오픈 카운트 증가 (네이버/구글 지도 로드 시 호출, OSM 제외)
+  static Future<void> incrementFreeUserOpenCount({String provider = 'naver'}) async {
+    if (provider == 'osm') return; // OSM은 카운트 없음
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
     final plan = await SubscriptionService.getCurrentPlan();
@@ -123,7 +126,7 @@ class MapUsageService {
     final key = '$_kFreeOpensPrefix${uid}_${_currentMonth()}';
     final current = prefs.getInt(key) ?? 0;
     await prefs.setInt(key, current + 1);
-    debugPrint('🗺️ [FreeLimit] 무료 오픈 ${current + 1}/$kFreeMapOpenLimit');
+    debugPrint('🗺️ [FreeLimit] 무료 오픈 ${current + 1}/$kFreeMapOpenLimit (provider: $provider)');
   }
 
   // ──────────────────────────────────────────────

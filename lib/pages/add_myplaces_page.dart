@@ -13,6 +13,7 @@ import 'package:ringinout/services/google_geocoding_service.dart';
 import 'package:ringinout/services/map_provider_service.dart';
 import 'package:ringinout/services/map_usage_service.dart';
 import 'package:ringinout/services/naver_geocoding_service.dart';
+import 'package:ringinout/services/osm_geocoding_service.dart';
 import 'package:ringinout/services/smart_location_service.dart';
 import 'package:ringinout/services/subscription_service.dart';
 import 'package:ringinout/widgets/subscription_limit_dialog.dart';
@@ -151,6 +152,11 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
       String? address;
       if (mapService.isNaver) {
         address = await NaverGeocodingService.reverseGeocode(
+          pos.latitude,
+          pos.longitude,
+        );
+      } else if (mapService.isOsm) {
+        address = await OsmGeocodingService.reverseGeocode(
           pos.latitude,
           pos.longitude,
         );

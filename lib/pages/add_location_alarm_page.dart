@@ -953,19 +953,10 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
 
                         // ✅ 구독 한도 체크 (pop 전에)
                         final plan = await SubscriptionService.getCurrentPlan();
-                        final limit = SubscriptionService.activeAlarmLimit(
-                          plan,
-                        );
+                        final limit = SubscriptionService.alarmLimit(plan);
                         if (limit != null) {
-                          final activeCount =
-                              HiveHelper.alarmBox.values
-                                  .where(
-                                    (alarm) =>
-                                        alarm is Map &&
-                                        alarm['enabled'] == true,
-                                  )
-                                  .length;
-                          if (activeCount >= limit && mounted) {
+                          final totalCount = HiveHelper.alarmBox.length;
+                          if (totalCount >= limit && mounted) {
                             await SubscriptionLimitDialog.showAlarmLimit(
                               context,
                               plan: plan,

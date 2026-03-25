@@ -1,8 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:hive/hive.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ringinout/pages/admin_dashboard_page.dart';
 import 'package:ringinout/services/app_log_buffer.dart';
@@ -34,8 +35,8 @@ class _GpsPageState extends State<GpsPage> {
   Timer? _refreshTimer;
   List<String> _logs = [];
 
-  // ── 스누즈/패싱 상태 ──
-  List<Map<String, dynamic>> _snoozeEntries = [];
+  // ── 버그 리포트 ──
+  bool _bugReportSending = false;
 
   @override
   void initState() {
@@ -120,7 +121,6 @@ class _GpsPageState extends State<GpsPage> {
   Future<void> _refresh() async {
     _refreshStatus();
     _refreshLogs();
-    await _refreshSnoozePassingStatus();
   }
 
   void _refreshStatus() {
@@ -138,7 +138,7 @@ class _GpsPageState extends State<GpsPage> {
   }
 
   void _refreshLogs() {
-    final raw = AppLogBuffer.snapshot(window: const Duration(minutes: 10));
+    final raw = AppLogBuffer.snapshot(window: const Duration(minutes: 30));
     if (!mounted) return;
     setState(() {
       _logs =
@@ -152,39 +152,6 @@ class _GpsPageState extends State<GpsPage> {
     });
   }
 
-  Future<void> _refreshSnoozePassingStatus() async {
-    try {
-      final box = await Hive.openBox('snoozeSchedules');
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final snooze = <Map<String, dynamic>>[];
-
-      for (var key in box.keys) {
-        final raw = box.get(key);
-        if (raw is! Map) continue;
-        final s = Map<String, dynamic>.from(raw);
-        final scheduled = _readScheduledMillis(s['scheduledTime']);
-        if (scheduled <= now) continue;
-        final remainSec = ((scheduled - now) / 1000).round();
-        snooze.add({
-          'title': (s['alarmTitle'] ?? s['title'] ?? '알람').toString(),
-          'alarmId': s['alarmId'],
-          'remainSec': remainSec,
-          'scheduledTime': scheduled,
-        });
-      }
-
-      snooze.sort(
-        (a, b) =>
-            (a['scheduledTime'] as int).compareTo(b['scheduledTime'] as int),
-      );
-
-      if (!mounted) return;
-      setState(() {
-        _snoozeEntries = snooze;
-      });
-    } catch (_) {}
-  }
-
   // ═══════════════════════ 유틸 ═══════════════════════
 
   String _fmtDist(double m) =>
@@ -196,23 +163,6 @@ class _GpsPageState extends State<GpsPage> {
       '${t.hour.toString().padLeft(2, '0')}:'
       '${t.minute.toString().padLeft(2, '0')}:'
       '${t.second.toString().padLeft(2, '0')}';
-
-  String _fmtSec(int sec) {
-    if (sec >= 60) {
-      final m = sec ~/ 60;
-      final s = sec % 60;
-      return '$m분 ${s}초';
-    }
-    return '$sec초';
-  }
-
-  int _readScheduledMillis(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is DateTime) return value.millisecondsSinceEpoch;
-    if (value is String) return int.tryParse(value) ?? 0;
-    return 0;
-  }
 
   Map<String, dynamic>? _getFirstAlarm() {
     final all =
@@ -338,15 +288,23 @@ class _GpsPageState extends State<GpsPage> {
               _buildAdminCard(),
             _buildGpsCard(),
             const SizedBox(height: 12),
-            _buildServiceCard(),
-            const SizedBox(height: 12),
+            // LMS v3 상태 — dev only
+            if (FirebaseAuth.instance.currentUser?.uid ==
+                'IPf2TW0c62et7bwi8B5hZGyKLlc2') ...[
+              _buildServiceCard(),
+              const SizedBox(height: 12),
+            ],
             _buildPlaceStatesCard(),
             const SizedBox(height: 12),
-            _buildForceTestCard(),
-            const SizedBox(height: 12),
-            _buildSnoozePassingCard(),
-            const SizedBox(height: 12),
+            // 강제 테스트 — dev only
+            if (FirebaseAuth.instance.currentUser?.uid ==
+                'IPf2TW0c62et7bwi8B5hZGyKLlc2') ...[
+              _buildForceTestCard(),
+              const SizedBox(height: 12),
+            ],
             _buildLogCard(),
+            const SizedBox(height: 12),
+            _buildBugReportButton(),
             const SizedBox(height: 16),
           ],
         ),
@@ -782,149 +740,7 @@ class _GpsPageState extends State<GpsPage> {
     return s.length > 8 ? 'ID: ${s.substring(0, 8)}…' : 'ID: $s';
   }
 
-  // ─── 5. 스누즈 상태 ───
-
-  Widget _buildSnoozePassingCard() {
-    final hasAny = _snoozeEntries.isNotEmpty;
-
-    return Card(
-      color: hasAny ? Colors.amber.shade50 : null,
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    '⏰ 스누즈 상태',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                  ),
-                ),
-                IconButton(
-                  onPressed: () async {
-                    await _refreshSnoozePassingStatus();
-                    _showSnack('새로고침 완료');
-                  },
-                  icon: const Icon(Icons.refresh, size: 18),
-                  tooltip: '새로고침',
-                ),
-              ],
-            ),
-            if (!hasAny)
-              Text(
-                '대기 중인 스누즈 없음',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              )
-            else ...[
-              if (_snoozeEntries.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                const Text(
-                  '🔔 다시 울림 (스누즈)',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                ),
-                const SizedBox(height: 4),
-                ..._snoozeEntries.map(
-                  (e) => _scheduleRow(
-                    e['title'] as String,
-                    e['remainSec'] as int,
-                    Colors.blue,
-                    '다시 울림 예정',
-                  ),
-                ),
-              ],
-            ],
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () async {
-                  final ok = await showDialog<bool>(
-                    context: context,
-                    builder:
-                        (ctx) => AlertDialog(
-                          title: const Text('전체 삭제'),
-                          content: const Text('모든 스누즈 스케줄을 삭제하고\n알람을 재활성화합니다.'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, false),
-                              child: const Text('취소'),
-                            ),
-                            ElevatedButton(
-                              onPressed: () => Navigator.pop(ctx, true),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                              ),
-                              child: const Text('전체 삭제'),
-                            ),
-                          ],
-                        ),
-                  );
-                  if (ok == true) {
-                    await LocationMonitorService.clearAllSnoozeSchedules();
-                    final box = HiveHelper.alarmBox;
-                    for (var key in box.keys) {
-                      final a = box.get(key);
-                      if (a != null && a['enabled'] != true) {
-                        final upd = Map<String, dynamic>.from(a);
-                        upd['enabled'] = true;
-                        upd['snoozePending'] = false;
-                        await box.put(key, upd);
-                      }
-                    }
-                    await _refreshSnoozePassingStatus();
-                    _showSnack('✅ 전체 삭제 + 알람 재활성화 완료');
-                  }
-                },
-                icon: const Icon(Icons.delete_sweep, size: 16),
-                label: const Text('전체 삭제'),
-                style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _scheduleRow(String title, int remainSec, Color color, String desc) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                    color: color,
-                  ),
-                ),
-                Text(
-                  '$desc · ${_fmtSec(remainSec)} 남음',
-                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-                ),
-              ],
-            ),
-          ),
-          Icon(Icons.timer, color: color, size: 18),
-        ],
-      ),
-    );
-  }
-
-  // ─── 6. 로그 뷰어 ───
+  // ─── 5. 로그 뷰어 ───
 
   Widget _buildLogCard() {
     return Card(
@@ -939,7 +755,7 @@ class _GpsPageState extends State<GpsPage> {
                 const SizedBox(width: 6),
                 const Expanded(
                   child: Text(
-                    '실시간 로그 (10분)',
+                    '실시간 로그 (30분)',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                   ),
                 ),
@@ -999,6 +815,157 @@ class _GpsPageState extends State<GpsPage> {
         ),
       ),
     );
+  }
+
+  // ─── 6. 버그 리포트 버튼 ───
+
+  Widget _buildBugReportButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: _bugReportSending ? null : _onBugReport,
+        icon:
+            _bugReportSending
+                ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+                : const Icon(Icons.bug_report, size: 18),
+        label: Text(
+          _bugReportSending ? '전송 중…' : '🐛 버그 리포트 (30분 로그 전송)',
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.teal,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onBugReport() async {
+    // 메모 입력 다이얼로그
+    final memoCtrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('🐛 버그 리포트'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '최근 30분간의 로그가 서버로 전송됩니다.\n'
+                  '상황을 간단히 메모해 주세요. (선택)',
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: memoCtrl,
+                  decoration: const InputDecoration(
+                    hintText: '예: 알람이 울리지 않았습니다',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  maxLines: 3,
+                  maxLength: 300,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('취소'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                child: const Text('전송'),
+              ),
+            ],
+          ),
+    );
+
+    if (ok != true) return;
+    await _sendBugReport(memoCtrl.text.trim());
+  }
+
+  Future<void> _sendBugReport(String memo) async {
+    if (!mounted) return;
+    setState(() => _bugReportSending = true);
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        _showSnack('❌ 로그인이 필요합니다.');
+        return;
+      }
+
+      final idToken = await user.getIdToken();
+      final logs = AppLogBuffer.snapshot(window: const Duration(minutes: 30));
+
+      // 로그를 문자열 리스트로 변환
+      final logStrings =
+          logs.map((e) {
+            final t = e['time'] as String? ?? '';
+            final tag = e['tag'] as String? ?? '';
+            final msg = e['message'] as String? ?? '';
+            return '$t [$tag] $msg';
+          }).toList();
+
+      if (logStrings.isEmpty) {
+        _showSnack('⚠️ 전송할 로그가 없습니다.');
+        return;
+      }
+
+      const serverUrl =
+          'https://us-central1-ringgo-485705.cloudfunctions.net/submitBugReport';
+
+      final response = await http.post(
+        Uri.parse(serverUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
+        body: jsonEncode({
+          'logs': logStrings,
+          'deviceInfo': {
+            'gps':
+                _pos != null
+                    ? '${_pos!.latitude.toStringAsFixed(4)},${_pos!.longitude.toStringAsFixed(4)}'
+                    : 'unknown',
+            'accuracy': _pos?.accuracy.toStringAsFixed(1) ?? 'unknown',
+            'alarmCount': _alarmCount,
+            'lmsRunning': _lmsRunning,
+          },
+          'appVersion': '1.0.0-beta',
+          'memo': memo,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        final reportId = body['reportId'] ?? '';
+        _showSnack(
+          '✅ 버그 리포트 전송 완료 (ID: ${reportId.toString().substring(0, 8)}…)',
+        );
+      } else {
+        _showSnack('❌ 전송 실패: ${response.statusCode}');
+      }
+    } catch (e) {
+      _showSnack('❌ 전송 실패: $e');
+    } finally {
+      if (mounted) setState(() => _bugReportSending = false);
+    }
   }
 
   // ─── 공용 위젯 ───

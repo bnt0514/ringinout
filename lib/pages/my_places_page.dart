@@ -8,7 +8,6 @@ import 'package:ringinout/pages/add_myplaces_page.dart';
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/app_localizations.dart';
 import 'package:ringinout/pages/settings_page.dart';
-import 'package:ringinout/services/map_usage_service.dart';
 import 'package:ringinout/services/subscription_service.dart';
 import 'package:ringinout/widgets/subscription_limit_dialog.dart';
 
@@ -174,67 +173,16 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
   }
 
   /// 무료 유저 지도 오픈 허용 여부 확인
+  /// - OSM이 기본이므로 장소 추가 시 제한 없이 바로 열기
   /// - 유료 플랜: 항상 true
-  /// - 무료 플랜 + 한도 조과: false + 다이얼로그 표시
-  /// - 무료 플랜 + 한도 내: 안내 다이얼로그 표시 후 true
+  /// - 무료 플랜 + 한도 초과: false + 다이얼로그 표시 (제공자 전환 시 별도 처리)
   Future<bool> _checkMapOpenAllowed() async {
-    final canOpen = await MapUsageService.canFreeUserOpenMap();
-    if (!mounted) return false;
-
-    if (!canOpen) {
-      // 한도 초과
-      await showDialog(
-        context: context,
-        builder:
-            (_) => AlertDialog(
-              title: const Text('무료 플랜 제한'),
-              content: Text(
-                '이번 달 지도 오픈 횟수($kFreeMapOpenLimit횟)를 '
-                '모두 사용했습니다.\n\n'
-                '다음 달에 다시 지도를 이용할 수 있습니다.\n'
-                '제한 없이 사용하려면 유료 플랜으로 업그레이드하세요.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('확인'),
-                ),
-              ],
-            ),
-      );
-      return false;
-    }
-
-    // 한도 내이지만 무료 플랜이면 안내 다이얼로그 표시
+    // 유료 플랜이면 바로 통과
     final plan = await SubscriptionService.getCurrentPlan();
-    if (plan == SubscriptionPlan.free) {
-      final openCount = await MapUsageService.getFreeUserOpenCount();
-      final remaining = kFreeMapOpenLimit - openCount;
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder:
-            (_) => AlertDialog(
-              title: const Text('지도 오픈 횟수 안내'),
-              content: Text(
-                '무료 플랜은 월 $kFreeMapOpenLimit횟 지도 오픈이 허용됩니다.\n\n'
-                '남은 횟수: $remaining/$kFreeMapOpenLimit횟\n\n'
-                '지도를 열면 1횟이 차감됩니다. 계속하시겠습니까?',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('취소'),
-                ),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('열기'),
-                ),
-              ],
-            ),
-      );
-      return confirmed == true;
-    }
+    if (plan != SubscriptionPlan.free) return true;
 
+    // 무료 플랜: 기본 OSM으로 열리므로 카운트 체크 없이 바로 허용
+    // (네이버/구글 전환 시 map_toggle_button에서 별도 안내)
     return true;
   }
 

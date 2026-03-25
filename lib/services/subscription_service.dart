@@ -59,12 +59,25 @@ class SubscriptionService {
     }
   }
 
-  static int? activeAlarmLimit(SubscriptionPlan plan) {
+  /// 등록 가능한 알람 총 개수 (활성 여부 무관)
+  static int? alarmLimit(SubscriptionPlan plan) {
     switch (plan) {
       case SubscriptionPlan.free:
-        return 2;
+        return 4;
       case SubscriptionPlan.basic:
         return 10;
+      case SubscriptionPlan.premium:
+      case SubscriptionPlan.special:
+        return null;
+    }
+  }
+
+  /// 맵 오픈 월별 제한 횟수
+  static int? mapOpenMonthlyLimit(SubscriptionPlan plan) {
+    switch (plan) {
+      case SubscriptionPlan.free:
+        return 20;
+      case SubscriptionPlan.basic:
       case SubscriptionPlan.premium:
       case SubscriptionPlan.special:
         return null;
@@ -98,7 +111,7 @@ class SubscriptionService {
     try {
       if (!HiveHelper.isInitialized) return;
 
-      final limit = activeAlarmLimit(plan);
+      final limit = alarmLimit(plan);
       if (limit == null) return; // 무제한 플랜
 
       final box = HiveHelper.alarmBox;
