@@ -161,10 +161,9 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
           pos.longitude,
         );
       } else {
-        address = await GoogleGeocodingService.reverseGeocode(
-          pos.latitude,
-          pos.longitude,
-        );
+        // 구글맵 역지오코딩은 비용 발생(Geocoding API 과금)으로 비활성화
+        // 지도 탭 시 주소 표시 없이 좌표만 사용
+        address = null;
       }
       if (address != null) {
         setState(() {
