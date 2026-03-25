@@ -477,6 +477,20 @@ class AppLocalizations {
       // 맵 전환
       'switch_to_google': 'Switch to Google Maps',
       'switch_to_naver': 'Switch to Naver Map',
+      // 무료 플랜 맵 차감 안내 (해외: Google)
+      'map_free_limit_exceeded_title': 'Free Plan Limit',
+      'map_free_limit_exceeded_body':
+          'You have used all {limit} Google Maps opens this month.\n\n'
+          'OSM is always available for free.\n'
+          'Upgrade to a paid plan for unlimited access.',
+      'map_switch_confirm_title': 'Switch to Google Maps',
+      'map_switch_confirm_body':
+          'Free plan allows {limit} Google Maps opens per month.\n\n'
+          'Remaining: {remaining}/{limit}\n\n'
+          'Switching to Google Maps uses 1 credit.\n'
+          'OSM is always free and unlimited.',
+      'map_switch_btn_cancel': 'Cancel',
+      'map_switch_btn_confirm': 'Switch',
       // 오발동 / 알람 화면
       'btn_snooze': 'Snooze',
       'btn_dismiss': 'Dismiss Alarm',
@@ -950,6 +964,20 @@ class AppLocalizations {
       // 맵 전환
       'switch_to_google': '구글맵으로 전환',
       'switch_to_naver': '네이버맵으로 전환',
+      // 무료 플랜 맵 차감 안내 (한국: 네이버)
+      'map_free_limit_exceeded_title': '무료 플랜 제한',
+      'map_free_limit_exceeded_body':
+          '이번 달 네이버 지도 오픈 횟수({limit}회)를 모두 사용했습니다.\n\n'
+          'OSM 지도는 계속 무제한 이용 가능합니다.\n'
+          '제한 없이 사용하려면 유료 플랜으로 업그레이드하세요.',
+      'map_switch_confirm_title': '네이버 지도로 전환',
+      'map_switch_confirm_body':
+          '무료 플랜은 네이버 지도를 월 {limit}회 이용할 수 있습니다.\n\n'
+          '남은 횟수: {remaining}/{limit}회\n\n'
+          '네이버 지도로 전환하면 1회가 차감됩니다.\n'
+          'OSM은 차감 없이 무제한 이용 가능합니다.',
+      'map_switch_btn_cancel': '취소',
+      'map_switch_btn_confirm': '전환',
       // 오발동 / 알람 화면
       'btn_snooze': '다시 울림',
       'btn_dismiss': '알람 종료',
@@ -1423,6 +1451,20 @@ class AppLocalizations {
       // 맵 전환
       'switch_to_google': 'Googleマップに切替',
       'switch_to_naver': 'NAVERマップに切替',
+      // 無料プラン マップ使用案内 (해외: Google)
+      'map_free_limit_exceeded_title': '無料プランの上限',
+      'map_free_limit_exceeded_body':
+          '今月のGoogleマップ起動回数（{limit}回）をすべて使い切りました。\n\n'
+          'OSMはいつでも無制限に利用できます。\n'
+          '制限なく使いたい場合は有料プランへアップグレードしてください。',
+      'map_switch_confirm_title': 'Googleマップに切替',
+      'map_switch_confirm_body':
+          '無料プランはGoogleマップを月{limit}回利用できます。\n\n'
+          '残り回数: {remaining}/{limit}回\n\n'
+          'Googleマップに切り替えると1回消費されます。\n'
+          'OSMは消費なしで無制限に利用できます。',
+      'map_switch_btn_cancel': 'キャンセル',
+      'map_switch_btn_confirm': '切替',
       // 誤発動 / アラーム画面
       'btn_snooze': 'もう一度鳴らす',
       'btn_dismiss': 'アラーム終了',
@@ -1889,6 +1931,20 @@ class AppLocalizations {
       // 맵 전환
       'switch_to_google': '切换到Google地图',
       'switch_to_naver': '切换到Naver地图',
+      // 免费套餐 地图使用提示 (해외: Google)
+      'map_free_limit_exceeded_title': '免费套餐限制',
+      'map_free_limit_exceeded_body':
+          '本月Google地图打开次数（{limit}次）已全部用完。\n\n'
+          'OSM地图可以无限次免费使用。\n'
+          '如需无限次使用，请升级到付费套餐。',
+      'map_switch_confirm_title': '切换到Google地图',
+      'map_switch_confirm_body':
+          '免费套餐每月可使用Google地图{limit}次。\n\n'
+          '剩余次数: {remaining}/{limit}次\n\n'
+          '切换到Google地图将消耗1次。\n'
+          'OSM无需消耗，可无限使用。',
+      'map_switch_btn_cancel': '取消',
+      'map_switch_btn_confirm': '切换',
       // 误触发 / 闹钟界面
       'btn_snooze': '再次响铃',
       'btn_dismiss': '关闭闹钟',

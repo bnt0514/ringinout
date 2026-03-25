@@ -1,9 +1,10 @@
 // lib/widgets/map_toggle_button.dart
 // 맵 전환 버튼 위젯 (네이버 / 구글 / OSM) — 활성화된 제공자만 표시
-// 무료 플랜: 네이버/구글 전환 시 월 차감 안내 다이얼로그 표시
+// 무료 플랜: 네이버(한국)/구글(해외) 전환 시 월 차감 안내 다이얼로그 표시
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:ringinout/services/app_localizations.dart';
 import 'package:ringinout/services/map_provider_service.dart';
 import 'package:ringinout/services/map_usage_service.dart';
 import 'package:ringinout/services/subscription_service.dart';
@@ -72,7 +73,7 @@ class MapToggleButton extends StatelessWidget {
       return;
     }
 
-    // 네이버/구글 전환 시: 무료 플랜 여부 체크
+    // 네이버(한국)/구글(해외) 전환 시: 무료 플랜 여부 체크
     final plan = await SubscriptionService.getCurrentPlan();
     if (plan == SubscriptionPlan.free) {
       final canOpen = await MapUsageService.canFreeUserOpenMap(
@@ -80,23 +81,24 @@ class MapToggleButton extends StatelessWidget {
       );
       if (!context.mounted) return;
 
+      final l10n = AppLocalizations.of(context);
+
       if (!canOpen) {
         // 한도 초과
         await showDialog(
           context: context,
           builder:
               (_) => AlertDialog(
-                title: const Text('무료 플랜 제한'),
+                title: Text(l10n.get('map_free_limit_exceeded_title')),
                 content: Text(
-                  '이번 달 네이버/구글 지도 오픈 횟수(${kFreeMapOpenLimit}회)를 '
-                  '모두 사용했습니다.\n\n'
-                  'OSM 지도는 계속 무제한 이용 가능합니다.\n'
-                  '제한 없이 사용하려면 유료 플랜으로 업그레이드하세요.',
+                  l10n.getWithArgs('map_free_limit_exceeded_body', {
+                    'limit': '$kFreeMapOpenLimit',
+                  }),
                 ),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('확인'),
+                    child: Text(l10n.get('map_switch_btn_cancel')),
                   ),
                 ],
               ),
@@ -109,26 +111,28 @@ class MapToggleButton extends StatelessWidget {
       final remaining = kFreeMapOpenLimit - openCount;
       if (!context.mounted) return;
 
-      final providerName = p == MapProvider.naver ? '네이버' : '구글';
+      // 한국: ko 로케일 키가 이미 "네이버" 기반, 해외: Google 기반
+      final confirmTitle = l10n.get('map_switch_confirm_title');
+
       final confirmed = await showDialog<bool>(
         context: context,
         builder:
             (_) => AlertDialog(
-              title: Text('$providerName 지도로 전환'),
+              title: Text(confirmTitle),
               content: Text(
-                '무료 플랜은 네이버/구글 지도를 월 $kFreeMapOpenLimit회 이용할 수 있습니다.\n\n'
-                '남은 횟수: $remaining/$kFreeMapOpenLimit회\n\n'
-                '$providerName 지도로 전환하면 1회가 차감됩니다.\n'
-                'OSM은 차감 없이 무제한 이용 가능합니다.',
+                l10n.getWithArgs('map_switch_confirm_body', {
+                  'limit': '$kFreeMapOpenLimit',
+                  'remaining': '$remaining',
+                }),
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context, false),
-                  child: const Text('취소'),
+                  child: Text(l10n.get('map_switch_btn_cancel')),
                 ),
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context, true),
-                  child: const Text('전환'),
+                  child: Text(l10n.get('map_switch_btn_confirm')),
                 ),
               ],
             ),

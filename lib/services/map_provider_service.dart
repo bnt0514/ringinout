@@ -24,10 +24,14 @@ class MapProviderService extends ChangeNotifier {
 
   /// 구글맵 사용 가능 여부 (킬스위치 + 한국에서는 숨김)
   /// 해외 사용자에게만 표시 (네이버맵 대신)
-  bool get isGoogleAvailable => !_isKoreanLocale && AppConfig.isGoogleMapsEnabled;
+  bool get isGoogleAvailable =>
+      !_isKoreanLocale && AppConfig.isGoogleMapsEnabled;
 
   /// OSM은 항상 사용 가능 (폴백)
   bool get isOsmAvailable => true;
+
+  /// 현재 한국 로케일 여부 (다이얼로그 문구 분기 등에 사용)
+  bool get isKoreanLocale => _isKoreanLocale;
 
   MapProviderService() {
     _loadFromStorage();
