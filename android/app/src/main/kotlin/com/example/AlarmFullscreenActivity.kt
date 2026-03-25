@@ -274,6 +274,34 @@ class AlarmFullscreenActivity : Activity() {
         }
         buttonContainer.addView(dismissButton)
 
+        // 간격
+        val spacer2 = Space(this)
+        spacer2.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(24)
+        )
+        buttonContainer.addView(spacer2)
+
+        // "⚡ 오발동" 버튼 (amber — GPS 오류로 잘못 울린 경우)
+        val falseTriggerButton = Button(this).apply {
+            text = "⚡ 오발동"
+            textSize = 15f
+            setTextColor(Color.parseColor("#FFD54F")) // amber.shade300
+            isAllCaps = false
+            val shape = android.graphics.drawable.GradientDrawable().apply {
+                setColor(Color.TRANSPARENT)
+                cornerRadius = dp(24).toFloat()
+                setStroke(dp(2), Color.parseColor("#FFB300")) // amber.shade400
+            }
+            background = shape
+            layoutParams = LinearLayout.LayoutParams(dp(210), dp(46))
+            gravity = Gravity.CENTER
+            setOnClickListener {
+                Log.d("AlarmFullscreen", "⚡ 오발동 버튼 클릭")
+                handleFalseTrigger()
+            }
+        }
+        buttonContainer.addView(falseTriggerButton)
+
         val buttonParams =
                 FrameLayout.LayoutParams(
                         FrameLayout.LayoutParams.WRAP_CONTENT,
@@ -366,6 +394,32 @@ class AlarmFullscreenActivity : Activity() {
         SnoozeScheduler.scheduleSnooze(this, alarmId, alarmTitle, minutes, placeId)
 
         Log.d("AlarmFullscreen", "✅ AlarmManager 스누즈 스케줄 완료: ${minutes}분 후")
+    }
+
+    /// ⚡ 오발동 처리 — 소리만 끄고 알람 enabled=true 유지 (트리거 카운트 -1)
+    private fun handleFalseTrigger() {
+        Log.d("AlarmFullscreen", "⚡ 오발동 처리 — 소리만 끄고 알람 유지")
+
+        // triggerCount -1 (오발동이므로 카운트 원복)
+        val prefs = getSharedPreferences("ringinout", Context.MODE_PRIVATE)
+        val current = prefs.getInt("trigger_count_$alarmId", 0)
+        if (current > 0) {
+            prefs.edit().putInt("trigger_count_$alarmId", current - 1).apply()
+            Log.d("AlarmFullscreen", "⚡ 트리거 카운트 원복: $current → ${current - 1}")
+        }
+
+        // alarm_disabled 플래그 설정 안 함 — 알람 enabled 유지
+        // native_alarm_active 플래그만 클리어
+        val flutterPrefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        flutterPrefs.edit().apply {
+            remove("flutter.native_alarm_active")
+            remove("flutter.native_alarm_title")
+            remove("flutter.native_alarm_place_id")
+            remove("flutter.native_alarm_id")
+            apply()
+        }
+
+        stopAlarmAndGoHome()
     }
 
     private fun dismissAlarm() {
