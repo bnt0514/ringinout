@@ -208,12 +208,35 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
           lng: _currentLng,
         );
         geoResult = await NaverGeocodingService.searchAddress(query);
+      } else if (mapService.isOsm) {
+        // OSM: 무료 — 제한 없음
+        final osmResults = await OsmGeocodingService.search(query);
+        placeResults =
+            osmResults
+                .map(
+                  (r) => LocalSearchResult(
+                    title: r.displayName,
+                    address: r.displayName,
+                    roadAddress: r.displayName,
+                    category: '',
+                    lat: r.lat,
+                    lng: r.lng,
+                  ),
+                )
+                .toList();
+        geoResult = null;
       } else {
-        placeResults = await GoogleGeocodingService.searchPlace(
-          query,
-          lat: _currentLat,
-          lng: _currentLng,
-        );
+        // Google: Places Text Search는 유료 플랜만 허용
+        final plan = await SubscriptionService.getCurrentPlan();
+        if (plan == SubscriptionPlan.free) {
+          placeResults = []; // Places Text Search ($32/1K) 차단
+        } else {
+          placeResults = await GoogleGeocodingService.searchPlace(
+            query,
+            lat: _currentLat,
+            lng: _currentLng,
+          );
+        }
         geoResult = await GoogleGeocodingService.searchAddress(query);
       }
 
