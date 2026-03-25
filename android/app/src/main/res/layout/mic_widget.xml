@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widget_container" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:padding="0dp" android:background="@android:color/transparent">
+
+    <ImageView android:layout_width="62dp" android:layout_height="104dp" android:layout_gravity="center" android:background="@drawable/widget_circle_bg" android:contentDescription="배경" />
+
+    <ImageView android:id="@+id/mic_button" android:layout_width="42dp" android:layout_height="58dp" android:layout_gravity="center" android:src="@drawable/ic_widget_mic" android:scaleType="fitCenter" android:contentDescription="음성 알람" />
+
+</FrameLayout>

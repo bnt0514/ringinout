@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <title>네이버 지도 위치 선택</title>
+    <style>
+        html,
+        body,
+        #map {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+    <script src="https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=YOUR_CLIENT_ID"></script>
+</head>
+
+<body>
+    <div id="map"></div>
+
+    <script>
+        function moveToLocation(lat, lng) {
+            var newCenter = new naver.maps.LatLng(lat, lng);
+            map.setCenter(newCenter);
+
+            if (!marker) {
+                marker = new naver.maps.Marker({
+                    position: newCenter,
+                    map: map
+                });
+            } else {
+                marker.setPosition(newCenter);
+            }
+        }
+
+
+        let map = new naver.maps.Map('map', {
+            center: new naver.maps.LatLng(37.5665, 126.9780), // 초기 좌표 (서울 시청)
+            zoom: 16
+        });
+
+        let marker = null;
+
+        naver.maps.Event.addListener(map, 'click', function (e) {
+            const lat = e.coord.lat();
+            const lng = e.coord.lng();
+
+            if (marker) {
+                marker.setPosition(e.coord);
+            } else {
+                marker = new naver.maps.Marker({
+                    position: e.coord,
+                    map: map
+                });
+            }
+
+            // Flutter로 위치 전달 (Flutter WebView에서 JavaScript로 받을 수 있도록 window.location 사용)
+            window.location.href = `navermap://location?lat=${lat}&lng=${lng}`;
+        });
+    </script>
+</body>
+
+</html>

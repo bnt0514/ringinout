@@ -1,0 +1,1702 @@
+package com.example.ringinout.location
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
+import android.content.Context
+import android.content.Intent
+import android.content.SharedPreferences
+import android.location.Location
+import android.os.Build
+import android.os.Handler
+import android.os.IBinder
+import android.os.Looper
+import android.util.Log
+import androidx.core.app.NotificationCompat
+import com.example.ringinout.AlarmFullscreenActivity
+import com.example.ringinout.flutterRingtone
+import io.flutter.plugin.common.MethodChannel
+import kotlin.math.*
+import org.json.JSONArray
+import org.json.JSONObject
+
+/**
+ * 🏆 SmartLocationManager - 3단계 적응형 위치 모니터링
+ *
+ * IDLE (99% 시간): 배터리 ~0%
+ * - Activity Transition API (이동 시작 감지)
+ * - 큰 지오펜스 (1~2km)
+ * - Passive 위치
+ *
+ * ARMED (1~5% 시간): 배터리 ~1%
+ * - 작은 지오펜스 (150~300m)
+ * - 저전력 위치 (30초 간격)
+ *
+ * HOT (0.1% 시간): 30~60초만
+ * - 고정밀 GPS (5초 간격)
+ * - 알람 확정 후 즉시 종료
+ */
+class SmartLocationManager private constructor(private val context: Context) {
+
+    companion object {
+        private const val TAG = "SmartLocationManager"
+        private const val PREFS_NAME = "smart_location_prefs"
+        private const val KEY_ALARM_PLACES = "alarm_places"
+
+        @Volatile private var instance: SmartLocationManager? = null
+
+        fun getInstance(context: Context): SmartLocationManager {
+            return instance
+                    ?: synchronized(this) {
+                        instance
+                                ?: SmartLocationManager(context.applicationContext).also {
+                                    instance = it
+                                    // 앱이 죽었다가 깨어난 경우 저장된 장소 복구
+                                    it.restoreAlarmPlaces()
+                                }
+                    }
+        }
+
+        // Flutter MethodChannel (MainActivity에서 설정)
+        var flutterChannel: MethodChannel? = null
+    }
+
+    // SharedPreferences (영구 저장)
+    private val prefs: SharedPreferences =
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    // 상태
+    private var currentState: LocationState = LocationState.IDLE
+    private val handler = Handler(Looper.getMainLooper())
+
+    // 알람 장소 목록 (Flutter에서 동기화)
+    private val alarmPlaces = mutableMapOf<String, AlarmPlace>()
+
+    // 장소별 inside 상태 추적
+    private val insideStatus = mutableMapOf<String, Boolean>()
+
+    // 과거에 inside였던 적이 있는지 추적 (진출 오탐 방지)
+    private val hasEverInside = mutableMapOf<String, Boolean>()
+
+    // 현재 ARMED/HOT 대상 장소
+    private var targetPlace: AlarmPlace? = null
+
+    // 매니저들
+    private val activityTransitionManager = ActivityTransitionManager(context)
+    private val nativeGeofenceManager = NativeGeofenceManager(context)
+    private val passiveLocationProvider = PassiveLocationProvider(context)
+    private val lowPowerLocationProvider = LowPowerLocationProvider(context)
+    private val highAccuracyLocationProvider = HighAccuracyLocationProvider(context)
+
+    // 타임아웃 Runnable
+    private var armedTimeoutRunnable: Runnable? = null
+    private var hotTimeoutRunnable: Runnable? = null
+
+    // ✅ 새 판정 엔진 (3-state, accuracy 기반, SharedPreferences 영속화)
+    private val stateEngine = PlaceStateEngine(context)
+
+    // ✅ GateState 관리자 (최초 1회 알람)
+    private val gateManager = GateStateManager(context)
+
+    // 빠른 진입 감지를 위한 ARMED 기준
+    private val ARMED_ENTRY_FAST_ACCURACY_MAX = 40f
+    private val ARMED_ENTRY_FAST_MARGIN = 10f
+
+    // HOT 타임아웃 폴백 정확도 기준
+    private val HOT_ENTRY_ACCURACY_MAX = 40f
+
+    // 레거시 상태 추적 (switchToIdle/ARMED/HOT에서 초기화용)
+    private val insideSince = mutableMapOf<String, Long>()
+    private var consecutiveInsideCount = 0
+    private var consecutiveOutsideCount = 0
+
+    // 알람 확정 진행 중 (중복 방지)
+    private var confirmationInProgress = false
+
+    // 트리거된 알람 ID 기록 (중복 알람 방지)
+    private val triggeredAlarms = mutableSetOf<String>()
+
+    // 관찰/디버그용: 마지막 거리/정확도/업데이트 시각 (placeId 기준)
+    private val lastDistanceMeters = mutableMapOf<String, Float>()
+    private val lastAccuracyMeters = mutableMapOf<String, Float>()
+    private val lastLocationUpdateMs = mutableMapOf<String, Long>()
+
+    // 과도한 HOT 재진입(thrash) 방지용 쿨다운
+    private val lastHotAttemptMs = mutableMapOf<String, Long>()
+    private val HOT_RETRY_COOLDOWN_MS = 15_000L // ✅ 45초→15초: EXIT 알람이 IDLE 복귀 후 재시도 가능
+
+    // ========== EXIT WATCH 모드 (저전력 상시 감시) ==========
+    private var exitWatchActive = false
+    private val EXIT_WATCH_INTERVAL_MS = 10_000L // 10초 간격 저전력 위치
+    private var exitWatchLastLocation: Location? = null
+    private var exitWatchLastTimestamp: Long = 0L
+
+    // ========== insideStatus / hasEverInside 영속화 ==========
+
+    /** insideStatus를 SharedPreferences에 저장 */
+    private fun saveInsideStatus() {
+        try {
+            val json = JSONObject()
+            insideStatus.forEach { (k, v) -> json.put(k, v) }
+            prefs.edit().putString("slm_insideStatus", json.toString()).apply()
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ insideStatus 저장 실패: $e")
+        }
+    }
+
+    /** hasEverInside를 SharedPreferences에 저장 */
+    private fun saveHasEverInside() {
+        try {
+            val json = JSONObject()
+            hasEverInside.forEach { (k, v) -> json.put(k, v) }
+            prefs.edit().putString("slm_hasEverInside", json.toString()).apply()
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ hasEverInside 저장 실패: $e")
+        }
+    }
+
+    /** SharedPreferences에서 insideStatus / hasEverInside 복원 */
+    private fun restoreInsideStatuses() {
+        try {
+            val isJson = prefs.getString("slm_insideStatus", null)
+            if (isJson != null) {
+                val obj = JSONObject(isJson)
+                obj.keys().forEach { key -> insideStatus[key] = obj.getBoolean(key) }
+                Log.d(TAG, "📂 insideStatus 복원: ${insideStatus.size}개")
+            }
+            val heiJson = prefs.getString("slm_hasEverInside", null)
+            if (heiJson != null) {
+                val obj = JSONObject(heiJson)
+                obj.keys().forEach { key -> hasEverInside[key] = obj.getBoolean(key) }
+                Log.d(TAG, "📂 hasEverInside 복원: ${hasEverInside.size}개")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ insideStatus/hasEverInside 복원 실패: $e")
+        }
+    }
+
+    /** 알람 장소를 SharedPreferences에 저장 (앱이 죽어도 복구 가능) */
+    private fun saveAlarmPlaces() {
+        try {
+            val jsonArray = JSONArray()
+            alarmPlaces.values.forEach { place ->
+                val json =
+                        JSONObject().apply {
+                            put("id", place.id)
+                            put("name", place.name)
+                            put("latitude", place.latitude)
+                            put("longitude", place.longitude)
+                            put("radiusMeters", place.radiusMeters)
+                            put("triggerType", place.triggerType.name)
+                            put("enabled", place.enabled)
+                            put("isFirstOnly", place.isFirstOnly)
+                            put("startTimeMs", place.startTimeMs)
+                            put("isTimeSpecified", place.isTimeSpecified)
+                        }
+                jsonArray.put(json)
+            }
+            prefs.edit().putString(KEY_ALARM_PLACES, jsonArray.toString()).apply()
+            Log.d(TAG, "💾 알람 장소 저장: ${alarmPlaces.size}개")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 알람 장소 저장 실패: $e")
+        }
+    }
+
+    /** SharedPreferences에서 알람 장소 복구 (앱이 죽었다가 깨어날 때) */
+    private fun restoreAlarmPlaces() {
+        try {
+            val json = prefs.getString(KEY_ALARM_PLACES, null) ?: return
+            val jsonArray = JSONArray(json)
+
+            alarmPlaces.clear()
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                val place =
+                        AlarmPlace(
+                                id = obj.getString("id"),
+                                name = obj.getString("name"),
+                                latitude = obj.getDouble("latitude"),
+                                longitude = obj.getDouble("longitude"),
+                                radiusMeters = obj.getDouble("radiusMeters").toFloat(),
+                                triggerType =
+                                        AlarmTriggerType.valueOf(obj.getString("triggerType")),
+                                enabled = obj.optBoolean("enabled", true),
+                                isFirstOnly = obj.optBoolean("isFirstOnly", false),
+                                startTimeMs = obj.optLong("startTimeMs", 0L),
+                                isTimeSpecified = obj.optBoolean("isTimeSpecified", false),
+                        )
+                alarmPlaces[place.id] = place
+            }
+            Log.d(TAG, "📂 알람 장소 복구: ${alarmPlaces.size}개")
+
+            // ✅ PlaceStateEngine + GateState 복구
+            stateEngine.restoreAll()
+            gateManager.restoreAll()
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 알람 장소 복구 실패: $e")
+        }
+    }
+
+    /** 모니터링 시작 */
+    fun startMonitoring(places: List<AlarmPlace>) {
+        Log.d(TAG, "🚀 SmartLocationManager 시작: ${places.size}개 장소")
+
+        // 알람 장소 저장 (메모리 + SharedPreferences)
+        alarmPlaces.clear()
+        places.forEach { place -> alarmPlaces[place.id] = place }
+        saveAlarmPlaces() // 💾 영구 저장 (앱이 죽어도 복구 가능)
+
+        if (places.isEmpty()) {
+            Log.d(TAG, "📭 활성 알람 없음 - 모니터링 중지")
+            stopMonitoring()
+            return
+        }
+
+        // ✅ GateState 등록 (최초 1회 알람)
+        places.forEach { place ->
+            if (place.isFirstOnly) {
+                val startTime =
+                        if (place.startTimeMs > 0) place.startTimeMs else System.currentTimeMillis()
+                gateManager.registerGate(
+                        id = place.id,
+                        startTimeMs = startTime,
+                        isTimeSpecified = place.isTimeSpecified,
+                        radiusMeters = place.radiusMeters,
+                )
+            }
+        }
+
+        // 초기 inside 상태 확인
+        initializeInsideStatus()
+
+        // IDLE 모드로 시작
+        switchToIdle()
+    }
+
+    /** 모니터링 중지 */
+    fun stopMonitoring() {
+        Log.d(TAG, "🛑 SmartLocationManager 중지")
+
+        cancelAllTimeouts()
+
+        activityTransitionManager.stopMonitoring()
+        nativeGeofenceManager.removeAllGeofences()
+        passiveLocationProvider.stopPassiveUpdates()
+        lowPowerLocationProvider.stopUpdates()
+        highAccuracyLocationProvider.stopBurst()
+        stopExitWatch()
+
+        currentState = LocationState.IDLE
+        alarmPlaces.clear()
+        insideStatus.clear()
+        hasEverInside.clear()
+        targetPlace = null
+
+        // 💾 저장된 알람 장소도 삭제
+        prefs.edit().remove(KEY_ALARM_PLACES).apply()
+    }
+
+    /** 알람 장소 업데이트 (Flutter에서 호출) */
+    fun updateAlarmPlaces(places: List<AlarmPlace>) {
+        Log.d(TAG, "🔄 알람 장소 업데이트: ${places.size}개")
+
+        alarmPlaces.clear()
+        places.forEach { place -> alarmPlaces[place.id] = place }
+        Log.d(TAG, "🧾 업데이트된 장소 IDs: ${places.joinToString { it.id }}")
+        saveAlarmPlaces() // 💾 영구 저장 (앱이 죽어도 복구 가능)
+
+        insideStatus.clear()
+        // ✅ hasEverInside는 EXIT 알람 장소의 이력만 보존 (전체 초기화 금지)
+        val newExitIds =
+                places.filter { it.triggerType == AlarmTriggerType.EXIT }.map { it.id }.toSet()
+        hasEverInside.keys.retainAll(newExitIds)
+        insideSince.clear()
+        Log.d(TAG, "🧹 insideStatus/hasEverInside/insideSince 초기화")
+
+        // 트리거 기록은 유지하되, 더 이상 존재하지 않는 ID만 제거
+        // (updatePlaces 호출만으로 같은 알람이 즉시 재트리거되는 문제 방지)
+        val newIds = places.map { it.id }.toSet()
+        val before = triggeredAlarms.size
+        triggeredAlarms.retainAll(newIds)
+        val after = triggeredAlarms.size
+        Log.d(TAG, "🔄 트리거 기록 정리: $before → $after")
+
+        // 큰 지오펜스 재등록
+        nativeGeofenceManager.registerLargeGeofences(places)
+
+        // 새로운 ID 기준으로 inside 상태 재계산
+        initializeInsideStatus()
+    }
+
+    // ========== 상태 전환 ==========
+
+    /** IDLE 모드로 전환 */
+    private fun switchToIdle() {
+        Log.d(TAG, "💤 IDLE 모드 전환")
+        currentState = LocationState.IDLE
+
+        cancelAllTimeouts()
+
+        // ARMED/HOT 리소스 정리
+        lowPowerLocationProvider.stopUpdates()
+        stopExitWatch()
+        highAccuracyLocationProvider.stopBurst()
+        nativeGeofenceManager.removeAllSmallGeofences()
+
+        targetPlace = null
+        consecutiveInsideCount = 0
+        consecutiveOutsideCount = 0
+        insideSince.clear()
+        // ✅ hasEverInside는 EXIT 알람 장소의 이력 보존 (clear 금지!)
+        // IDLE 재전환 후에도 "안에 있었다"는 사실을 기억해야 큰 지오펜스 EXIT가 동작함
+        val exitPlaceIds =
+                alarmPlaces
+                        .values
+                        .filter { it.triggerType == AlarmTriggerType.EXIT }
+                        .map { it.id }
+                        .toSet()
+        hasEverInside.keys.retainAll(exitPlaceIds)
+        exitWatchLastLocation = null
+        exitWatchLastTimestamp = 0L
+
+        // IDLE 리소스 시작
+        activityTransitionManager.startMonitoring { isMoving -> onActivityTransition(isMoving) }
+
+        nativeGeofenceManager.registerLargeGeofences(alarmPlaces.values.toList())
+
+        passiveLocationProvider.startPassiveUpdates { location ->
+            onPassiveLocationUpdate(location)
+        }
+
+        startExitWatch()
+
+        // FGS 종료
+        HotModeForegroundService.stop(context)
+    }
+
+    /**
+     * ARMED 모드로 전환
+     *
+     * @param place 근접 감지된 장소
+     */
+    private fun switchToArmed(place: AlarmPlace) {
+        if (currentState == LocationState.HOT) {
+            Log.d(TAG, "⚠️ HOT 모드 중에는 ARMED로 전환하지 않음")
+            return
+        }
+
+        Log.d(TAG, "⚡ ARMED 모드 전환: ${place.name} (${place.triggerType})")
+        currentState = LocationState.ARMED
+        targetPlace = place
+
+        stopExitWatch()
+        insideSince.clear()
+        // ✅ hasEverInside.remove() 제거 - EXIT 알람 이력 보존 필요
+
+        cancelAllTimeouts()
+
+        // IDLE 리소스 유지 (Activity Transition, 큰 지오펜스)
+        // Passive 위치는 중지 (저전력 위치로 대체)
+        passiveLocationProvider.stopPassiveUpdates()
+
+        // 작은 지오펜스 등록
+        nativeGeofenceManager.registerSmallGeofence(place)
+
+        // 저전력 위치 시작 (30초 간격)
+        val intervalMs = if (place.triggerType == AlarmTriggerType.ENTER) 5000L else 10000L
+        Log.d(TAG, "⏱️ ARMED 저전력 interval: ${intervalMs}ms")
+        lowPowerLocationProvider.startUpdates(intervalMs) { location ->
+            onLowPowerLocationUpdate(location, place)
+        }
+
+        // 10분 타임아웃 설정
+        armedTimeoutRunnable = Runnable {
+            Log.d(TAG, "⏰ ARMED 타임아웃 - IDLE로 복귀")
+            switchToIdle()
+        }
+        handler.postDelayed(armedTimeoutRunnable!!, 10 * 60 * 1000) // 10분
+    }
+
+    /**
+     * HOT 모드로 전환 - 고정밀 GPS 버스트
+     *
+     * @param place 확정 대상 장소
+     * @param skipCooldown 확실한 시그널(지오펜스/Activity Transition)에서 호출 시 쿨다운 무시
+     */
+    private fun switchToHot(place: AlarmPlace, skipCooldown: Boolean = false) {
+        val now = System.currentTimeMillis()
+        if (!skipCooldown) {
+            val lastAttempt = lastHotAttemptMs[place.id] ?: 0L
+            if (now - lastAttempt < HOT_RETRY_COOLDOWN_MS) {
+                Log.d(
+                        TAG,
+                        "⏳ HOT 전환 쿨다운 - 스킵: ${place.name} (${(HOT_RETRY_COOLDOWN_MS - (now - lastAttempt)) / 1000}s 남음)"
+                )
+                return
+            }
+        }
+        lastHotAttemptMs[place.id] = now
+
+        Log.d(TAG, "🔥 HOT 모드 전환: ${place.name} (${place.triggerType}) skipCooldown=$skipCooldown")
+        currentState = LocationState.HOT
+        targetPlace = place
+
+        // EXIT WATCH 중지 (HOT이 GPS를 점유)
+        stopExitWatch()
+        insideSince.remove(place.id)
+        hasEverInside[place.id] = hasEverInside[place.id] ?: false
+
+        cancelAllTimeouts()
+
+        // ARMED 리소스 정리
+        lowPowerLocationProvider.stopUpdates()
+
+        // FGS 시작 (짧은 수명)
+        HotModeForegroundService.start(context)
+
+        // 고정밀 GPS 버스트 시작 (5초 간격, 최대 타임아웃은 아래에서 별도 설정)
+        val hotTimeoutMs: Long =
+                if (place.triggerType == AlarmTriggerType.EXIT) {
+                    // ✅ Step 3: EXIT 알람 — 반지름 비례 타임아웃: clamp(R×3, 120, 600)초
+                    val timeoutSec = (place.radiusMeters * 3f).coerceIn(120f, 600f)
+                    (timeoutSec * 1000).toLong()
+                } else {
+                    // ENTER 알람 — 고정 60초
+                    60_000L
+                }
+        Log.d(TAG, "🎯 HOT 버스트 시작: 5000ms, timeout=${hotTimeoutMs/1000}s (${place.triggerType})")
+        highAccuracyLocationProvider.startBurst(intervalMs = 5000, maxDurationMs = hotTimeoutMs) {
+                location ->
+            onHighAccuracyLocationUpdate(location, place)
+        }
+
+        // ✅ 반지름 비례 타임아웃 (강제 IDLE 복귀)
+        hotTimeoutRunnable = Runnable {
+            val p = targetPlace
+            if (p != null && p.triggerType == AlarmTriggerType.ENTER) {
+                val t = System.currentTimeMillis()
+                val lastTs = lastLocationUpdateMs[p.id] ?: 0L
+                val ageMs = if (lastTs == 0L) Long.MAX_VALUE else (t - lastTs)
+                val d = lastDistanceMeters[p.id]
+                val acc = lastAccuracyMeters[p.id]
+
+                // 무조건 ARMED로 가지 않도록 조건화
+                // - 최근에 위치 업데이트가 있었고
+                // - (작은 지오펜스 근처이거나) (정확도 불량으로 확정 못 한 흔적이 있을 때)
+                val isRecent = ageMs <= 20_000L
+                val nearSmall =
+                        (d != null && acc != null) &&
+                                (d <= p.smallGeofenceRadius + acc.coerceAtMost(120f))
+                val likelyAccuracyBlocked = (acc != null) && (acc > HOT_ENTRY_ACCURACY_MAX)
+
+                val shouldFallbackToArmed = isRecent && (nearSmall || likelyAccuracyBlocked)
+
+                if (shouldFallbackToArmed) {
+                    Log.d(
+                            TAG,
+                            "⏰ HOT 타임아웃 - ARMED 폴백: ${p.name} (d=${d?.toInt()}m acc=${acc?.toInt()}m age=${ageMs / 1000}s)"
+                    )
+                    highAccuracyLocationProvider.stopBurst()
+                    HotModeForegroundService.stop(context)
+
+                    // switchToArmed가 HOT 상태를 막고 있어서, 상태만 잠깐 풀고 진입
+                    currentState = LocationState.IDLE
+                    confirmationInProgress = false
+                    switchToArmed(p)
+                } else {
+                    Log.d(
+                            TAG,
+                            "⏰ HOT 타임아웃 - IDLE 복귀: ${p.name} (d=${d?.toInt()}m acc=${acc?.toInt()}m age=${ageMs / 1000}s)"
+                    )
+                    switchToIdle()
+                }
+            } else {
+                Log.d(TAG, "⏰ HOT 타임아웃 - IDLE로 강제 복귀")
+                // HOT 타임아웃 시 IDLE로 복귀 (ARMED로 가면 무한 루프 가능)
+                switchToIdle()
+            }
+        }
+        handler.postDelayed(hotTimeoutRunnable!!, hotTimeoutMs) // ✅ 반지름 비례 타임아웃
+    }
+
+    // ========== 이벤트 핸들러 ==========
+
+    /** Activity Transition 이벤트 처리 */
+    fun onActivityTransition(isMoving: Boolean) {
+        Log.d(TAG, "🚶 Activity Transition: ${if (isMoving) "이동 시작" else "정지"}")
+
+        if (isMoving) {
+            // 이동 시작 → 진출 알람이 있는 장소 체크
+            val exitAlarms =
+                    alarmPlaces.values.filter { place ->
+                        place.triggerType == AlarmTriggerType.EXIT && place.enabled
+                    }
+
+            if (exitAlarms.isNotEmpty()) {
+                // 이동 시작 시 현재 위치 한번 확인하여 inside 상태 최신화 (정확도 향상)
+                Log.d(TAG, "🏃 이동 시작 감지: 진출 알람 장소 체크 위해 위치 확인 요청")
+                highAccuracyLocationProvider.getCurrentLocation { location ->
+                    if (location != null) {
+                        // 각 진출 알람 장소에 대해 거리 계산 및 inside 상태 갱신
+                        exitAlarms.forEach { place ->
+                            val distance =
+                                    calculateDistance(
+                                            location.latitude,
+                                            location.longitude,
+                                            place.latitude,
+                                            place.longitude
+                                    )
+                            val isInside = distance <= place.radiusMeters
+                            insideStatus[place.id] = isInside
+
+                            Log.d(TAG, "📍 ${place.name}: ${distance.toInt()}m, inside=$isInside")
+
+                            // 내부에 있으면 즉시 HOT 모드로 전환 (빠른 진출 감지)
+                            if (isInside &&
+                                            (currentState == LocationState.IDLE ||
+                                                    currentState == LocationState.ARMED)
+                            ) {
+                                Log.d(TAG, "🔥 진출 알람 장소 내부에서 이동 시작 → HOT 모드 직행!")
+                                switchToHot(place, skipCooldown = true)
+                                return@getCurrentLocation
+                            }
+                        }
+                    } else {
+                        // 위치 확인 실패 시 기존 로직대로 insideStatus 믿고 진행
+                        val exitAlarmsInside = exitAlarms.filter { insideStatus[it.id] == true }
+                        if (exitAlarmsInside.isNotEmpty() &&
+                                        (currentState == LocationState.IDLE ||
+                                                currentState == LocationState.ARMED)
+                        ) {
+                            Log.d(
+                                    TAG,
+                                    "🏃 진출 알람 장소(기존 상태)에서 이동 시작: ${exitAlarmsInside.map { it.name }}"
+                            )
+                            switchToHot(exitAlarmsInside.first(), skipCooldown = true)
+                        }
+                    }
+                }
+            } else {
+                // 일반 이동 → Passive 위치로 근접 체크
+                Log.d(TAG, "🚗 일반 이동 시작 - Passive 위치 감시 중")
+            }
+        } else {
+            // 정지 → 상태에 따라 처리
+            when (currentState) {
+                LocationState.ARMED -> {
+                    // 5분 후 IDLE로 복귀 (기존 타임아웃 유지)
+                    Log.d(TAG, "🛑 정지 감지 - ARMED 유지 (타임아웃 대기)")
+                }
+                LocationState.HOT -> {
+                    // HOT에서 정지 → 계속 확정 시도
+                    Log.d(TAG, "🛑 HOT 모드 중 정지 - 확정 계속 시도")
+                }
+                LocationState.IDLE -> {
+                    // IDLE에서 정지 → 유지
+                }
+            }
+        }
+    }
+
+    /** 지오펜스 이벤트 처리 */
+    fun onGeofenceEvent(placeId: String, isEnter: Boolean, isLargeGeofence: Boolean) {
+        val place =
+                alarmPlaces[placeId]
+                        ?: run {
+                            Log.w(TAG, "⚠️ 알 수 없는 장소: $placeId")
+                            return
+                        }
+
+        Log.d(TAG, "📍 지오펜스: ${place.name}, Enter=$isEnter, Large=$isLargeGeofence")
+
+        if (isLargeGeofence) {
+            // 큰 지오펜스 이벤트
+            if (isEnter && place.triggerType == AlarmTriggerType.ENTER) {
+                if (insideStatus[place.id] == true) {
+                    Log.d(TAG, "⏭️ 큰 지오펜스 ENTER 무시(이미 내부): ${place.name}")
+                    return
+                }
+                if (insideStatus[place.id] == null) {
+                    passiveLocationProvider.getLastKnownLocation { location ->
+                        if (location != null) {
+                            val distance =
+                                    calculateDistance(
+                                            location.latitude,
+                                            location.longitude,
+                                            place.latitude,
+                                            place.longitude
+                                    )
+                            val isInside = distance <= place.radiusMeters
+                            insideStatus[place.id] = isInside
+                            if (isInside) {
+                                Log.d(TAG, "⏭️ 큰 지오펜스 ENTER 무시(내부 확인됨): ${place.name}")
+                                return@getLastKnownLocation
+                            }
+                        }
+                        // 진입 알람 장소에 접근 중 → ARMED
+                        switchToArmed(place)
+                    }
+                } else {
+                    // 진입 알람 장소에 접근 중 → ARMED
+                    switchToArmed(place)
+                }
+            } else if (!isEnter && place.triggerType == AlarmTriggerType.EXIT) {
+                // 진출 알람 장소에서 멀어짐 (IDLE 상태여도 감지해야 함)
+                // "큰 지오펜스를 나갔다" = "이미 확실히 진출했다"는 신호일 수 있음
+                // 하지만 안전하게 ARMED/HOT 과정을 거쳐 확정 로직을 태움
+                val everInside = hasEverInside[place.id] == true
+                if ((currentState == LocationState.IDLE || currentState == LocationState.ARMED) &&
+                                everInside
+                ) {
+                    Log.d(TAG, "⚡ 큰 지오펜스 진출 감지(IDLE/ARMED) → HOT으로 바로 전환하여 즉시 확정 시도")
+                    switchToHot(place, skipCooldown = true)
+                } else if (!everInside) {
+                    Log.d(TAG, "🚫 큰 지오펜스 진출 무시(inside 이력 없음): ${place.name}")
+                }
+            }
+        } else {
+            // 작은 지오펜스 이벤트 → HOT 전환 또는 확정
+            when {
+                isEnter && place.triggerType == AlarmTriggerType.ENTER -> {
+                    if (insideStatus[place.id] == true) {
+                        Log.d(TAG, "⏭️ 작은 지오펜스 ENTER 무시(이미 내부): ${place.name}")
+                        return
+                    }
+                    // 진입 알람 - 작은 지오펜스 진입 → HOT 모드로 확정 시도
+                    switchToHot(place)
+                }
+                !isEnter && place.triggerType == AlarmTriggerType.EXIT -> {
+                    // 진출 알람 - 작은 지오펜스 진출 → HOT 모드로 확정 시도
+                    switchToHot(place, skipCooldown = true)
+                }
+            }
+        }
+    }
+
+    /** Passive 위치 업데이트 처리 (IDLE 모드) */
+    private fun onPassiveLocationUpdate(location: Location) {
+        if (currentState != LocationState.IDLE) return
+
+        // 알람 장소와의 거리 계산
+        alarmPlaces.values.forEach { place ->
+            val distance =
+                    calculateDistance(
+                            location.latitude,
+                            location.longitude,
+                            place.latitude,
+                            place.longitude
+                    )
+            val isInside = distance <= place.radiusMeters
+
+            // 큰 지오펜스 반경 이내 접근 시 ARMED
+            if (distance < place.largeGeofenceRadius) {
+                Log.d(TAG, "📍 Passive: ${place.name} ${distance.toInt()}m 접근")
+
+                when (place.triggerType) {
+                    AlarmTriggerType.ENTER -> {
+                        if (isInside) {
+                            insideStatus[place.id] = true
+                            // hasEverInside는 EXIT 전용 — ENTER에서는 불필요
+                            Log.d(TAG, "⏭️ Passive 진입 무시(이미 내부): ${place.name}")
+                        } else {
+                            // 진입 알람 - 접근 중이면 ARMED
+                            switchToArmed(place)
+                        }
+                    }
+                    AlarmTriggerType.EXIT -> {
+                        // 진출 알람 - inside 상태 업데이트
+                        if (isInside) {
+                            insideStatus[place.id] = true
+                            hasEverInside[place.id] = true
+                            saveInsideStatus()
+                            saveHasEverInside()
+                        }
+                    }
+                }
+            }
+        }
+
+        startExitWatch()
+    }
+
+    /** 저전력 위치 업데이트 처리 (ARMED 모드) - PlaceStateEngine 기반 */
+    private fun onLowPowerLocationUpdate(location: Location, targetPlace: AlarmPlace) {
+        if (currentState != LocationState.ARMED) return
+
+        val distance =
+                calculateDistance(
+                        location.latitude,
+                        location.longitude,
+                        targetPlace.latitude,
+                        targetPlace.longitude
+                )
+
+        val isInside = distance <= targetPlace.radiusMeters
+        insideStatus[targetPlace.id] = isInside
+        // hasEverInside는 EXIT 전용 — ARMED는 ENTER 알람에서만 사용되므로 설정 불필요
+        if (isInside && targetPlace.triggerType == AlarmTriggerType.EXIT) {
+            hasEverInside[targetPlace.id] = true
+        }
+        saveInsideStatus()
+        saveHasEverInside()
+
+        Log.d(
+                TAG,
+                "📍 ARMED 위치: ${targetPlace.name} d=${distance.toInt()}m acc=${location.accuracy.toInt()}m inside=$isInside"
+        )
+
+        // 관찰/디버그용 기록
+        lastDistanceMeters[targetPlace.id] = distance
+        lastAccuracyMeters[targetPlace.id] = location.accuracy
+        lastLocationUpdateMs[targetPlace.id] = System.currentTimeMillis()
+
+        // ✅ PlaceStateEngine으로 워밍업 상태 확인 (알림 없음)
+        val now = System.currentTimeMillis()
+        val armedResult =
+                stateEngine.onArmedSample(
+                        placeId = targetPlace.id,
+                        distance = distance,
+                        accuracy = location.accuracy,
+                        R = targetPlace.radiusMeters,
+                        now = now,
+                )
+        Log.d(TAG, "🧠 ARMED 판정: ${armedResult.reason}")
+
+        // ✅ GateState 업데이트 (ARMED에서도 상태 전이 확인)
+        val placeState = stateEngine.getState(targetPlace.id)
+        gateManager.evaluateGate(targetPlace.id, placeState, now)
+
+        // ✅ Pre-arm 체크 (최초+시간 알람)
+        if (gateManager.needsPrearm(targetPlace.id, now)) {
+            Log.d(TAG, "📊 Pre-arm 필요: ${targetPlace.name} → HOT burst 실행")
+            performPrearmBurst(targetPlace)
+            return
+        }
+
+        // HOT 전환 판단: small geofence 반경 접근 시
+        val tuning = stateEngine.computeTuning(targetPlace.radiusMeters)
+
+        // Enter 알람: accuracy 고려하여 근접하면 HOT 전환
+        if (targetPlace.triggerType == AlarmTriggerType.ENTER) {
+            val acc = location.accuracy.coerceAtMost(60f)
+            if (location.accuracy <= 120f && distance <= targetPlace.radiusMeters + acc) {
+                // 이미 INSIDE로 확정된 상태(재진입 아닌 경우)면 스킵
+                val engineState = stateEngine.getState(targetPlace.id)
+                if (engineState == PlaceStateEngine.State.INSIDE) {
+                    Log.d(TAG, "⏭️ ARMED 진입 무시(엔진 INSIDE 확정): ${targetPlace.name}")
+                    return
+                }
+                Log.d(TAG, "🧲 ARMED 근접 → HOT 전환: ${targetPlace.name}")
+                switchToHot(targetPlace)
+                return
+            }
+        }
+
+        // 작은 지오펜스 반경 접근 시 HOT 모드
+        if (distance < tuning.smallRadius) {
+            val engineState = stateEngine.getState(targetPlace.id)
+            if (targetPlace.triggerType == AlarmTriggerType.ENTER &&
+                            engineState == PlaceStateEngine.State.INSIDE
+            ) {
+                Log.d(TAG, "⏭️ ARMED 진입 무시(엔진 INSIDE): ${targetPlace.name}")
+                return
+            }
+            switchToHot(targetPlace)
+        }
+    }
+
+    /** 고정밀 GPS 업데이트 처리 (HOT 모드) - PlaceStateEngine 기반 */
+    private fun onHighAccuracyLocationUpdate(location: Location, place: AlarmPlace) {
+        if (currentState != LocationState.HOT) return
+
+        // 이미 알람 확정 진행 중이면 무시
+        if (confirmationInProgress) {
+            Log.d(TAG, "⏳ 알람 확정 진행 중 - GPS 업데이트 무시")
+            return
+        }
+
+        // 이미 트리거된 알람이면 무시
+        if (triggeredAlarms.contains(place.id)) {
+            Log.d(TAG, "⏭️ 이미 트리거된 알람 - 무시: ${place.name}")
+            switchToIdle()
+            return
+        }
+
+        val distance =
+                calculateDistance(
+                        location.latitude,
+                        location.longitude,
+                        place.latitude,
+                        place.longitude
+                )
+
+        // ✅ 정확도 게이트 — 반경 비례: min(R × 0.6, 80m)
+        // R=30m→18m, R=50m→30m, R=100m→60m, R=133m+→80m(상한)
+        val accuracyGate = (place.radiusMeters * 0.6f).coerceAtMost(80f)
+        if (location.accuracy > accuracyGate) {
+            Log.d(
+                    TAG,
+                    "⚠️ HOT GPS 샘플 스킵 (accuracy=${location.accuracy.toInt()}m > gate=${accuracyGate.toInt()}m, R=${place.radiusMeters.toInt()}m): ${place.name}"
+            )
+            // 디버그용 기록만 업데이트 (판정 호출 안함)
+            lastDistanceMeters[place.id] = distance
+            lastAccuracyMeters[place.id] = location.accuracy
+            lastLocationUpdateMs[place.id] = System.currentTimeMillis()
+            return
+        }
+
+        // 관찰/디버그용 기록
+        lastDistanceMeters[place.id] = distance
+        lastAccuracyMeters[place.id] = location.accuracy
+        lastLocationUpdateMs[place.id] = System.currentTimeMillis()
+
+        val now = System.currentTimeMillis()
+        val speed = if (location.hasSpeed()) location.speed else 0f
+
+        Log.d(
+                TAG,
+                "🎯 HOT GPS: ${place.name} d=${distance.toInt()}m acc=${location.accuracy.toInt()}m " +
+                        "speed=${String.format("%.1f", speed)}m/s trigger=${place.triggerType}"
+        )
+
+        // ✅ EXIT 알람이고 PlaceStateEngine이 아직 UNKNOWN인데 hasEverInside 이력이 있으면 → INSIDE로 강제 설정
+        // (앱 재시작 또는 IDLE 재전환 후 워밍업 전에 이미 밖에 있는 케이스 대응)
+        if (place.triggerType == AlarmTriggerType.EXIT &&
+                        stateEngine.getState(place.id) == PlaceStateEngine.State.UNKNOWN &&
+                        hasEverInside[place.id] == true
+        ) {
+            Log.d(TAG, "🔧 EXIT 알람: UNKNOWN + hasEverInside=true → INSIDE로 강제 초기화 (${place.name})")
+            stateEngine.setInitialState(place.id, PlaceStateEngine.State.INSIDE)
+        }
+
+        // ✅ PlaceStateEngine으로 판정 위임
+        val result =
+                stateEngine.onHotSample(
+                        placeId = place.id,
+                        distance = distance,
+                        accuracy = location.accuracy,
+                        speed = speed,
+                        R = place.radiusMeters,
+                        now = now,
+                )
+
+        Log.d(TAG, "🧠 판정 결과: $result")
+
+        // inside 상태 동기화
+        val isInside = distance <= place.radiusMeters
+        insideStatus[place.id] = isInside
+        // hasEverInside는 EXIT 전용
+        if (isInside && place.triggerType == AlarmTriggerType.EXIT) {
+            hasEverInside[place.id] = true
+        }
+
+        // ✅ Step 4: HOT 재진입 감지 — EXIT 알람에서 다시 INSIDE로 돌아오면 타임아웃 30초로 축소
+        if (place.triggerType == AlarmTriggerType.EXIT &&
+                        result.newState == PlaceStateEngine.State.INSIDE &&
+                        isInside
+        ) {
+            // 기존 타임아웃 취소 후 30초로 재설정
+            hotTimeoutRunnable?.let { handler.removeCallbacks(it) }
+            val shrunkTimeout = 30_000L
+            Log.d(TAG, "🔄 HOT 재진입 감지 → 타임아웃 ${shrunkTimeout/1000}초로 축소")
+            hotTimeoutRunnable?.let { handler.postDelayed(it, shrunkTimeout) }
+        }
+
+        // Exit Alert
+        if (result.shouldExitAlert && place.triggerType == AlarmTriggerType.EXIT) {
+            // ✅ GateState 체크 (최초 1회 알람)
+            if (gateManager.isFirstOnlyAlarm(place.id)) {
+                val now2 = System.currentTimeMillis()
+                val gateState = gateManager.evaluateGate(place.id, result.newState, now2)
+                val placeEngineState = stateEngine.getState(place.id)
+
+                if (gateManager.shouldTriggerGateExit(place.id, exitConfirmed = true, now = now2)) {
+                    Log.d(TAG, "🚨 EXIT 알람 확정! (Gate READY→TRIGGERED) ${place.name}")
+                    gateManager.markTriggered(place.id)
+                    confirmAlarm(place, AlarmTriggerType.EXIT)
+                    return
+                } else {
+                    Log.d(
+                            TAG,
+                            "⏭️ EXIT 확정이지만 Gate 미준비: ${place.name} gate=$gateState engine=$placeEngineState"
+                    )
+                    // Gate가 WAIT_INSIDE면 INSIDE를 기다려야 함 → 알림 안 울림
+                    return
+                }
+            }
+            Log.d(TAG, "🚨 EXIT 알람 확정! ${place.name}")
+            confirmAlarm(place, AlarmTriggerType.EXIT)
+            return
+        }
+
+        // Enter Alert
+        if (result.shouldEnterAlert && place.triggerType == AlarmTriggerType.ENTER) {
+            // ✅ GateState 체크 (최초 1회 진입 알람)
+            if (gateManager.isFirstOnlyAlarm(place.id)) {
+                val now2 = System.currentTimeMillis()
+                val gateState = gateManager.evaluateGate(place.id, result.newState, now2)
+                if (gateState == GateStateManager.GateState.DISARMED) {
+                    Log.d(TAG, "⏭️ ENTER 확정이지만 Gate DISARMED: ${place.name}")
+                    return
+                }
+            }
+            Log.d(TAG, "🚨 ENTER 알람 확정! ${place.name}")
+            confirmAlarm(place, AlarmTriggerType.ENTER)
+            return
+        }
+
+        // ✅ Grace window 체크: READY + OUTSIDE 관측 → 즉시 Exit 인정
+        if (place.triggerType == AlarmTriggerType.EXIT &&
+                        gateManager.isFirstOnlyAlarm(place.id) &&
+                        result.newState == PlaceStateEngine.State.OUTSIDE
+        ) {
+            val now2 = System.currentTimeMillis()
+            gateManager.evaluateGate(place.id, result.newState, now2)
+            if (gateManager.shouldTriggerGateExit(place.id, exitConfirmed = false, now = now2)) {
+                Log.d(TAG, "🚨 EXIT 알람 확정! (Grace window) ${place.name}")
+                gateManager.markTriggered(place.id)
+                confirmAlarm(place, AlarmTriggerType.EXIT)
+                return
+            }
+        }
+    }
+
+    /** 알람 확정 및 트리거 */
+    internal fun confirmAlarm(place: AlarmPlace, triggerType: AlarmTriggerType) {
+        // 중복 방지
+        if (confirmationInProgress) {
+            Log.d(TAG, "⚠️ 이미 알람 확정 진행 중")
+            return
+        }
+        confirmationInProgress = true
+
+        Log.d(TAG, "🚨 알람 확정! ${place.name} - ${triggerType.name}")
+
+        // 이 알람을 트리거됨으로 표시 (같은 알람 재트리거 방지)
+        triggeredAlarms.add(place.id)
+        Log.d(TAG, "🔕 알람 트리거 기록: ${place.id}")
+
+        // 알람 모드 확인 (native / flutter)
+        val ringinoutPrefs = context.getSharedPreferences("ringinout", Context.MODE_PRIVATE)
+        val useFlutter = ringinoutPrefs.getBoolean("alarm_use_flutter", false)
+        val hasFlutterChannel = flutterChannel != null
+
+        if (useFlutter && hasFlutterChannel) {
+            // ✅ Flutter 모드: MethodChannel로 Flutter에 전달
+            Log.d(TAG, "📡 Flutter 모드로 알람 전달")
+            handler.post {
+                flutterChannel?.invokeMethod(
+                        "onAlarmTriggered",
+                        mapOf(
+                                "placeId" to place.id,
+                                "placeName" to place.name,
+                                "triggerType" to triggerType.name.lowercase(),
+                                "latitude" to place.latitude,
+                                "longitude" to place.longitude
+                        )
+                )
+            }
+        } else {
+            // ✅ 네이티브 모드 (기본값) 또는 flutterChannel null 폴백:
+            // Flutter 경유 없이 직접 AlarmFullscreenActivity + 벨소리 재생
+            Log.d(TAG, "📱 네이티브 직접 알람 발동 (useFlutter=$useFlutter, hasChannel=$hasFlutterChannel)")
+            launchNativeAlarmDirectly(place, triggerType)
+        }
+
+        // HOT 모드 종료 → IDLE로 복귀
+        highAccuracyLocationProvider.stopBurst()
+
+        // 잠시 대기 후 IDLE 복귀 (알람 처리 시간 확보)
+        handler.postDelayed(
+                {
+                    confirmationInProgress = false
+                    switchToIdle()
+                },
+                3000
+        )
+    }
+
+    /** 네이티브 직접 알람 발동 (Flutter 경유 없이) */
+    private fun launchNativeAlarmDirectly(place: AlarmPlace, triggerType: AlarmTriggerType) {
+        try {
+            val triggerMsg = if (triggerType == AlarmTriggerType.ENTER) "도착했습니다!" else "출발했습니다!"
+            val alarmId = place.id.hashCode()
+
+            // 1) AlarmFullscreenActivity 시작
+            val intent =
+                    Intent(context, AlarmFullscreenActivity::class.java).apply {
+                        putExtra("title", place.name)
+                        putExtra("message", triggerMsg)
+                        putExtra("alarmId", alarmId)
+                        putExtra("placeId", place.id) // passing용
+                        putExtra("isBackgroundAlarm", true)
+                        addFlags(
+                                Intent.FLAG_ACTIVITY_NEW_TASK or
+                                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                                        Intent.FLAG_ACTIVITY_NO_HISTORY
+                        )
+                    }
+            context.startActivity(intent)
+            Log.d(TAG, "📱 네이티브 AlarmFullscreenActivity 시작 (ID: $alarmId)")
+
+            // 2) 시스템 벨소리 재생
+            try {
+                val alarmUri =
+                        android.media.RingtoneManager.getActualDefaultRingtoneUri(
+                                context,
+                                android.media.RingtoneManager.TYPE_ALARM
+                        )
+                                ?: android.media.RingtoneManager.getDefaultUri(
+                                        android.media.RingtoneManager.TYPE_RINGTONE
+                                )
+
+                val ringtone = android.media.RingtoneManager.getRingtone(context, alarmUri)
+                ringtone?.isLooping = true
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                    ringtone?.audioAttributes =
+                            android.media.AudioAttributes.Builder()
+                                    .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                                    .setContentType(
+                                            android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION
+                                    )
+                                    .build()
+                }
+                ringtone?.play()
+                // 전역 벨소리 참조 저장 (AlarmFullscreenActivity에서 정지용)
+                flutterRingtone = ringtone
+                Log.d(TAG, "🔊 시스템 벨소리 재생 시작")
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ 벨소리 재생 실패: ${e.message}")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 네이티브 직접 알람 실패: ${e.message}")
+        }
+    }
+
+    /** 알람 종료 (Dismiss) 처리: GateState DISABLED + 트리거 기록 제거 */
+    fun dismissAlarm(placeId: String) {
+        Log.d(TAG, "🔕 Dismiss 처리: $placeId")
+
+        val resolvedIds: List<String> =
+                if (!placeId.contains("_")) {
+                    alarmPlaces
+                            .values
+                            .map { it.id }
+                            .filter { it.startsWith(placeId) }
+                            .ifEmpty { triggeredAlarms.filter { it.startsWith(placeId) } }
+                            .ifEmpty { listOf(placeId) }
+                } else {
+                    listOf(placeId)
+                }
+
+        for (id in resolvedIds) {
+            triggeredAlarms.remove(id)
+            // PlaceStateEngine 상태 리셋 (UNKNOWN으로)
+            stateEngine.resetPlace(id)
+            // GateState DISABLED (더 이상 알람 울리지 않음)
+            if (gateManager.isFirstOnlyAlarm(id)) {
+                gateManager.markDisabled(id)
+            }
+            Log.d(TAG, "✅ Dismiss 완료: $id (GateState→DISABLED)")
+        }
+    }
+
+    /** Passing (지나치는 중) 처리: 트리거 기록 제거 + 상태 리셋 + 사용자 선택 스누즈 */
+    fun passingAlarm(placeId: String, snoozeDurationMs: Long = 0L) {
+        Log.d(TAG, "👋 Passing 처리: $placeId (스누즈: ${snoozeDurationMs/1000}초)")
+
+        // ✅ placeId가 UUID 형식(짧은 키)으로 올 경우 실제 full key를 찾는다
+        // 실제 key 형식: "{uuid}_{장소명}_{trigger}" 또는 placeId 그대로
+        val resolvedIds: List<String> =
+                if (!placeId.contains("_")) {
+                    // UUID만 들어온 경우: alarmPlaces에서 prefix 매칭
+                    alarmPlaces
+                            .values
+                            .map { it.id }
+                            .filter { it.startsWith(placeId) }
+                            .ifEmpty {
+                                // triggeredAlarms에서도 검색 (Set이므로 직접 filter)
+                                triggeredAlarms.filter { it.startsWith(placeId) }
+                            }
+                            .ifEmpty { listOf(placeId) } // 못 찾으면 원래 값 그대로
+                } else {
+                    listOf(placeId)
+                }
+
+        Log.d(TAG, "👋 Passing 해소 대상: $resolvedIds")
+
+        for (id in resolvedIds) {
+            // 트리거 기록 제거 (다음 진입/진출 시 다시 알람 가능)
+            triggeredAlarms.remove(id)
+            // PlaceStateEngine 상태를 UNKNOWN으로 리셋 + 사용자 선택 스누즈
+            stateEngine.resetForSnooze(id, snoozeDurationMs)
+            // GateStateManager도 리셋 (최초 1회 알람의 경우)
+            if (gateManager.isFirstOnlyAlarm(id)) {
+                gateManager.resetGate(id)
+            }
+            Log.d(TAG, "✅ Passing 완료: $id (스누즈 ${snoozeDurationMs/1000}초 후 알람 재활성화)")
+        }
+    }
+
+    // ========== 유틸리티 ==========
+
+    /** Pre-arm baseline 확보를 위한 짧은 HOT burst (10~15초) */
+    private fun performPrearmBurst(place: AlarmPlace) {
+        Log.d(TAG, "📊 Pre-arm burst 시작: ${place.name}")
+
+        var sampleCount = 0
+        val maxSamples = 8
+        val maxDurationMs = 15000L
+        var bestDistance: Float? = null
+        var bestAccuracy: Float = Float.MAX_VALUE
+
+        highAccuracyLocationProvider.startBurst(intervalMs = 2000, maxDurationMs = maxDurationMs) {
+                location ->
+            sampleCount++
+            val distance =
+                    calculateDistance(
+                            location.latitude,
+                            location.longitude,
+                            place.latitude,
+                            place.longitude
+                    )
+
+            // 가장 정확한 샘플 유지
+            if (location.accuracy < bestAccuracy) {
+                bestAccuracy = location.accuracy
+                bestDistance = distance
+            }
+
+            Log.d(
+                    TAG,
+                    "📊 Pre-arm sample #$sampleCount: d=${distance.toInt()}m acc=${location.accuracy.toInt()}m"
+            )
+
+            if (sampleCount >= maxSamples) {
+                highAccuracyLocationProvider.stopBurst()
+                finishPrearmBaseline(place, bestDistance ?: distance, bestAccuracy)
+            }
+        }
+
+        // 타임아웃 보호
+        handler.postDelayed(
+                {
+                    if (sampleCount > 0 && bestDistance != null) {
+                        highAccuracyLocationProvider.stopBurst()
+                        finishPrearmBaseline(place, bestDistance!!, bestAccuracy)
+                    } else if (sampleCount == 0) {
+                        Log.w(TAG, "📊 Pre-arm burst 실패: 샘플 없음")
+                        gateManager.setBaseline(
+                                place.id,
+                                PlaceStateEngine.State.UNKNOWN,
+                                GateStateManager.BaselineConf.UNKNOWN,
+                                System.currentTimeMillis()
+                        )
+                        highAccuracyLocationProvider.stopBurst()
+                    }
+                },
+                maxDurationMs + 2000
+        )
+    }
+
+    /** Pre-arm burst 완료 후 baseline 저장 */
+    private fun finishPrearmBaseline(place: AlarmPlace, distance: Float, accuracy: Float) {
+        val tuning = stateEngine.computeTuning(place.radiusMeters)
+        val now = System.currentTimeMillis()
+
+        val baselineState: PlaceStateEngine.State
+        val baselineConf: GateStateManager.BaselineConf
+
+        when {
+            stateEngine.evaluateInsideFast(distance, accuracy, tuning.R_rearm) -> {
+                baselineState = PlaceStateEngine.State.INSIDE
+                baselineConf = GateStateManager.BaselineConf.HIGH
+            }
+            stateEngine.evaluateExitFast(distance, accuracy, tuning.R) -> {
+                baselineState = PlaceStateEngine.State.OUTSIDE
+                baselineConf = GateStateManager.BaselineConf.HIGH
+            }
+            distance <= place.radiusMeters -> {
+                baselineState = PlaceStateEngine.State.INSIDE
+                baselineConf = GateStateManager.BaselineConf.MID
+            }
+            else -> {
+                baselineState = PlaceStateEngine.State.OUTSIDE
+                baselineConf = GateStateManager.BaselineConf.MID
+            }
+        }
+
+        gateManager.setBaseline(place.id, baselineState, baselineConf, now)
+        Log.d(
+                TAG,
+                "📊 Pre-arm 완료: ${place.name} state=$baselineState conf=$baselineConf " +
+                        "d=${distance.toInt()}m acc=${accuracy.toInt()}m"
+        )
+    }
+
+    /** 초기 inside 상태 확인 + PlaceStateEngine 초기화 */
+    private fun initializeInsideStatus() {
+        passiveLocationProvider.getLastKnownLocation { location ->
+            location?.let { loc ->
+                alarmPlaces.values.forEach { place ->
+                    val distance =
+                            calculateDistance(
+                                    loc.latitude,
+                                    loc.longitude,
+                                    place.latitude,
+                                    place.longitude
+                            )
+                    val isInside = distance <= place.radiusMeters
+                    // ✅ Step 6: 복원된 값을 나쁜 GPS로 덮어쓰지 않음
+                    if (loc.accuracy <= 100f) {
+                        insideStatus[place.id] = isInside
+                    } else if (insideStatus[place.id] == null) {
+                        // 복원된 값도 없으면 정확도 불량이라도 설정
+                        insideStatus[place.id] = isInside
+                    }
+                    // hasEverInside는 EXIT 전용
+                    if (isInside && place.triggerType == AlarmTriggerType.EXIT) {
+                        hasEverInside[place.id] = true
+                    }
+                    // ✅ EXIT 알람은 이전 hasEverInside 이력을 유지 (재초기화로 덮어쓰지 않음)
+                    saveInsideStatus()
+                    saveHasEverInside()
+
+                    // ✅ PlaceStateEngine 초기 상태 설정 (UNKNOWN→확정, 알림X)
+                    val tuning = stateEngine.computeTuning(place.radiusMeters)
+                    if (loc.accuracy <= 100f) {
+                        val engineState =
+                                if (stateEngine.evaluateInsideFast(
+                                                distance,
+                                                loc.accuracy,
+                                                tuning.R_rearm
+                                        )
+                                ) {
+                                    PlaceStateEngine.State.INSIDE
+                                } else if (stateEngine.evaluateExitFast(
+                                                distance,
+                                                loc.accuracy,
+                                                tuning.R
+                                        )
+                                ) {
+                                    PlaceStateEngine.State.OUTSIDE
+                                } else {
+                                    PlaceStateEngine.State.UNKNOWN
+                                }
+                        stateEngine.setInitialState(place.id, engineState)
+                        Log.d(
+                                TAG,
+                                "📍 초기 상태: ${place.name} inside=$isInside, engine=$engineState, d=${distance.toInt()}m acc=${loc.accuracy.toInt()}m"
+                        )
+                    } else {
+                        Log.d(
+                                TAG,
+                                "📍 초기 상태: ${place.name} acc=${loc.accuracy.toInt()}m(불량) → UNKNOWN"
+                        )
+                    }
+                }
+            }
+            if (location == null) {
+                Log.w(TAG, "⚠️ 초기 위치 없음 - 모든 장소 UNKNOWN")
+            }
+            startExitWatch()
+        }
+    }
+
+    // ========== EXIT WATCH 모드 (흔들림 센서 대신 저전력 위치 상시 감시) ==========
+
+    /** EXIT WATCH 시작: inside인 EXIT 알람 장소가 있으면 저전력 위치로 상시 감시 */
+    private fun startExitWatch() {
+        if (currentState != LocationState.IDLE) return
+
+        val hasInsideExit =
+                alarmPlaces.values.any { place ->
+                    place.triggerType == AlarmTriggerType.EXIT &&
+                            place.enabled &&
+                            insideStatus[place.id] == true
+                }
+
+        if (hasInsideExit && !exitWatchActive) {
+            Log.d(TAG, "🛡️ EXIT WATCH 시작 (저전력 ${EXIT_WATCH_INTERVAL_MS}ms)")
+            lowPowerLocationProvider.startUpdates(EXIT_WATCH_INTERVAL_MS) { location ->
+                onExitWatchLocationUpdate(location)
+            }
+            exitWatchActive = true
+        } else if (!hasInsideExit && exitWatchActive) {
+            stopExitWatch()
+        }
+    }
+
+    /** EXIT WATCH 중지 */
+    private fun stopExitWatch() {
+        if (exitWatchActive) {
+            Log.d(TAG, "🛡️ EXIT WATCH 종료")
+            lowPowerLocationProvider.stopUpdates()
+            exitWatchActive = false
+        }
+    }
+
+    /** EXIT WATCH 위치 업데이트 처리 */
+    private fun onExitWatchLocationUpdate(location: Location) {
+        if (currentState != LocationState.IDLE) return
+
+        // ✅ Step 5: 정확도 필터 — accuracy > 200m이면 샘플 무시 (WiFi/셀타워 노이즈 방지)
+        if (location.accuracy > 200f) {
+            Log.d(TAG, "⚠️ EXIT WATCH 샘플 스킵 (accuracy=${location.accuracy.toInt()}m > 200m)")
+            return
+        }
+
+        val exitPlaces =
+                alarmPlaces.values.filter { place ->
+                    place.triggerType == AlarmTriggerType.EXIT && place.enabled
+                }
+
+        if (exitPlaces.isEmpty()) {
+            startExitWatch() // 조건 재평가하여 WATCH 종료
+            return
+        }
+
+        val candidates = mutableListOf<Pair<AlarmPlace, Float>>()
+
+        exitPlaces.forEach { place ->
+            val distance =
+                    calculateDistance(
+                            location.latitude,
+                            location.longitude,
+                            place.latitude,
+                            place.longitude
+                    )
+            val isInside = distance <= place.radiusMeters
+            val wasInside = insideStatus[place.id] ?: false
+
+            insideStatus[place.id] = isInside
+            if (isInside) {
+                hasEverInside[place.id] = true // EXIT 전용 (exitPlaces만 순회하므로 OK)
+            }
+
+            if (wasInside && !isInside) {
+                candidates.add(place to distance)
+            }
+        }
+        // ✅ Step 6: EXIT WATCH에서 상태 변경 시 영속화
+        saveInsideStatus()
+        saveHasEverInside()
+
+        // 이동 감지 (위치 변화량 기반)
+        val movementDetected = detectExitWatchMovement(location)
+        if (movementDetected) {
+            val insideExitPlaces =
+                    exitPlaces.filter { place ->
+                        insideStatus[place.id] == true && !triggeredAlarms.contains(place.id)
+                    }
+            if (insideExitPlaces.isNotEmpty()) {
+                val nearest =
+                        insideExitPlaces.minByOrNull { place ->
+                            calculateDistance(
+                                    location.latitude,
+                                    location.longitude,
+                                    place.latitude,
+                                    place.longitude
+                            )
+                        }
+                if (nearest != null) {
+                    Log.d(TAG, "🏃 EXIT WATCH: 이동 감지 → HOT 전환 (${nearest.name})")
+                    switchToHot(nearest, skipCooldown = true)
+                    return
+                }
+            }
+        }
+
+        // 경계 이탈 감지
+        if (candidates.isNotEmpty()) {
+            val nearest = candidates.minByOrNull { it.second }?.first
+            if (nearest != null) {
+                Log.d(TAG, "🚪 EXIT WATCH: 경계 이탈 감지 → HOT 전환 (${nearest.name})")
+                switchToHot(nearest, skipCooldown = true)
+                return
+            }
+        }
+
+        startExitWatch() // 조건 재평가
+    }
+
+    /** EXIT WATCH 이동 감지 (위치 변화량 기반) */
+    private fun detectExitWatchMovement(location: Location): Boolean {
+        val lastLocation = exitWatchLastLocation
+        val now = System.currentTimeMillis()
+        val lastTime = exitWatchLastTimestamp
+
+        exitWatchLastLocation = location
+        exitWatchLastTimestamp = now
+
+        if (lastLocation == null || lastTime == 0L) {
+            return false
+        }
+
+        val movedMeters =
+                calculateDistance(
+                        lastLocation.latitude,
+                        lastLocation.longitude,
+                        location.latitude,
+                        location.longitude
+                )
+        val dtSeconds = ((now - lastTime).coerceAtLeast(1L)) / 1000.0f
+        val speedMps = movedMeters / dtSeconds
+
+        val movementDetected = movedMeters >= 12f || speedMps >= 1.0f
+        if (movementDetected) {
+            Log.d(
+                    TAG,
+                    "🏃 EXIT WATCH 이동 감지: ${movedMeters.toInt()}m, ${String.format("%.2f", speedMps)}m/s"
+            )
+        }
+        return movementDetected
+    }
+
+    /** 모든 타임아웃 취소 */
+    private fun cancelAllTimeouts() {
+        armedTimeoutRunnable?.let { handler.removeCallbacks(it) }
+        hotTimeoutRunnable?.let { handler.removeCallbacks(it) }
+        armedTimeoutRunnable = null
+        hotTimeoutRunnable = null
+    }
+
+    /** 두 좌표 사이 거리 계산 (미터) */
+    private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
+        val results = FloatArray(1)
+        Location.distanceBetween(lat1, lon1, lat2, lon2, results)
+        return results[0]
+    }
+
+    /** 현재 모니터링 중인 장소 목록 반환 */
+    fun getMonitoredPlaces(): List<AlarmPlace> {
+        return alarmPlaces.values.toList()
+    }
+
+    /** 현재 상태 정보 */
+    fun getStatus(): Map<String, Any> {
+        val insideByName =
+                insideStatus
+                        .mapNotNull { (placeId, isInside) ->
+                            val name = alarmPlaces[placeId]?.name
+                            if (name != null) {
+                                "$name=$isInside"
+                            } else {
+                                null
+                            }
+                        }
+                        .joinToString()
+
+        val targetId = targetPlace?.id
+        val tNow = System.currentTimeMillis()
+        val lastD = if (targetId != null) lastDistanceMeters[targetId] else null
+        val lastA = if (targetId != null) lastAccuracyMeters[targetId] else null
+        val lastTs = if (targetId != null) lastLocationUpdateMs[targetId] else null
+        val ageSec =
+                if (lastTs == null || lastTs == 0L) {
+                    -1
+                } else {
+                    ((tNow - lastTs) / 1000L).toInt()
+                }
+        return mapOf(
+                "state" to currentState.name,
+                "targetPlace" to (targetPlace?.name ?: "없음"),
+                "alarmCount" to alarmPlaces.size,
+                "insideStatus" to insideByName,
+                "triggeredAlarms" to triggeredAlarms.joinToString(),
+                "targetDistanceM" to (lastD?.toInt() ?: -1),
+                "targetAccuracyM" to (lastA?.toInt() ?: -1),
+                "targetUpdateAgeSec" to ageSec,
+                "exitWatchActive" to exitWatchActive
+        )
+    }
+
+    /** 특정 알람을 트리거됨으로 표시 (Flutter에서 호출 - 알람 종료 시) */
+    fun markAlarmAsTriggered(placeId: String) {
+        triggeredAlarms.add(placeId)
+        Log.d(TAG, "🔕 알람 트리거 완료 표시: $placeId")
+    }
+
+    /** 특정 알람 트리거 기록 제거 (Flutter에서 호출 - 알람 재활성화 시) */
+    fun clearTriggeredAlarm(placeId: String) {
+        triggeredAlarms.remove(placeId)
+        Log.d(TAG, "🔔 알람 트리거 기록 제거: $placeId")
+    }
+
+    /** 모든 트리거 기록 초기화 (Flutter에서 호출) */
+    fun clearAllTriggeredAlarms() {
+        triggeredAlarms.clear()
+        Log.d(TAG, "🔄 모든 트리거 기록 초기화")
+    }
+
+    // ========== 🧪 GPS 시뮬레이터 ==========
+
+    /** 시뮬레이션 모드 여부 (true면 실제 GPS 업데이트 무시) */
+    @Volatile
+    var isSimulationMode = false
+        private set
+
+    /** Flutter에서 호출: 시뮬레이션 위치를 직접 파이프라인에 주입. 현재 상태(IDLE/ARMED/HOT)와 무관하게 강제로 HOT 모드 처리를 수행. */
+    fun injectSimulatedLocation(lat: Double, lng: Double, accuracy: Float, speed: Float) {
+        if (!isSimulationMode) {
+            isSimulationMode = true
+            // 실제 GPS 프로바이더 정지
+            passiveLocationProvider.stopPassiveUpdates()
+            lowPowerLocationProvider.stopUpdates()
+            highAccuracyLocationProvider.stopBurst()
+            Log.d(TAG, "🧪 시뮬레이션 모드 시작 — 실제 GPS 중지")
+        }
+
+        // Location 객체 생성
+        val simLocation =
+                Location("simulator").apply {
+                    latitude = lat
+                    longitude = lng
+                    this.accuracy = accuracy
+                    this.speed = speed
+                    time = System.currentTimeMillis()
+                    elapsedRealtimeNanos = android.os.SystemClock.elapsedRealtimeNanos()
+                }
+
+        Log.d(
+                TAG,
+                "🧪 SIM: lat=$lat, lng=$lng, acc=${accuracy.toInt()}m, speed=${String.format("%.1f", speed)}m/s"
+        )
+
+        // 모든 모니터링 장소에 대해 판정 수행
+        val places = alarmPlaces.values.toList()
+        if (places.isEmpty()) {
+            Log.w(TAG, "🧪 시뮬레이션: 모니터링 장소 없음")
+            return
+        }
+
+        for (place in places) {
+            val distance = calculateDistance(lat, lng, place.latitude, place.longitude)
+
+            // 관찰 기록 업데이트
+            lastDistanceMeters[place.id] = distance
+            lastAccuracyMeters[place.id] = accuracy
+            lastLocationUpdateMs[place.id] = System.currentTimeMillis()
+
+            val isInside = distance <= place.radiusMeters
+
+            // inside 상태 동기화
+            if (isInside) {
+                insideStatus[place.id] = true
+                // hasEverInside는 EXIT 전용
+                if (place.triggerType == AlarmTriggerType.EXIT) {
+                    hasEverInside[place.id] = true
+                }
+            }
+
+            Log.d(
+                    TAG,
+                    "🧪 SIM [${place.name}] d=${distance.toInt()}m inside=$isInside trigger=${place.triggerType}"
+            )
+
+            // 이미 트리거된 알람 무시
+            if (triggeredAlarms.contains(place.id)) {
+                Log.d(TAG, "⏭️ 시뮬레이션: 이미 트리거된 알람 — ${place.name}")
+                continue
+            }
+
+            // 알람 확정 진행 중이면 무시
+            if (confirmationInProgress) continue
+
+            // PlaceStateEngine으로 판정
+            val result =
+                    stateEngine.onHotSample(
+                            placeId = place.id,
+                            distance = distance,
+                            accuracy = accuracy,
+                            speed = speed,
+                            R = place.radiusMeters,
+                            now = System.currentTimeMillis()
+                    )
+
+            Log.d(TAG, "🧪 SIM 판정: ${result.reason}")
+
+            // 알람 트리거 체크
+            if (result.shouldExitAlert && place.triggerType == AlarmTriggerType.EXIT) {
+                val wasInside = hasEverInside[place.id] == true
+                if (wasInside) {
+                    Log.d(TAG, "🧪🚨 시뮬레이션 EXIT 알람: ${place.name}")
+                    confirmAlarm(place, AlarmTriggerType.EXIT)
+                }
+            } else if (result.shouldEnterAlert && place.triggerType == AlarmTriggerType.ENTER) {
+                Log.d(TAG, "🧪🚨 시뮬레이션 ENTER 알람: ${place.name}")
+                confirmAlarm(place, AlarmTriggerType.ENTER)
+            }
+        }
+    }
+
+    /** 시뮬레이션 모드 종료 및 실제 GPS 복귀 */
+    fun stopSimulation() {
+        if (!isSimulationMode) return
+        isSimulationMode = false
+        Log.d(TAG, "🧪 시뮬레이션 모드 종료 — 실제 GPS 복귀")
+
+        // IDLE로 리셋 후 실제 GPS 복귀
+        switchToIdle()
+    }
+}
+
+/** HOT 모드용 짧은 수명 Foreground Service */
+class HotModeForegroundService : Service() {
+
+    companion object {
+        private const val TAG = "HotModeFGS"
+        private const val CHANNEL_ID = "hot_mode_channel"
+        private const val NOTIFICATION_ID = 9999
+
+        fun start(context: Context) {
+            val intent = Intent(context, HotModeForegroundService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        }
+
+        fun stop(context: Context) {
+            context.stopService(Intent(context, HotModeForegroundService::class.java))
+        }
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        createNotificationChannel()
+        startForeground(NOTIFICATION_ID, createNotification())
+        Log.d(TAG, "🔥 HOT 모드 FGS 시작")
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Log.d(TAG, "🛑 HOT 모드 FGS 종료")
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel =
+                    NotificationChannel(CHANNEL_ID, "위치 확인 중", NotificationManager.IMPORTANCE_LOW)
+                            .apply { setShowBadge(false) }
+
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(channel)
+        }
+    }
+
+    private fun createNotification(): Notification {
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("위치 확인 중...")
+                .setContentText("잠시만 기다려주세요")
+                .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setOngoing(true)
+                .build()
+    }
+}
