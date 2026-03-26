@@ -395,7 +395,6 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
 
   @override
   Widget build(BuildContext context) {
-    final Size screenSize = MediaQuery.of(context).size;
     final l10n = AppLocalizations.of(context);
 
     // ✅ PopScope로 Scaffold 전체를 감싸기
@@ -408,122 +407,106 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
       child: Scaffold(
         backgroundColor: AppColors.textPrimary,
         body: SafeArea(
-          child: Stack(
+          child: Column(
             children: [
-              Positioned(
-                top: screenSize.height * 0.1,
-                left: 20,
-                right: 20,
-                child: Text(
-                  widget.alarmTitle,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppColors.textOnPrimary,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              // ✅ 다시 울림 버튼
-              Positioned(
-                bottom: screenSize.height * 0.50,
-                left: 0,
-                right: 0,
+              // ── 알람 제목 (상단 영역) ──
+              Expanded(
                 child: Center(
-                  child: SizedBox(
-                    width: 250,
-                    height: 60,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                      ),
-                      onPressed: _onSnooze,
-                      child: Text(
-                        l10n.get('btn_snooze'),
-                        style: const TextStyle(
-                          fontSize: 20,
-                          color: AppColors.textOnPrimary,
-                        ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      widget.alarmTitle,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppColors.textOnPrimary,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
                 ),
               ),
-              // ✅ 알람 종료 버튼
-              Positioned(
-                bottom: screenSize.height * 0.34,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: SizedBox(
-                    width: 250,
-                    height: 60,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.danger,
-                      ),
-                      onPressed: _onConfirm,
-                      child: Text(
-                        l10n.get('btn_dismiss'),
-                        style: const TextStyle(
-                          fontSize: 20,
-                          color: AppColors.textOnPrimary,
+
+              // ── 메인 버튼 2개 (다시 울림 / 알람 종료) ──
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: Column(
+                  children: [
+                    // ✅ 다시 울림
+                    SizedBox(
+                      width: double.infinity,
+                      height: 60,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: _onSnooze,
+                        child: Text(
+                          l10n.get('btn_snooze'),
+                          style: const TextStyle(
+                            fontSize: 20,
+                            color: AppColors.textOnPrimary,
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 14),
+                    // ✅ 알람 종료
+                    SizedBox(
+                      width: double.infinity,
+                      height: 60,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.danger,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: _onConfirm,
+                        child: Text(
+                          l10n.get('btn_dismiss'),
+                          style: const TextStyle(
+                            fontSize: 20,
+                            color: AppColors.textOnPrimary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              // ⚡ 오발동 버튼 (GPS 오류로 잘못 울린 경우)
-              Positioned(
-                bottom: screenSize.height * 0.14,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 210,
-                        height: 46,
-                        child: OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.amber.shade300,
-                            side: BorderSide(
-                              color: Colors.amber.shade400,
-                              width: 1.5,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                          ),
-                          onPressed: _onFalseTrigger,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.bolt, size: 18),
-                              const SizedBox(width: 6),
-                              Text(
-                                l10n.get('btn_false_trigger'),
-                                style: const TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
+
+              // ── 오발동 (작은 보조 버튼) ──
+              Padding(
+                padding: const EdgeInsets.only(top: 20, bottom: 24),
+                child: Column(
+                  children: [
+                    TextButton.icon(
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.amber.shade300,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 8,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        l10n.get('false_trigger_hint'),
-                        style: TextStyle(
-                          color: Colors.amber.shade200,
-                          fontSize: 11,
-                        ),
+                      onPressed: _onFalseTrigger,
+                      icon: const Icon(Icons.bolt, size: 16),
+                      label: Text(
+                        l10n.get('btn_false_trigger'),
+                        style: const TextStyle(fontSize: 14),
                       ),
-                    ],
-                  ),
+                    ),
+                    Text(
+                      l10n.get('false_trigger_hint'),
+                      style: TextStyle(
+                        color: Colors.amber.shade200,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

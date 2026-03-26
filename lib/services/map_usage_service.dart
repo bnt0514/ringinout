@@ -115,7 +115,9 @@ class MapUsageService {
   }
 
   /// 무료 유저 지도 오픈 카운트 증가 (네이버/구글 지도 로드 시 호출, OSM 제외)
-  static Future<void> incrementFreeUserOpenCount({String provider = 'naver'}) async {
+  static Future<void> incrementFreeUserOpenCount({
+    String provider = 'naver',
+  }) async {
     if (provider == 'osm') return; // OSM은 카운트 없음
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
@@ -126,7 +128,9 @@ class MapUsageService {
     final key = '$_kFreeOpensPrefix${uid}_${_currentMonth()}';
     final current = prefs.getInt(key) ?? 0;
     await prefs.setInt(key, current + 1);
-    debugPrint('🗺️ [FreeLimit] 무료 오픈 ${current + 1}/$kFreeMapOpenLimit (provider: $provider)');
+    debugPrint(
+      '🗺️ [FreeLimit] 무료 오픈 ${current + 1}/$kFreeMapOpenLimit (provider: $provider)',
+    );
   }
 
   // ──────────────────────────────────────────────

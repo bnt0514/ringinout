@@ -195,3 +195,52 @@ exports.verifyPurchase = functions.https.onRequest(async (req, res) => {
         res.status(401).json({ error: 'Invalid token' });
     }
 });
+
+// ============================================================
+// POST /bugreport - 버그 리포트 (30분 로그 + 디바이스 정보)
+// ============================================================
+exports.submitBugReport = functions.https.onRequest(async (req, res) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+    if (req.method === 'OPTIONS') return res.status(204).send('');
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Authorization header missing' });
+    }
+
+    try {
+        const idToken = authHeader.split('Bearer ')[1];
+        const decodedToken = await admin.auth().verifyIdToken(idToken);
+        const firebaseUid = decodedToken.uid;
+        const anonUserId = generateAnonUserId(firebaseUid);
+
+        const { logs, deviceInfo, appVersion, memo } = req.body;
+
+        if (!logs || !Array.isArray(logs)) {
+            return res.status(400).json({ error: 'logs array is required' });
+        }
+
+        // Firestore에 저장
+        const reportRef = admin.firestore().collection('bug_reports').doc();
+        await reportRef.set({
+            anonUserId: anonUserId.substring(0, 16),
+            deviceInfo: deviceInfo || {},
+            appVersion: appVersion || 'unknown',
+            memo: memo || '',
+            logCount: logs.length,
+            logs: logs.slice(0, 1000), // 최대 1000줄
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        console.log(`🐛 버그 리포트 저장: ${reportRef.id} (${logs.length}줄)`);
+
+        res.json({ success: true, reportId: reportRef.id });
+    } catch (error) {
+        console.error('❌ Bug report failed:', error);
+        res.status(500).json({ error: 'Failed to save bug report' });
+    }
+});

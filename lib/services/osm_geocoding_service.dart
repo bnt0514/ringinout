@@ -22,10 +22,7 @@ class OsmGeocodingService {
         '&format=jsonv2'
         '&accept-language=ko',
       );
-      final response = await http.get(
-        url,
-        headers: {'User-Agent': _userAgent},
-      );
+      final response = await http.get(url, headers: {'User-Agent': _userAgent});
 
       if (response.statusCode != 200) return null;
       final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -52,10 +49,7 @@ class OsmGeocodingService {
         '&limit=$limit'
         '&accept-language=ko',
       );
-      final response = await http.get(
-        url,
-        headers: {'User-Agent': _userAgent},
-      );
+      final response = await http.get(url, headers: {'User-Agent': _userAgent});
 
       if (response.statusCode != 200) return [];
       final list = jsonDecode(response.body) as List<dynamic>;
