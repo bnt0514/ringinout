@@ -400,10 +400,10 @@ class AppLocalizations {
           ' the alarm active for future triggers.\n\n'
           '🔄 If the alarm keeps firing\n'
           'If false triggers keep repeating, try increasing the radius by 10m at a time.\n\n'
-          '💡 If you need to stay near a boundary\n'
-          'The alarm may keep firing even after tapping False Trigger. In that case,'
-          ' disable the alarm and re-enable it when needed.\n'
-          '("Passing" feature coming soon: auto-reactivate after n minutes with one tap)',
+          '💡 If you need to stay or move around near a boundary\n'
+          'Even after tapping False Trigger, the alarm may keep firing.'
+          ' In that case, disable the alarm and re-enable it when needed.\n'
+          '("Standby" mode — under consideration if requested: auto-reactivate after a set duration)',
       'radius_input_range': '30m ~ 500m (10m increments)',
       // 약관 페이지
       'terms_agreement_title': 'Terms Agreement (Required)',
@@ -542,10 +542,11 @@ class AppLocalizations {
           ' causing the alarm to fire multiple times.\n\n'
           '🔄 If false triggers keep repeating\n'
           'Try increasing the radius by 10m at a time.\n\n'
-          '💡 If you need to stay near a zone boundary\n'
-          'The alarm may keep firing even after tapping False Trigger.'
+          '💡 If you need to stay or move around near a zone boundary\n'
+          'Even after tapping False Trigger, the alarm may keep firing.'
           ' In that case, disable the alarm and re-enable it when needed.\n'
-          '("Passing" feature coming soon: one tap to auto-reactivate after n minutes)',
+          '("Standby" mode — under consideration if requested: auto-reactivate after a set duration)',
+
       'false_trigger_dialog_ok': 'Got it',
     },
 
@@ -924,12 +925,10 @@ class AppLocalizations {
           ' 알람은 비활성화되지 않고 다시 발동 가능한 상태가 됩니다.\n\n'
           '🔄 오발동이 지속되는 경우\n'
           '오발동이 잦으면 반경을 10m씩 늘려가며 테스트해 보세요.\n\n'
-          '💡 반경 경계 근처에서 활동해야 하는 경우\n'
-          '설정 반경 경계 근처에서 머물러야 한다면,'
-          ' 오발동 버튼을 눌러도 알람이 계속 발동할 수 있습니다.'
-          ' 이 경우 해당 알람을 비활성화했다가'
-          ' 필요할 때 다시 활성화하세요.\n'
-          '("Passing" 기능 도입 예정: 버튼 하나로 n분 후 자동 재활성화)',
+          '💡 반경 경계 근처에서 머물거나 활동하는 경우\n'
+          '오발동 버튼을 누르면 알람이 계속 발동할 수 있으니,'
+          ' 일단 알람을 종료하고 필요할 때 다시 활성화하세요.\n'
+          '("대기" 모드 — 요청이 많을 시 도입 고려: 설정한 시간 이후 자동 재활성화)',
       'radius_input_title': '반경 직접 입력',
       'radius_input_range': '30m ~ 500m (10m 단위)',
       // 약관 페이지
@@ -1065,12 +1064,10 @@ class AppLocalizations {
           ' 알람이 여러 번 울릴 수 있습니다.\n\n'
           '🔄 오발동이 지속되는 경우\n'
           '오발동이 잦으면 반경을 10m씩 늘려가며 테스트해 보세요.\n\n'
-          '💡 반경 경계 근처에서 활동해야 하는 경우\n'
-          '설정 반경 경계 근처에서 머물러야 한다면,'
-          ' 오발동 버튼을 눌러도 알람이 계속 발동할 수 있습니다.'
-          ' 이 경우 해당 알람을 비활성화했다가'
-          ' 필요할 때 다시 활성화하세요.\n'
-          '("Passing" 기능 도입 예정: 버튼 하나로 n분 후 자동 재활성화)',
+          '💡 반경 경계 근처에서 머물거나 활동하는 경우\n'
+          '오발동 버튼을 누르면 알람이 계속 발동할 수 있으니,'
+          ' 일단 알람을 종료하고 필요할 때 다시 활성화하세요.\n'
+          '("대기" 모드 — 요청이 많을 시 도입 고려: 설정한 시간 이후 자동 재활성화)',
       'false_trigger_dialog_ok': '확인',
     },
 
@@ -1447,11 +1444,10 @@ class AppLocalizations {
           'アラームは無効化されずに再発動可能な状態になります。\n\n'
           '🔄 誤発動が繰り返す場合\n'
           '誤発動が多い場合は、半径を10mずつ広げてテストしてみてください。\n\n'
-          '💡 境界付近に留まる必要がある場合\n'
-          '設定ゾーン境界付近に留まる必要がある場合、誤発動ボタンを押しても'
-          'アラームが繰り返し発動することがあります。'
-          'その場合はアラームを無効にし、必要なときに再度有効にしてください。\n'
-          '(「Passing」機能予定: ワンタップでn分後に自動再有効化)',
+          '💡 境界付近に留まる・行動する必要がある場合\n'
+          '誤発動ボタンを押してもアラームが繰り返し発動する場合があります。'
+          'その場合はアラームを無効にして、必要なときに再度有効にしてください。\n'
+          '(「Standby」モード — 要望が多ければ導入検討: 設定した時間後に自動再有効化)',
       'radius_input_title': '半径を入力',
       'radius_input_range': '30m 〜 500m（10m単位）',
       // 약관 페이지
@@ -1587,11 +1583,10 @@ class AppLocalizations {
           'アラームが何度も鳴ることがあります。\n\n'
           '🔄 誤発動が繰り返す場合\n'
           '誤発動が多い場合は、半径を10mずつ広げてテストしてみてください。\n\n'
-          '💡 境界付近に留まる必要がある場合\n'
-          '設定ゾーン境界付近に留まる場合、誤発動ボタンを押しても'
-          'アラームが繰り返し発動することがあります。'
+          '💡 境界付近に留まる・行動する必要がある場合\n'
+          '誤発動ボタンを押してもアラームが繰り返し発動する場合があります。'
           'その場合はアラームを無効にして、必要なときに再度有効にしてください。\n'
-          '(「Passing」機能予定: ワンタップでn分後に自動再有効化)',
+          '(「Standby」モード — 要望が多ければ導入検討: 設定した時間後に自動再有効化)',
       'false_trigger_dialog_ok': 'OK',
     },
 
@@ -1963,11 +1958,10 @@ class AppLocalizations {
           '闹钟不会被禁用，可再次触发。\n\n'
           '🔄 误触发反复发生时\n'
           '误触发频繁时，可尝试每次增加10m半径进行测试。\n\n'
-          '💡 需要在边界附近停留时\n'
-          '在区域边界附近停留时，即使点击误触发按钮'
-          '闹钟也可能继续响铃。此时请禁用该闹钟，'
-          '需要时再重新启用。\n'
-          '("Passing"功能即将推出：一键设置n分钟后自动重新启用)',
+          '💡 需要在边界附近停留或活动时\n'
+          '即使点击误触发按钮，闹钟也可能继续响铃。'
+          '此时请禁用该闹钟，需要时再重新启用。\n'
+          '("Standby"模式 — 如需求较多将考虑引入: 设定时间后自动重新启用)',
       'radius_input_title': '输入半径',
       'radius_input_range': '30m ~ 500m（10m增量）',
       // 约款页面
@@ -2099,11 +2093,10 @@ class AppLocalizations {
           '实际未移动也可能反复检测入退区，导致闹钟多次响铃。\n\n'
           '🔄 误触发反复发生时\n'
           '误触发频繁时，可尝试每次增加10m半径进行测试。\n\n'
-          '💡 需要在边界附近停留时\n'
-          '在区域边界附近停留时，即使点击误触发按钮'
-          '闹钟也可能继续响铃。此时请禁用该闹钟，'
-          '需要时再重新启用。\n'
-          '("Passing"功能即将推出：一键设置n分钟后自动重新启用)',
+          '💡 需要在边界附近停留或活动时\n'
+          '即使点击误触发按钮，闹钟也可能继续响铃。'
+          '此时请禁用该闹钟，需要时再重新启用。\n'
+          '("Standby"模式 — 如需求较多将考虑引入: 设定时间后自动重新启用)',
       'false_trigger_dialog_ok': '确定',
     },
   };
