@@ -26,6 +26,12 @@ import android.widget.TextView
 
 class AlarmFullscreenActivity : Activity() {
 
+    companion object {
+        /** AlarmFullscreenActivity가 현재 화면에 표시 중인지 여부.
+         *  MainActivity.playDefaultRingtone()에서 이중 재생 방지에 사용. */
+        var isActive: Boolean = false
+    }
+
     private var alarmId: Int = -1
     private var alarmTitle: String = "위치 알람"
     private var triggerCount: Int = 0
@@ -44,6 +50,7 @@ class AlarmFullscreenActivity : Activity() {
         super.onCreate(savedInstanceState)
 
         Log.d("AlarmFullscreen", "🔔 전체화면 알람 Activity 시작")
+        AlarmFullscreenActivity.isActive = true
 
         // 화면을 깨우고 전체화면으로 표시
         window.addFlags(
@@ -548,6 +555,12 @@ class AlarmFullscreenActivity : Activity() {
         if (flutterRingtone?.isPlaying != true) {
             playAlarmRingtone()
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        AlarmFullscreenActivity.isActive = false
+        Log.d("AlarmFullscreen", "🛑 AlarmFullscreenActivity 종료 — isActive = false")
     }
 
     override fun onTouchEvent(event: MotionEvent?): Boolean {

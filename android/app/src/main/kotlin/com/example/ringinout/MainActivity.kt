@@ -678,6 +678,12 @@ class MainActivity : FlutterActivity() {
 
     private fun playDefaultRingtone(context: Context) {
         try {
+            // ✅ AlarmFullscreenActivity 활성 중 → 이미 거기서 벨소리 재생 중이므로 중복 방지
+            if (com.example.AlarmFullscreenActivity.isActive) {
+                Log.d("MainActivity", "⚠️ AlarmFullscreenActivity 활성 중 — 중복 벨소리 재생 방지")
+                return
+            }
+
             // ✅ 중복 재생 방지 - 이미 울리고 있으면 무시
             if (flutterRingtone?.isPlaying == true) {
                 Log.d("MainActivity", "⚠️ 벨소리가 이미 재생 중 - 중복 재생 방지")
