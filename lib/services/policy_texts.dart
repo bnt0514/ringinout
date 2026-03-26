@@ -30,9 +30,16 @@ String _getSubscriptionPolicyKo({required bool isBeta}) {
   buffer.writeln();
   buffer.writeln('3. GPS 위치 기반 서비스 안내');
   buffer.writeln('- 본 서비스는 GPS 위치 정보를 활용한 알람 서비스입니다.');
-  buffer.writeln('- 지하, 건물 내부, 전파 방해 지역 등에서는 GPS 신호가 불안정할 수 있으며,');
-  buffer.writeln('  이로 인해 알람이 잘못 울리거나(⚡오발동) 울리지 않을 수(미작동) 있습니다.');
-  buffer.writeln('- ⚡오발동 발생 시: 전체화면 알람의 "⚡오발동" 버튼을 눌러 알람을 유지한 채 소리만 끔 수 있습니다.');
+  buffer.writeln('- GPS는 대략적인 위치만 파악할 수 있으며, 실내/지하 환경이 아니어도');
+  buffer.writeln('  수 미터~수십 미터의 오차가 항상 존재합니다.');
+  buffer.writeln('  예) 반경 30m 설정 시, 실제로는 25m에서 알람이 울리거나 35m까지 들어가야 울릴 수 있습니다.');
+  buffer.writeln('- 지하·실내·고층빌딩·전파 방해 구역에서는 오차가 더욱 커질 수 있으며,');
+  buffer.writeln(
+    '  실제로 경계 밖에 있어도 진입으로 인식되거나, 경계 안에 있어도 진출로 인식되어 알람이 반복해서 울릴 수 있습니다.',
+  );
+  buffer.writeln('- 이러한 오차 및 오발동/미작동은 GPS의 특성으로 본 앱에서 해결할 수도, 책임질 수도 없습니다.');
+  buffer.writeln('- ⚡오발동 발생 시: 전체화면 알람의 "⚡오발동" 버튼을 눌러 알람을 유지한 채 소리만 끌 수 있습니다.');
+  buffer.writeln('  (추후 "Passing" 기능 도입 예정: 버튼 하나로 n분 후 자동 재활성화)');
   buffer.writeln('- 미작동 발생 시: GPS 페이지의 "버그 리포트" 버튼을 눌러 로그를 전송해 주시면,');
   buffer.writeln('  수정 가능한 부분은 최대한 빠른 시일 내 수정하겠습니다.');
   buffer.writeln('- 본 약관에 동의하시면, 유료 구독자를 포함하여 GPS 오차로 인한');
@@ -134,19 +141,31 @@ String _getSubscriptionPolicyEn({required bool isBeta}) {
   b.writeln('3. GPS Location-Based Service Notice');
   b.writeln('- This service uses GPS location data to trigger alarms.');
   b.writeln(
-    '- GPS signals may be unstable in underground areas, inside buildings, or in areas with signal interference.',
+    '- GPS can only estimate your location. Even outdoors, there is always a margin of error of several to tens of meters.',
   );
   b.writeln(
-    '  This may cause alarms to trigger incorrectly (⚡False Trigger) or fail to trigger (Missed Trigger).',
+    '  For example, with a 30m radius, the alarm may trigger at 25m or only at 35m.',
   );
   b.writeln(
-    '- ⚡False Trigger: Use the "⚡False Trigger" button on the alarm screen to silence the alarm while keeping it active.',
+    '- In underground areas, inside buildings, or signal-blocked zones, the error becomes even larger.',
+  );
+  b.writeln(
+    '  The system may detect entry/exit repeatedly even without movement, causing alarms to fire multiple times.',
+  );
+  b.writeln(
+    '- These GPS limitations (false triggers and missed triggers) cannot be resolved or guaranteed by this app.',
+  );
+  b.writeln(
+    '- \u26a1False Trigger: Use the "\u26a1False Trigger" button on the alarm screen to silence while keeping the alarm active.',
+  );
+  b.writeln(
+    '  ("Passing" feature coming soon: one tap to auto-reactivate after n minutes)',
   );
   b.writeln(
     '- Missed Trigger: Use the "Bug Report" button on the GPS page to send logs. We will fix resolvable issues as quickly as possible.',
   );
   b.writeln(
-    '- By agreeing to these terms, including paid subscribers, you agree not to hold the developer liable for ⚡False Triggers or Missed Triggers caused by GPS errors.',
+    '- By agreeing to these terms, including paid subscribers, you agree not to hold the developer liable for \u26a1False Triggers or Missed Triggers caused by GPS errors.',
   );
   b.writeln();
   b.writeln('4. Payment & Auto-Renewal');
@@ -256,10 +275,16 @@ String _getSubscriptionPolicyJa({required bool isBeta}) {
   b.writeln();
   b.writeln('3. GPS位置情報サービスのご案内');
   b.writeln('- 本サービスはGPS位置情報を利用したアラームサービスです。');
-  b.writeln('- 地下、建物内、電波妨害地域等ではGPS信号が不安定になる場合があり、');
-  b.writeln('  アラームが誤作動(⚡誤発動)したり、未作動する場合があります。');
+  b.writeln('- GPSは大まかな位置しか把握できず、屋外であっても常に数m〜数十mの誤差があります。');
+  b.writeln('  例）半径30m設定時、実際には25mで鳴るか、または35mまで近づかないと鳴らない場合があります。');
+  b.writeln('- 地下・建物内・電波障害地域では誤差がさらに大きくなり、');
+  b.writeln('  実際に移動していなくても進入/退出が繰り返し検知され、アラームが連続で鳴ることがあります。');
+  b.writeln('- これらの誤差・誤発動・未発動はGPSの特性であり、本アプリでは解決も保証もできません。');
+  b.writeln('- ⚡誤発動発生時：全画面アラームの「⚡誤発動」ボタンでアラームを維持したまま音声を消せます。');
+  b.writeln('  （「Passing」機能を近日導入予定：ボタン1つでn分後に自動再有効化）');
+  b.writeln('- 未発動発生時：GPSページの「バグレポート」ボタンでログを送信いただくと、修正可能な箇所は最大限早急に対応いたします。');
   b.writeln(
-    '- 本規約に同意することで、有料ユーザーを含むGPS誤差による⚡誤発動または未作動について開発者に責任を問わないことに同意するものとします。',
+    '- 本規約に同意することで、有料ユーザーを含むGPS誤差による⚡誤発動または未発動について開発者に責任を問わないことに同意するものとみなします。',
   );
   b.writeln();
   b.writeln('4. 決済と自動更新');
@@ -337,9 +362,15 @@ String _getSubscriptionPolicyZh({required bool isBeta}) {
   b.writeln();
   b.writeln('3. GPS位置服务说明');
   b.writeln('- 本服务利用GPS位置信息提供闹钟服务。');
-  b.writeln('- 在地下、建筑物内、信号干扰区域等，GPS信号可能不稳定，');
-  b.writeln('  可能导致闹钟误触发(⚡误触发)或未触发。');
-  b.writeln('- 同意本条款即表示，包括付费用户在内，均同意不就GPS误差引起的⚡误触发或未触发向开发者追究责任。');
+  b.writeln('- GPS只能大致判断位置，即使在室外空旷环境中，也始终存在几米到几十米的误差。');
+  b.writeln('  例）设置半径30m时，实际可能在25m处触发，或进入35m才触发。');
+  b.writeln('- 在地下、建筑物内、信号干扰区域，误差会更大，');
+  b.writeln('  即使没有实际移动，也可能反复检测到进入/离开，导致闹钟频繁响铃。');
+  b.writeln('- 这些误差、误触发及未触发属于GPS特性，本应用无法解决，也无法承担相关责任。');
+  b.writeln('- ⚡误触发发生时：可使用全屏闹钟中的「⚡误触发」按钮，在保持闹钟激活的同时关闭铃声。');
+  b.writeln('  （即将推出「Passing」功能：一键设置n分钟后自动重新激活）');
+  b.writeln('- 未触发发生时：请使用GPS页面的「错误报告」按钮发送日志，可修复部分将尽快处理。');
+  b.writeln('- 同意本条款即表示，包括付费用户在内，均同意不就GPS误差导致的⚡误触发或未触发向开发者追究责任。');
   b.writeln();
   b.writeln('4. 支付与自动续费');
   b.writeln('- 支付通过Google Play计费系统处理。');
