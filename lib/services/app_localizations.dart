@@ -386,7 +386,24 @@ class AppLocalizations {
           '• If you stay near a zone boundary, the alarm may keep firing even after tapping False Trigger.\n'
           '  In that case, disable the alarm and re-enable it when needed.\n'
           '• If false triggers are frequent, try increasing the radius by 10m at a time.',
-      'radius_input_title': 'Enter radius',
+      'radius_guide_btn': '📍 Radius Setup Guide  —  Must Read!!',
+      'radius_guide_dialog_body':
+          '📍 GPS Accuracy Limits\n'
+          'GPS can only estimate your location. Even outdoors, expect a margin of error'
+          ' of several to tens of meters. This is an inherent GPS limitation.\n\n'
+          '📡 GPS Signal Spikes\n'
+          'In areas like underground spaces, high-rise buildings, or signal-blocked zones,'
+          ' the error grows larger. The system may detect repeated entry/exit even without'
+          ' actual movement, triggering the alarm multiple times.\n\n'
+          '⚡ For one-off false triggers\n'
+          'Tap the "⚡ False Trigger" button to stop the ringtone immediately while keeping'
+          ' the alarm active for future triggers.\n\n'
+          '🔄 If the alarm keeps firing\n'
+          'If false triggers keep repeating, try increasing the radius by 10m at a time.\n\n'
+          '💡 If you need to stay near a boundary\n'
+          'The alarm may keep firing even after tapping False Trigger. In that case,'
+          ' disable the alarm and re-enable it when needed.\n'
+          '("Passing" feature coming soon: auto-reactivate after n minutes with one tap)',
       'radius_input_range': '30m ~ 500m (10m increments)',
       // 약관 페이지
       'terms_agreement_title': 'Terms Agreement (Required)',
@@ -509,32 +526,26 @@ class AppLocalizations {
           'Keep alarm active when triggered by GPS error',
       'false_trigger_dialog_title': 'What is False Trigger?',
       'false_trigger_dialog_body':
-          'When the alarm rings, a "⚡ False Trigger" button appears alongside "Snooze" and "Dismiss Alarm".\n\n'
-          '📍 GPS Accuracy Limits\n'
-          'GPS can only estimate your location — it is never exact.\n'
-          'Even in open outdoor areas, there is always a margin of\n'
-          'error of several meters to tens of meters.\n'
-          'For example, with a 30m radius, the alarm might fire\n'
-          'at 25m, or only trigger when you reach 35m.\n'
-          'This is an inherent GPS limitation that cannot be fixed\n'
-          'by the app.\n\n'
-          '📡 GPS Signal Spikes (Special Environments)\n'
-          'In underground areas, tall buildings, or signal-blocked\n'
-          'zones, the error becomes even larger. The system may\n'
-          'detect entry/exit repeatedly even without movement,\n'
-          'causing the alarm to fire multiple times.\n\n'
-          '💡 If you need to stay near a zone boundary\n'
-          'the alarm may keep firing even after tapping False Trigger.\n'
-          'In that case, disable the alarm and re-enable it\n'
-          'when needed.\n'
-          '("Passing" feature coming soon: one tap to\n'
-          'auto-reactivate after n minutes)\n\n'
-          'When you tap "False Trigger":\n'
+          'When the alarm rings, a "⚡ False Trigger" button appears'
+          ' alongside "Snooze" and "Dismiss Alarm".\n\n'
+          'When you tap "⚡ False Trigger":\n'
           '  • Ringtone/vibration stops immediately\n'
           '  • The alarm stays active (not disabled)\n'
           '  • The alarm can fire again from scratch\n\n'
-          'If false triggers happen often,\n'
-          'try increasing the radius by 10m at a time.',
+          '📍 GPS Accuracy Limits\n'
+          'GPS can only estimate your location.'
+          ' Even outdoors, there is always a margin of error of several to tens of meters.'
+          ' This may cause the alarm to fire a little early or late.\n\n'
+          '📡 GPS Signal Spikes\n'
+          'In underground areas, tall buildings, or signal-blocked zones, the error grows larger.'
+          ' The system may detect entry/exit repeatedly even without movement,'
+          ' causing the alarm to fire multiple times.\n\n'
+          '🔄 If false triggers keep repeating\n'
+          'Try increasing the radius by 10m at a time.\n\n'
+          '💡 If you need to stay near a zone boundary\n'
+          'The alarm may keep firing even after tapping False Trigger.'
+          ' In that case, disable the alarm and re-enable it when needed.\n'
+          '("Passing" feature coming soon: one tap to auto-reactivate after n minutes)',
       'false_trigger_dialog_ok': 'Got it',
     },
 
@@ -898,6 +909,27 @@ class AppLocalizations {
           '• 반경 경계 주변에 머무르는 경우, 오발동 버튼을 눌러도 알람이 계속 발동될 수 있습니다.\n'
           '  이 경우 해당 알람을 비활성화한 후, 필요할 때 다시 활성화하세요.\n'
           '• 오발동이 잦으면 반경을 10m씩 늘려가며 테스트해 보세요.',
+      'radius_guide_btn': '📍 반경 설정 안내  —  필독!!',
+      'radius_guide_dialog_body':
+          '📍 GPS 정확도의 한계\n'
+          'GPS는 대략적인 위치만 파악하며,'
+          ' 실외에서도 수 미터~수십 미터의 오차가 항상 존재합니다.'
+          ' 이로 인해 알람이 조금 일찍 또는 늦게 울리는 일이 생길 수 있습니다.\n\n'
+          '📡 GPS 신호 튐 현상\n'
+          '지하·고층빌딩·전파방해 구역 등 GPS 불안정 환경에서는 오차가 더 커집니다.'
+          ' 실제로 이동하지 않았는데도 진입/진출이 반복 감지되어'
+          ' 알람이 여러 번 울릴 수 있습니다.\n\n'
+          '⚡ 일회성 오발동 시\n'
+          '"⚡ 오발동" 버튼을 누르면 벨소리/진동이 즉시 멈추면서,'
+          ' 알람은 비활성화되지 않고 다시 발동 가능한 상태가 됩니다.\n\n'
+          '🔄 오발동이 지속되는 경우\n'
+          '오발동이 잦으면 반경을 10m씩 늘려가며 테스트해 보세요.\n\n'
+          '💡 반경 경계 근처에서 활동해야 하는 경우\n'
+          '설정 반경 경계 근처에서 머물러야 한다면,'
+          ' 오발동 버튼을 눌러도 알람이 계속 발동할 수 있습니다.'
+          ' 이 경우 해당 알람을 비활성화했다가'
+          ' 필요할 때 다시 활성화하세요.\n'
+          '("Passing" 기능 도입 예정: 버튼 하나로 n분 후 자동 재활성화)',
       'radius_input_title': '반경 직접 입력',
       'radius_input_range': '30m ~ 500m (10m 단위)',
       // 약관 페이지
@@ -1017,33 +1049,28 @@ class AppLocalizations {
       'false_trigger_info_subtitle': 'GPS 오류로 잘못 울린 경우 알람을 유지하며 종료',
       'false_trigger_dialog_title': '오발동 버튼이란?',
       'false_trigger_dialog_body':
-          '알람이 울릴 때 "다시 울림", "알람 종료" 외에\n'
-          '"⚡ 오발동" 버튼이 함께 표시됩니다.\n\n'
-          '📍 GPS의 기본적인 한계\n'
-          'GPS는 대략적인 위치만 파악할 수 있습니다.\n'
-          '실내/지하 환경이 아니어도 수 미터~수십 미터의\n'
-          '오차가 항상 존재합니다.\n'
-          '예를 들어 반경 30m로 설정해도, 실제로는\n'
-          '25m 지점에서 알람이 울리거나\n'
-          '35m까지 들어가야 울릴 수도 있습니다.\n'
-          '이는 GPS의 특성이며, 앱에서 해결할 수 없습니다.\n\n'
-          '📡 GPS 신호 튐 현상 (특수 환경)\n'
-          '지하·고층빌딩·전파방해 구역에서는 오차가 더 커져서\n'
-          '실제로 경계 밖에 있어도 진입으로 인식되거나,\n'
-          '경계 안에 있어도 진출로 인식되어\n'
-          '알람이 반복해서 울릴 수 있습니다.\n\n'
-          '💡 경계 근처에서 활동해야 하는 경우\n'
-          '오발동 버튼을 눌러도 계속 울릴 수 있습니다.\n'
-          '이 경우 해당 알람을 비활성화했다가\n'
-          '필요할 때 다시 활성화하세요.\n'
-          '(추후 "Passing" 기능 도입 예정:\n'
-          '버튼 하나로 n분 후 자동 재활성화)\n\n'
-          '"오발동"을 누르면:\n'
+          '알람이 울릴 때 "다시 울림", "알람 종료" 외에'
+          ' "⚡ 오발동" 버튼이 함께 표시됩니다.\n\n'
+          '"⚡ 오발동"을 누르면:\n'
           '  • 벨소리·진동이 즉시 멈춥니다\n'
           '  • 알람은 비활성화되지 않고 유지됩니다\n'
           '  • 처음부터 다시 발동 가능한 상태가 됩니다\n\n'
-          '오발동이 자주 발생하면,\n'
-          '반경을 10m씩 늘려가며 테스트해 보세요.',
+          '📍 GPS 정확도의 한계\n'
+          'GPS는 대략적인 위치만 파악하며,'
+          ' 실외에서도 수 미터~수십 미터의 오차가 항상 존재합니다.'
+          ' 이로 인해 알람이 조금 일찍 또는 늦게 울리는 일이 생길 수 있습니다.\n\n'
+          '📡 GPS 신호 튐 현상\n'
+          '지하·고층빌딩·전파방해 구역에서는 오차가 더 커집니다.'
+          ' 실제로 이동하지 않았는데도 진입/진출이 반복 감지되어'
+          ' 알람이 여러 번 울릴 수 있습니다.\n\n'
+          '🔄 오발동이 지속되는 경우\n'
+          '오발동이 잦으면 반경을 10m씩 늘려가며 테스트해 보세요.\n\n'
+          '💡 반경 경계 근처에서 활동해야 하는 경우\n'
+          '설정 반경 경계 근처에서 머물러야 한다면,'
+          ' 오발동 버튼을 눌러도 알람이 계속 발동할 수 있습니다.'
+          ' 이 경우 해당 알람을 비활성화했다가'
+          ' 필요할 때 다시 활성화하세요.\n'
+          '("Passing" 기능 도입 예정: 버튼 하나로 n분 후 자동 재활성화)',
       'false_trigger_dialog_ok': '확인',
     },
 
@@ -1407,6 +1434,24 @@ class AppLocalizations {
           '• ゾーン境界付近に留まっている場合、誤発動ボタンを押してもアラームが繰り返し発動することがあります。\n'
           '  その場合はアラームを無効にし、必要なときに再度有効にしてください。\n'
           '• 誤発動が多い場合は、半径を10mずつ広げてテストしてみてください。',
+      'radius_guide_btn': '📍 半径設定ガイド  —  必読!!',
+      'radius_guide_dialog_body':
+          '📍 GPS精度の限界\n'
+          'GPSはおおよその位置しか把握できず、屋外でも'
+          '数m〜数十mの誤差が常に存在します。設定した半径に正確に一致しない場合があります。\n\n'
+          '📡 GPS信号のブレ\n'
+          '地下・高層ビル・電波障害エリアでは誤差が大きくなります。'
+          '実際に移動していなくても進入/退出が繰り返し検知され、アラームが何度も鳴ることがあります。\n\n'
+          '⚡ 一時的な誤発動の場合\n'
+          '「⚡ 誤発動」ボタンを押すと鳴り音/振動が即座に止まり、'
+          'アラームは無効化されずに再発動可能な状態になります。\n\n'
+          '🔄 誤発動が繰り返す場合\n'
+          '誤発動が多い場合は、半径を10mずつ広げてテストしてみてください。\n\n'
+          '💡 境界付近に留まる必要がある場合\n'
+          '設定ゾーン境界付近に留まる必要がある場合、誤発動ボタンを押しても'
+          'アラームが繰り返し発動することがあります。'
+          'その場合はアラームを無効にし、必要なときに再度有効にしてください。\n'
+          '(「Passing」機能予定: ワンタップでn分後に自動再有効化)',
       'radius_input_title': '半径を入力',
       'radius_input_range': '30m 〜 500m（10m単位）',
       // 약관 페이지
@@ -1526,31 +1571,45 @@ class AppLocalizations {
       'false_trigger_info_subtitle': 'GPSエラーで誤作動した場合、アラームを維持して終了',
       'false_trigger_dialog_title': '誤発動ボタンとは？',
       'false_trigger_dialog_body':
-          'アラームが鳴ると「もう一度鳴らす」「アラーム終了」の他に\n'
-          '「⚡ 誤発動」ボタンが表示されます。\n\n'
-          '📍 GPSの基本的な限界\n'
-          'GPSは大まかな位置しか把握できません。\n'
-          '屋外であっても、常に数m〜数十mの誤差があります。\n'
-          '例えば半径30mに設定しても、実際には\n'
-          '25m地点でアラームが鳴ったり、\n'
-          '35mまで近づかないと鳴らない場合もあります。\n'
-          'これはGPSの特性であり、アプリでは解決できません。\n\n'
-          '📡 GPS信号の異常（特殊環境）\n'
-          '地下・高層ビル・電波障害ゾーンでは誤差がさらに大きくなり、\n'
-          '実際に移動していなくても進入/退出が繰り返し検知され、\n'
-          'アラームが連続で鳴ることがあります。\n\n'
-          '💡 ゾーン境界付近で活動が必要な場合\n'
-          '誤発動ボタンを押しても鳴り続けることがあります。\n'
-          'その場合はアラームを無効にし、\n'
-          '必要な時に再度有効にしてください。\n'
-          '（「Passing」機能を近日導入予定：\n'
-          'ボタン1つでn分後に自動再有効化）\n\n'
-          '「誤発動」をタップすると:\n'
-          '  • 着信音・バイブが即座に停止します\n'
-          '  • アラームは無効化されず維持されます\n'
-          '  • 最初から再発動できる状態になります\n\n'
-          '誤発動が多い場合は、\n'
-          '半径を10mずつ広げてテストしてください。',
+          'アラームが鳴ると「もう一度鳴らす」「アラーム終了」の他に'
+          '「⚡ 誤発動」ボタンが表示されます。
+
+'
+          '「⚡ 誤発動」をタップすると:
+'
+          '  • 鳴り音・振動が即座に止まります
+'
+          '  • アラームは無効化されずに維持されます
+'
+          '  • 最初から再発動できる状態になります
+
+'
+          '📍 GPS精度の限界
+'
+          'GPSはおおよその位置しか把握できず、屋外でも'
+          '数m〜数十mの誤差が常に存在します。'
+          'アラームが少し早くまたは遅く鳴ることがあります。
+
+'
+          '📡 GPS信号のブレ
+'
+          '地下・高層ビル・電波障害エリアでは誤差が大きくなります。'
+          '実際に移動していなくても進入/退出が繰り返し検知され、'
+          'アラームが何度も鳴ることがあります。
+
+'
+          '🔄 誤発動が繰り返す場合
+'
+          '誤発動が多い場合は、半径を10mずつ広げてテストしてみてください。
+
+'
+          '💡 境界付近に留まる必要がある場合
+'
+          '設定ゾーン境界付近に留まる場合、誤発動ボタンを押しても'
+          'アラームが繰り返し発動することがあります。'
+          'その場合はアラームを無効にして、必要なときに再度有効にしてください。
+'
+          '(「Passing」機能予定: ワンタップでn分後に自動再有効化)',
       'false_trigger_dialog_ok': 'OK',
     },
 
@@ -1909,6 +1968,24 @@ class AppLocalizations {
           '• 在区域边界附近停留时，即使点击误触发按钮，闹钟也可能持续响铃。\n'
           '  此时请禁用该闹钟，需要时再重新启用。\n'
           '• 误触发频繁时，请尝试每次将半径增加10m进行测试。',
+      'radius_guide_btn': '📍 半径设置说明  —  必读!!',
+      'radius_guide_dialog_body':
+          '📍 GPS精度限制\n'
+          'GPS只能提供大致位置，即使在屋外也存在数米到数十米的误差。'
+          '设定的半径可能并不能精确匹配。\n\n'
+          '📡 GPS信号漂移\n'
+          '地下、高层建筑、信号受阻区域的误差更大。'
+          '实际未移动也可能反复检测入退区，导致闹钟多次响铃。\n\n'
+          '⚡ 偶发性误触发时\n'
+          '点击「⚡ 误触发」按钮可立即停止铃声/振动，'
+          '闹钟不会被禁用，可再次触发。\n\n'
+          '🔄 误触发反复发生时\n'
+          '误触发频繁时，可尝试每次增加10m半径进行测试。\n\n'
+          '💡 需要在边界附近停留时\n'
+          '在区域边界附近停留时，即使点击误触发按钮'
+          '闹钟也可能继续响铃。此时请禁用该闹钟，'
+          '需要时再重新启用。\n'
+          '("Passing"功能即将推出：一键设置n分钟后自动重新启用)',
       'radius_input_title': '输入半径',
       'radius_input_range': '30m ~ 500m（10m增量）',
       // 约款页面
@@ -2026,31 +2103,25 @@ class AppLocalizations {
       'false_trigger_info_subtitle': 'GPS误差触发时保持闹钟并退出',
       'false_trigger_dialog_title': '什么是误触发？',
       'false_trigger_dialog_body':
-          '闹钟响铃时，除「再次响铃」「关闭闹钟」外，\n'
+          '闹钟响铃时，除「再次响铃」「关闭闹钟」外，'
           '还会显示「⚡ 误触发」按钮。\n\n'
-          '📍 GPS的基本限制\n'
-          'GPS只能大致判断您的位置，并不精确。\n'
-          '即使在室外空旷环境中，也始终存在\n'
-          '几米到几十米的误差。\n'
-          '例如设置半径30m时，实际可能在\n'
-          '25m处触发，或进入35m才触发。\n'
-          '这是GPS特性，应用无法解决。\n\n'
-          '📡 GPS信号漂移（特殊环境）\n'
-          '在地下、高层建筑、信号受阻区域，误差会更大，\n'
-          '即使没有实际移动，也可能反复检测到进入/离开，\n'
-          '导致闹钟频繁响铃。\n\n'
-          '💡 如果需要在区域边界附近活动\n'
-          '即使点击误触发按钮，闹钟也可能继续响铃。\n'
-          '此时建议禁用该闹钟，\n'
-          '需要时再重新启用。\n'
-          '（即将推出「Passing」功能：\n'
-          '一键设置n分钟后自动重新激活）\n\n'
-          '点击「误触发」后：\n'
+          '点击「⚡ 误触发」后：\n'
           '  • 铃声和振动立即停止\n'
-          '  • 闹钟保持启用状态（不会关闭）\n'
+          '  • 闹钟保持启用状态（不会被禁用）\n'
           '  • 可以从头再次触发\n\n'
-          '如果误触发频繁，\n'
-          '请尝试每次将半径增加10m进行测试。',
+          '📍 GPS精度限制\n'
+          'GPS只能提供大致位置，即使在屋外也存在数米到数十米的误差。'
+          '闹钟可能会稍早或稍晚响铃。\n\n'
+          '📡 GPS信号漂移\n'
+          '地下、高层建筑、信号受阻区域的误差更大。'
+          '实际未移动也可能反复检测入退区，导致闹钟多次响铃。\n\n'
+          '🔄 误触发反复发生时\n'
+          '误触发频繁时，可尝试每次增加10m半径进行测试。\n\n'
+          '💡 需要在边界附近停留时\n'
+          '在区域边界附近停留时，即使点击误触发按钮'
+          '闹钟也可能继续响铃。此时请禁用该闹钟，'
+          '需要时再重新启用。\n'
+          '("Passing"功能即将推出：一键设置n分钟后自动重新启用)',
       'false_trigger_dialog_ok': '确定',
     },
   };

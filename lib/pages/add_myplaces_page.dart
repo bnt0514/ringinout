@@ -50,6 +50,13 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
   List<fmap.Marker> _osmMarkers = [];
   List<fmap.CircleMarker> _osmCircles = [];
 
+  /// 사용자가 직접 지도를 조작(탭/검색 결과 선택)했는지 여부
+  /// true이면 현재 위치 자동 이동을 하지 않는다
+  bool _userInteracted = false;
+
+  /// 현재 위치 확정 여부 — false이면 맵/검색 잠금
+  bool _locationReady = false;
+
   @override
   void initState() {
     super.initState();
@@ -67,7 +74,13 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
     geo.Position position = await geo.Geolocator.getCurrentPosition();
     _currentLat = position.latitude;
     _currentLng = position.longitude;
-    _moveCamera(position.latitude, position.longitude);
+    // 사용자가 이미 지도를 조작(검색/탭)한 경우 현재 위치로 덮어쓰지 않는다
+    if (!_userInteracted) {
+      _moveCamera(position.latitude, position.longitude);
+    }
+    setState(() {
+      _locationReady = true;
+    });
   }
 
   void _moveCamera(double lat, double lng) {
@@ -176,6 +189,7 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
   }
 
   void _onMapTapped(UnifiedLatLng latLng) {
+    _userInteracted = true;
     setState(() {
       _selectedLatLng = latLng;
       _showSearchResults = false;
@@ -267,6 +281,7 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
 
         // 결과가 딱 1개(주소만)이면 바로 이동
         if (combinedResults.length == 1 && geoResult != null) {
+          _userInteracted = true;
           _moveCamera(geoResult.lat, geoResult.lng);
           setState(() {
             _address = geoResult!.displayAddress;
@@ -392,6 +407,7 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: Text(AppLocalizations.of(context).get('select_on_map')),
         actions: [
@@ -408,7 +424,13 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
             padding: const EdgeInsets.all(8.0),
             child: TextField(
               controller: _searchController,
-              onSubmitted: (value) => _performSearch(value),
+              onSubmitted: (value) {
+                if (!_locationReady) {
+                  FocusScope.of(context).unfocus();
+                  return;
+                }
+                _performSearch(value);
+              },
               onChanged: (value) {
                 // 검색어 지우면 결과도 숨김
                 if (value.isEmpty) {
@@ -543,6 +565,7 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                                 ],
                               ),
                               onTap: () {
+                                _userInteracted = true;
                                 _moveCamera(result.lat, result.lng);
                                 setState(() {
                                   _address = result.displayAddress;
@@ -592,6 +615,30 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                     },
                   ),
                 ),
+                // ✅ 현재 위치 확정 전 맵 잠금 오버레이
+                if (!_locationReady)
+                  Positioned.fill(
+                    child: Container(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      child: const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(color: Colors.white),
+                            SizedBox(height: 16),
+                            Text(
+                              '현재 위치를 불러오는 중...\n잠시만 기다려주세요',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -656,38 +703,48 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                         ),
                       ],
                     ),
-                    // 반경 설정 안내 — 항상 표시
+                    // 반경 설정 안내 버튼
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.blue.shade200),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              Icons.info_outline,
-                              color: Colors.blue.shade600,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
+                      child: GestureDetector(
+                        onTap: () => _showRadiusGuideDialog(),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.blue.shade300),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: Colors.blue.shade700,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
                                 AppLocalizations.of(
                                   context,
-                                ).get('signal_warning'),
+                                ).get('radius_guide_btn'),
                                 style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.blue.shade800,
-                                  height: 1.5,
+                                  fontSize: 13,
+                                  color: Colors.blue.shade700,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.chevron_right,
+                                color: Colors.blue.shade700,
+                                size: 16,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -726,6 +783,31 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
           _updateMarker();
         }
       },
+    );
+  }
+
+  void _showRadiusGuideDialog() {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text(
+              AppLocalizations.of(context).get('radius_guide_btn'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            content: SingleChildScrollView(
+              child: Text(
+                AppLocalizations.of(context).get('radius_guide_dialog_body'),
+                style: const TextStyle(fontSize: 14, height: 1.6),
+              ),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(AppLocalizations.of(context).get('confirm')),
+              ),
+            ],
+          ),
     );
   }
 
