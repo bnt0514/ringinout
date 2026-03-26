@@ -397,7 +397,7 @@ class AppLocalizations {
           ' GPS may temporarily read you as outside \u2014 or vice versa.\n'
           'In these cases, use the "\u26a1 False Trigger" button.'
           ' If the same issue keeps repeating, try increasing your radius by 10m at a time.\n\n'
-          '💡 If you need to stay or move around near a boundary\n'
+          '💡 If you need to stay or move around near the configured radius boundary\n'
           'Even after tapping False Trigger, the alarm may keep firing.'
           ' In that case, disable the alarm and re-enable it when needed.\n'
           '("Standby" mode — under consideration if requested: auto-reactivate after a set duration)',
@@ -539,7 +539,7 @@ class AppLocalizations {
           ' GPS may temporarily read you as outside — or vice versa.\n'
           'In these cases, use the "⚡ False Trigger" button.'
           ' If the same issue keeps repeating, try increasing your radius by 10m at a time.\n\n'
-          '💡 If you need to stay or move around near a zone boundary\n'
+          '💡 If you need to stay or move around near the configured radius boundary\n'
           'Even after tapping False Trigger, the alarm may keep firing.'
           ' In that case, disable the alarm and re-enable it when needed.\n'
           '("Standby" mode — under consideration if requested: auto-reactivate after a set duration)',
@@ -919,7 +919,7 @@ class AppLocalizations {
           ' 그 반대의 경우도 발생할 수 있습니다.\n'
           '이런 경우 "⚡ 오발동" 버튼을 활용하시고,'
           ' 동일한 문제가 자주 반복된다면 반경을 10m씩 늘려서 테스트해 보세요.\n\n'
-          '💡 반경 경계 근처에서 머물거나 활동하는 경우\n'
+          '💡 설정 반경 경계 근처에서 머물거나 활동하는 경우\n'
           '오발동 버튼을 누르면 알람이 계속 발동할 수 있으니,'
           ' 일단 알람을 종료하고 필요할 때 다시 활성화하세요.\n'
           '("대기" 모드 — 요청이 많을 시 도입 고려: 설정한 시간 이후 자동 재활성화)',
@@ -1058,6 +1058,7 @@ class AppLocalizations {
           ' 그 반대의 경우도 발생할 수 있습니다.\n'
           '이런 경우 "⚡ 오발동" 버튼을 활용하시고,'
           ' 동일한 문제가 자주 반복된다면 반경을 10m씩 늘려서 테스트해 보세요.\n\n'
+          '💡 설정 반경 경계 근처에서 머물거나 활동하는 경우\n'
           '오발동 버튼을 누르면 알람이 계속 발동할 수 있으니,'
           ' 일단 알람을 종료하고 필요할 때 다시 활성화하세요.\n'
           '("대기" 모드 — 요청이 많을 시 도입 고려: 설정한 시간 이후 자동 재활성화)',
@@ -1434,6 +1435,7 @@ class AppLocalizations {
           '実際には半径内にいるのにGPSが一時的に半径外と判定したり、逆のケースも起こり得ます。\n'
           'そのような場合は「⚡ 誤発動」ボタンをご活用ください。'
           '同じ問題が繰り返し起きる場合は、半径を10mずつ広げてテストしてみてください。\n\n'
+          '💡 設定した半径の境界付近に留まったり行動する場合\n'
           '誤発動ボタンを押してもアラームが繰り返し発動する場合があります。'
           'その場合はアラームを無効にして、必要なときに再度有効にしてください。\n'
           '(「Standby」モード — 要望が多ければ導入検討: 設定した時間後に自動再有効化)',
@@ -1571,6 +1573,7 @@ class AppLocalizations {
           '実際には半径内にいるのにGPSが一時的に半径外と判定したり、逆のケースも起こり得ます。\n'
           'そのような場合は「⚡ 誤発動」ボタンをご活用ください。'
           '同じ問題が繰り返し起きる場合は、半径を10mずつ広げてテストしてみてください。\n\n'
+          '💡 設定した半径の境界付近に留まったり行動する場合\n'
           '誤発動ボタンを押してもアラームが繰り返し発動する場合があります。'
           'その場合はアラームを無効にして、必要なときに再度有効にしてください。\n'
           '(「Standby」モード — 要望が多ければ導入検討: 設定した時間後に自動再有効化)',
@@ -1942,6 +1945,7 @@ class AppLocalizations {
           '即使实际在半径内，GPS也可能暂时将您判定为在半径外，反之亦然。\n'
           '遇到这种情况请使用「⚡ 误触发」按钮。'
           '若同样问题频繁发生，请尝试每次将半径增加10m进行测试。\n\n'
+          '💡 需要在设定半径边界附近停留或活动时\n'
           '即使点击误触发按钮，闹钟也可能继续响铃。'
           '此时请禁用该闹钟，需要时再重新启用。\n'
           '("Standby"模式 — 如需求较多将考虑引入: 设定时间后自动重新启用)',
@@ -2076,6 +2080,7 @@ class AppLocalizations {
           '即使实际在半径内，GPS也可能暂时将您判定为在半径外，反之亦然。\n'
           '遇到这种情况请使用「⚡ 误触发」按钮。'
           '若同样问题频繁发生，请尝试每次将半径增加10m进行测试。\n\n'
+          '💡 需要在设定半径边界附近停留或活动时\n'
           '即使点击误触发按钮，闹钟也可能继续响铃。'
           '此时请禁用该闹钟，需要时再重新启用。\n'
           '("Standby"模式 — 如需求较多将考虑引入: 设定时间后自动重新启用)',
