@@ -183,15 +183,15 @@ class _EditPlacePageState extends State<EditPlacePage> {
                     runSpacing: 8,
                     children: [
                       _buildRadiusChip(30),
+                      _buildRadiusChip(50),
                       _buildRadiusChip(100),
-                      _buildRadiusChip(200),
                       ChoiceChip(
                         label: Text(
-                          ![30, 100, 200].contains(_radius)
+                          ![30, 50, 100].contains(_radius)
                               ? '${_radius}m'
                               : l10n.get('custom'),
                         ),
-                        selected: ![30, 100, 200].contains(_radius),
+                        selected: ![30, 50, 100].contains(_radius),
                         onSelected: (_) => _showCustomRadiusDialog(),
                       ),
                     ],

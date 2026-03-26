@@ -637,23 +637,18 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                             runSpacing: 8,
                             children: [
                               _buildRadiusChip(30),
+                              _buildRadiusChip(50),
                               _buildRadiusChip(100),
-                              _buildRadiusChip(200),
                               ChoiceChip(
                                 label: Text(
-                                  _selectedRadius > 200 ||
-                                          ![
-                                            30,
-                                            100,
-                                            200,
-                                          ].contains(_selectedRadius)
+                                  ![30, 50, 100].contains(_selectedRadius)
                                       ? '${_selectedRadius}m'
                                       : AppLocalizations.of(
                                         context,
                                       ).get('custom_input'),
                                 ),
                                 selected:
-                                    ![30, 100, 200].contains(_selectedRadius),
+                                    ![30, 50, 100].contains(_selectedRadius),
                                 onSelected: (_) => _showCustomRadiusDialog(),
                               ),
                             ],
@@ -661,39 +656,41 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                         ),
                       ],
                     ),
-                    if (_selectedRadius <= 30)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.orange.shade300),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.warning_amber_rounded,
-                                color: Colors.orange,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  AppLocalizations.of(
-                                    context,
-                                  ).get('signal_warning'),
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.black87,
-                                  ),
+                    // 반경 설정 안내 — 항상 표시
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blue.shade200),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              color: Colors.blue.shade600,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                AppLocalizations.of(
+                                  context,
+                                ).get('signal_warning'),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.blue.shade800,
+                                  height: 1.5,
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
+                    ),
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
