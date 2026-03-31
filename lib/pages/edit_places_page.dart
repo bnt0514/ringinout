@@ -116,6 +116,7 @@ class _EditPlacePageState extends State<EditPlacePage> {
   void _saveChanges() async {
     final l10n = AppLocalizations.of(context);
     final updatedLocation = {
+      'id': widget.initialData['id'],
       'name': _nameController.text,
       'lat': _selectedLatLng.latitude,
       'lng': _selectedLatLng.longitude,

@@ -4,7 +4,6 @@ import 'package:ringinout/config/app_theme.dart';
 import 'package:ringinout/services/app_localizations.dart';
 
 // Package imports:
-import 'package:hive/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -989,6 +988,7 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
                           'id': id,
                           'name': alarmName,
                           'place': selectedPlace?['name'] ?? '',
+                          'placeId': selectedPlace?['id']?.toString(),
                           'trigger': triggerOnEntry ? 'entry' : 'exit',
                           'repeat':
                               selectedDate != null

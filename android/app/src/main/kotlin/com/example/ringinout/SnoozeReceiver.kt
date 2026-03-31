@@ -18,6 +18,7 @@ class SnoozeReceiver : BroadcastReceiver() {
         const val EXTRA_ALARM_ID = "alarm_id"
         const val EXTRA_ALARM_TITLE = "alarm_title"
         const val EXTRA_ALARM_DATA = "alarm_data"
+        const val EXTRA_ALARM_KEY = "alarm_key"
         const val EXTRA_PLACE_ID = "place_id"
     }
 
@@ -27,12 +28,16 @@ class SnoozeReceiver : BroadcastReceiver() {
         if (intent.action == ACTION_SNOOZE_ALARM) {
             val alarmId = intent.getIntExtra(EXTRA_ALARM_ID, -1)
             val alarmTitle = intent.getStringExtra(EXTRA_ALARM_TITLE) ?: "위치 알람"
+            val alarmKey = intent.getStringExtra(EXTRA_ALARM_KEY) ?: ""
             val placeId = intent.getStringExtra(EXTRA_PLACE_ID) ?: ""
 
-            Log.d("SnoozeReceiver", "📢 스누즈 알람 트리거: $alarmTitle (ID: $alarmId, placeId: $placeId)")
+            Log.d(
+                    "SnoozeReceiver",
+                    "📢 스누즈 알람 트리거: $alarmTitle (ID: $alarmId, alarmKey: $alarmKey, placeId: $placeId)"
+            )
 
             // 1. 전체화면 알람 Activity 시작 (벨소리도 Activity 내에서 재생)
-            launchFullScreenAlarm(context, alarmId, alarmTitle, placeId)
+            launchFullScreenAlarm(context, alarmId, alarmTitle, alarmKey, placeId)
 
             // ✅ 제거: startAlarmService()가 MainActivity를 띄워서
             //    AlarmFullscreenActivity를 가리는 문제 해결
@@ -44,6 +49,7 @@ class SnoozeReceiver : BroadcastReceiver() {
             context: Context,
             alarmId: Int,
             title: String,
+            alarmKey: String,
             placeId: String
     ) {
         try {
@@ -52,7 +58,8 @@ class SnoozeReceiver : BroadcastReceiver() {
                         putExtra("title", title)
                         putExtra("message", "스누즈 알람이 울립니다")
                         putExtra("alarmId", alarmId)
-                        putExtra("placeId", placeId) // ✅ placeId 전달
+                putExtra("alarmKey", alarmKey)
+                putExtra("placeId", placeId)
                         putExtra("isSnoozeAlarm", true)
                         addFlags(
                                 Intent.FLAG_ACTIVITY_NEW_TASK or

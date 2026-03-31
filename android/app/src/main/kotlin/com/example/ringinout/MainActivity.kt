@@ -14,6 +14,7 @@ import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.example.ringinout.AlarmFullscreenActivity
 import com.example.ringinout.location.AlarmPlace
 import com.example.ringinout.location.AlarmTriggerType
 import com.example.ringinout.location.SmartLocationManager
@@ -349,6 +350,7 @@ class MainActivity : FlutterActivity() {
                             val title = call.argument<String>("title") ?: "알람"
                             val message = call.argument<String>("message") ?: "위치 알람"
                             val alarmIdRaw = call.argument<Any>("alarmId") // ✅ Any로 받아서 변환
+                            val alarmKey = call.argument<String>("alarmKey") ?: ""
                             val placeId = call.argument<String>("placeId") ?: ""
 
                             // ✅ String UUID를 hashCode로 변환
@@ -359,7 +361,13 @@ class MainActivity : FlutterActivity() {
                                         else -> -1
                                     }
 
-                            showBackgroundFullScreenAlarm(title, message, alarmId, placeId)
+                                showBackgroundFullScreenAlarm(
+                                    title,
+                                    message,
+                                    alarmId,
+                                    alarmKey,
+                                    placeId
+                                )
                             result.success(true)
                         }
                         else -> result.notImplemented()
@@ -640,10 +648,14 @@ class MainActivity : FlutterActivity() {
             title: String,
             message: String,
             alarmId: Int,
+            alarmKey: String = "",
             placeId: String = ""
     ) {
         try {
-            Log.d("MainActivity", "📱 백그라운드 전체화면 알람 표시: $title (ID: $alarmId, placeId: $placeId)")
+            Log.d(
+                "MainActivity",
+                "📱 백그라운드 전체화면 알람 표시: $title (ID: $alarmId, alarmKey: $alarmKey, placeId: $placeId)"
+            )
 
             // ✅ SharedPreferences에서 triggerCount 가져오기
             val prefs = applicationContext.getSharedPreferences("ringinout", Context.MODE_PRIVATE)
@@ -655,7 +667,8 @@ class MainActivity : FlutterActivity() {
                         putExtra("title", title)
                         putExtra("message", message)
                         putExtra("alarmId", alarmId) // ✅ alarmId 전달
-                        putExtra("placeId", placeId) // ✅ placeId 전달 (passing버튼용)
+                        putExtra("alarmKey", alarmKey)
+                        putExtra("placeId", placeId)
                         putExtra("isBackgroundAlarm", true)
                         addFlags(
                                 Intent.FLAG_ACTIVITY_NEW_TASK or
@@ -679,7 +692,7 @@ class MainActivity : FlutterActivity() {
     private fun playDefaultRingtone(context: Context) {
         try {
             // ✅ AlarmFullscreenActivity 활성 중 → 이미 거기서 벨소리 재생 중이므로 중복 방지
-            if (com.example.AlarmFullscreenActivity.isActive) {
+            if (AlarmFullscreenActivity.isActive) {
                 Log.d("MainActivity", "⚠️ AlarmFullscreenActivity 활성 중 — 중복 벨소리 재생 방지")
                 return
             }

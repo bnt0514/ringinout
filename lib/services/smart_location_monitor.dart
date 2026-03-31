@@ -241,10 +241,8 @@ class SmartLocationMonitor {
     // 2. 네이티브 SmartLocationManager 지오펜스 재등록
     try {
       final places = _buildNativePlacesList();
-      if (places.isNotEmpty) {
-        await _nativeChannel.invokeMethod('updatePlaces', {'places': places});
-        print('[SLM] ✅ 네이티브 지오펜스 재등록 완료 (${places.length}개)');
-      }
+      await _nativeChannel.invokeMethod('updatePlaces', {'places': places});
+      print('[SLM] ✅ 네이티브 지오펜스 재등록 완료 (${places.length}개)');
     } catch (e) {
       print('[SLM] ⚠️ 네이티브 지오펜스 업데이트 실패 (앱 포그라운드 아닐 수 있음): $e');
     }
@@ -252,9 +250,7 @@ class SmartLocationMonitor {
 
   /// Hive 알람+장소 데이터를 네이티브 AlarmPlace 형식으로 변환
   /// ★ 같은 장소에 여러 알람이 있어도 지오펜스는 장소당 1개만 등록
-  ///   (ENTER+EXIT 모두 감시). id는 첫 번째 알람의 id 사용.
-  ///   LMS의 _processEntryAlarm/_processExitAlarm에서 placeName으로
-  ///   매칭하므로 같은 장소의 다른 알람도 정상 트리거됨.
+  ///   (ENTER+EXIT 모두 감시). id는 저장된 placeId를 사용한다.
   static List<Map<String, dynamic>> _buildNativePlacesList() {
     try {
       final alarms =
@@ -264,30 +260,39 @@ class SmartLocationMonitor {
       final places = HiveHelper.getSavedLocations();
 
       final result = <Map<String, dynamic>>[];
-      final seen = <String>{}; // placeName 기준 중복 제거
+      final seen = <String>{};
 
       for (final alarm in alarms) {
         final placeName = (alarm['place'] ?? alarm['locationName']) as String?;
-        if (placeName == null) continue;
-        if (seen.contains(placeName)) continue;
+        final alarmPlaceId = alarm['placeId']?.toString();
+        if ((placeName == null || placeName.isEmpty) &&
+            (alarmPlaceId == null || alarmPlaceId.isEmpty)) {
+          continue;
+        }
 
         final place = places.firstWhere(
-          (p) => p['name'] == placeName,
+          (p) =>
+              (alarmPlaceId != null &&
+                  alarmPlaceId.isNotEmpty &&
+                  p['id']?.toString() == alarmPlaceId) ||
+              p['name'] == placeName,
           orElse: () => <String, dynamic>{},
         );
         if (place.isEmpty) continue;
+
+        final nativePlaceId =
+            place['id']?.toString() ?? alarmPlaceId ?? placeName ?? '';
+        if (nativePlaceId.isEmpty || seen.contains(nativePlaceId)) continue;
 
         final lat = (place['lat'] ?? place['latitude']);
         final lng = (place['lng'] ?? place['longitude']);
         final radius = (place['radius'] ?? place['geofenceRadius'] ?? 100);
         if (lat == null || lng == null) continue;
 
-        seen.add(placeName);
-        // ★ 지오펜스 id = alarmId (UUID). 같은 장소 다른 알람은
-        //   placeName 매칭으로 처리됨.
+        seen.add(nativePlaceId);
         result.add({
-          'id': alarm['id'] ?? placeName,
-          'name': placeName,
+          'id': nativePlaceId,
+          'name': place['name'] ?? placeName,
           'latitude': (lat as num).toDouble(),
           'longitude': (lng as num).toDouble(),
           'radiusMeters': (radius as num).toDouble(),

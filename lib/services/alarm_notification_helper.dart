@@ -133,7 +133,8 @@ class AlarmNotificationHelper {
         'title': title,
         'message': message,
         'alarmId': alarmId,
-        'placeId': alarmData?['id']?.toString() ?? '',
+        'alarmKey': alarmData?['id']?.toString() ?? '',
+        'placeId': alarmData?['placeId']?.toString() ?? '',
       });
       print('📱 네이티브 전체화면 알람 요청 완료 (ID: $alarmId)');
     } catch (e) {

@@ -10,6 +10,7 @@ class HiveHelper {
   static late Box _alarmBox;
   static late Box _settingsBox;
   static bool _isInitialized = false; // ✅ 초기화 상태 추가
+  static const Uuid _uuid = Uuid();
 
   // ✅ 앱 시작 시 반드시 호출해야 함
   static Future<void> init() async {
@@ -44,6 +45,8 @@ class HiveHelper {
       } else {
         _settingsBox = Hive.box('settings_v2');
       }
+
+      await _runPlaceAlarmMigrations();
 
       _isInitialized = true; // ✅ 초기화 완료 플래그
       print('📦 HiveHelper 초기화 완료 (고유 경로)');
@@ -88,6 +91,8 @@ class HiveHelper {
       } else {
         _settingsBox = Hive.box('settings_v2');
       }
+
+      await _runPlaceAlarmMigrations();
 
       _isInitialized = true;
       print('✅ HiveHelper 백그라운드 초기화 완료');
@@ -148,7 +153,11 @@ class HiveHelper {
   static List<Map<String, dynamic>> getSavedLocations() {
     try {
       final values = _placeBox.values.toList();
-      return values.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      return values
+          .map(
+            (e) => _normalizePlaceRecord(Map<String, dynamic>.from(e as Map)),
+          )
+          .toList();
     } catch (e) {
       debugPrint('❌ getSavedLocations 에러: $e');
       return [];
@@ -168,8 +177,9 @@ class HiveHelper {
 
   static Future<void> addLocation(Map<String, dynamic> location) async {
     try {
-      await _placeBox.add(location);
-      debugPrint('✅ Hive에 저장 완료: $location');
+      final normalizedLocation = _normalizePlaceRecord(location);
+      await _placeBox.add(normalizedLocation);
+      debugPrint('✅ Hive에 저장 완료: $normalizedLocation');
       debugPrint('📦 현재 Hive 상태 (저장 후): ${_placeBox.values.toList()}');
     } catch (e) {
       debugPrint('❌ addLocation 에러: $e');
@@ -184,7 +194,13 @@ class HiveHelper {
     try {
       final box = placeBox;
       if (index >= 0 && index < box.length) {
-        await box.putAt(index, newLocation);
+        final existing = Map<String, dynamic>.from(box.getAt(index) as Map);
+        final normalizedLocation = _normalizePlaceRecord(
+          newLocation,
+          fallbackId: existing['id']?.toString(),
+        );
+        await box.putAt(index, normalizedLocation);
+        await _syncLinkedAlarmsForPlaceUpdate(existing, normalizedLocation);
       }
     } catch (e) {
       debugPrint('❌ updateLocationAt 에러: $e');
@@ -224,10 +240,13 @@ class HiveHelper {
     Map<String, dynamic> alarmData,
   ) async {
     try {
-      final id = const Uuid().v4(); // 고유 ID 생성
-      alarmData['id'] = id;
+      final id =
+          alarmData['id']?.toString().trim().isNotEmpty == true
+              ? alarmData['id'].toString()
+              : _uuid.v4();
+      final normalizedAlarm = _normalizeAlarmRecord({...alarmData, 'id': id});
 
-      await _alarmBox.put(id, alarmData); // 이미 열린 박스 사용
+      await _alarmBox.put(id, normalizedAlarm); // 이미 열린 박스 사용
       return id;
     } catch (e) {
       debugPrint('❌ saveLocationAlarm 에러: $e');
@@ -343,7 +362,8 @@ class HiveHelper {
     Map<String, dynamic> updatedAlarm,
   ) async {
     try {
-      await _alarmBox.putAt(index, updatedAlarm);
+      final normalizedAlarm = _normalizeAlarmRecord(updatedAlarm);
+      await _alarmBox.putAt(index, normalizedAlarm);
     } catch (e) {
       debugPrint('❌ updateLocationAlarm 에러: $e');
       rethrow;
@@ -361,7 +381,11 @@ class HiveHelper {
       }
 
       // ✅ ID를 키로 사용하여 업데이트 (putAt이 아닌 put 사용)
-      await _alarmBox.put(id, updatedAlarm);
+      final normalizedAlarm = _normalizeAlarmRecord({
+        ...updatedAlarm,
+        'id': id,
+      });
+      await _alarmBox.put(id, normalizedAlarm);
       debugPrint('✅ 알람 업데이트 완료 (ID: $id)');
     } catch (e) {
       debugPrint('❌ updateLocationAlarmById 에러: $e');
@@ -485,5 +509,157 @@ class HiveHelper {
       debugPrint('❌ setHolidayCountry 에러: $e');
       rethrow;
     }
+  }
+
+  static Future<void> _runPlaceAlarmMigrations() async {
+    try {
+      final normalizedPlaces = <Map<String, dynamic>>[];
+      var placesChanged = false;
+
+      for (var index = 0; index < _placeBox.length; index++) {
+        final rawPlace = _placeBox.getAt(index);
+        if (rawPlace is! Map) continue;
+
+        final original = Map<String, dynamic>.from(rawPlace);
+        final normalized = _normalizePlaceRecord(original);
+        normalizedPlaces.add(normalized);
+
+        if (!_mapsEqual(original, normalized)) {
+          await _placeBox.putAt(index, normalized);
+          placesChanged = true;
+        }
+      }
+
+      var alarmsChanged = false;
+      for (final key in _alarmBox.keys.toList()) {
+        final rawAlarm = _alarmBox.get(key);
+        if (rawAlarm is! Map) continue;
+
+        final original = Map<String, dynamic>.from(rawAlarm);
+        final normalized = _normalizeAlarmRecord(
+          original,
+          places: normalizedPlaces,
+        );
+
+        if (!_mapsEqual(original, normalized)) {
+          await _alarmBox.put(key, normalized);
+          alarmsChanged = true;
+        }
+      }
+
+      if (placesChanged || alarmsChanged) {
+        debugPrint(
+          '✅ place/alarm 마이그레이션 완료 (placesChanged=$placesChanged, alarmsChanged=$alarmsChanged)',
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ place/alarm 마이그레이션 실패: $e');
+      rethrow;
+    }
+  }
+
+  static Map<String, dynamic> _normalizePlaceRecord(
+    Map<String, dynamic> place, {
+    String? fallbackId,
+  }) {
+    final normalized = Map<String, dynamic>.from(place);
+    final existingId = normalized['id']?.toString().trim();
+    normalized['id'] =
+        (existingId != null && existingId.isNotEmpty)
+            ? existingId
+            : ((fallbackId != null && fallbackId.isNotEmpty)
+                ? fallbackId
+                : _uuid.v4());
+    return normalized;
+  }
+
+  static Map<String, dynamic> _normalizeAlarmRecord(
+    Map<String, dynamic> alarm, {
+    List<Map<String, dynamic>>? places,
+  }) {
+    final normalized = Map<String, dynamic>.from(alarm);
+    final existingAlarmId = normalized['id']?.toString().trim();
+    if (existingAlarmId == null || existingAlarmId.isEmpty) {
+      normalized['id'] = _uuid.v4();
+    }
+
+    final placeList = places ?? getSavedLocations();
+    final currentPlaceId = normalized['placeId']?.toString().trim();
+    final currentPlaceName =
+        (normalized['place'] ?? normalized['locationName'])?.toString().trim();
+
+    Map<String, dynamic>? matchedPlace;
+    if (currentPlaceId != null && currentPlaceId.isNotEmpty) {
+      matchedPlace = placeList.cast<Map<String, dynamic>?>().firstWhere(
+        (place) => place?['id']?.toString() == currentPlaceId,
+        orElse: () => null,
+      );
+    }
+
+    if (matchedPlace == null &&
+        currentPlaceName != null &&
+        currentPlaceName.isNotEmpty) {
+      matchedPlace = placeList.cast<Map<String, dynamic>?>().firstWhere(
+        (place) => place?['name']?.toString() == currentPlaceName,
+        orElse: () => null,
+      );
+    }
+
+    if (matchedPlace != null) {
+      normalized['placeId'] = matchedPlace['id']?.toString();
+      normalized['place'] = matchedPlace['name'] ?? currentPlaceName ?? '';
+    } else if (currentPlaceId != null && currentPlaceId.isNotEmpty) {
+      normalized['placeId'] = currentPlaceId;
+      if (currentPlaceName != null) {
+        normalized['place'] = currentPlaceName;
+      }
+    }
+
+    return normalized;
+  }
+
+  static Future<void> _syncLinkedAlarmsForPlaceUpdate(
+    Map<String, dynamic> oldPlace,
+    Map<String, dynamic> newPlace,
+  ) async {
+    final placeId = newPlace['id']?.toString();
+    final oldName = oldPlace['name']?.toString();
+    final newName = newPlace['name']?.toString() ?? '';
+
+    if (placeId == null || placeId.isEmpty) return;
+
+    for (final key in _alarmBox.keys.toList()) {
+      final rawAlarm = _alarmBox.get(key);
+      if (rawAlarm is! Map) continue;
+
+      final alarm = Map<String, dynamic>.from(rawAlarm);
+      final alarmPlaceId = alarm['placeId']?.toString();
+      final alarmPlaceName =
+          (alarm['place'] ?? alarm['locationName'])?.toString();
+
+      final matchesPlace =
+          alarmPlaceId == placeId ||
+          (oldName != null && alarmPlaceName == oldName);
+      if (!matchesPlace) continue;
+
+      final updatedAlarm =
+          Map<String, dynamic>.from(alarm)
+            ..['placeId'] = placeId
+            ..['place'] = newName;
+
+      if (!_mapsEqual(alarm, updatedAlarm)) {
+        await _alarmBox.put(key, updatedAlarm);
+      }
+    }
+  }
+
+  static bool _mapsEqual(Map<String, dynamic> a, Map<String, dynamic> b) {
+    if (a.length != b.length) return false;
+    for (final entry in a.entries) {
+      if (!b.containsKey(entry.key) || b[entry.key] != entry.value) {
+        return false;
+      }
+    }
+    return true;
   }
 }

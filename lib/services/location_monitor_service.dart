@@ -12,7 +12,7 @@
 //   2. INSIDE_IDLE → GPS OFF (배터리 절약)
 //   3. 모션 감지 → INSIDE_MOVING (GPS ON, 반경 이탈 감시)
 //   4. INSIDE_MOVING 종료 조건 = "정지 안정화" (고정 타임아웃 금지)
-//   5. 단일 canonical placeId (= alarmId UUID)
+//   5. 단일 canonical placeId (= 저장된 장소 ID)
 //
 // 금지 사항:
 //   - ENTER 검증 / ENTER_PENDING / ENTER_VERIFY
@@ -71,7 +71,7 @@ class LocationMonitorService {
   Timer? _snoozeTimer;
   Position? _currentPosition;
 
-  /// 장소별 v3 상태 (key = alarmId UUID)
+  /// 알람별 v3 상태 (key = alarmId UUID)
   final Map<String, PlaceState> _placeStates = {};
 
   /// Init Guard: 앱 시작 후 5초간 ENTER 억제
@@ -255,76 +255,94 @@ class LocationMonitorService {
   // ═══════════════════════════════════════════════════════════
 
   /// 네이티브 지오펜스 이벤트 수신 (유일한 진입점)
-  /// ★ placeId = alarmId UUID. 같은 장소에 여러 알람이 있을 경우,
-  ///   지오펜스는 하나의 id로만 등록되므로, 같은 장소의 다른 알람도
-  ///   함께 상태를 동기화해야 함.
+  /// ★ placeId = 저장된 장소 ID. 같은 장소의 여러 알람 상태를 함께 동기화한다.
   void onGeofenceEvent(String placeId, bool isEnter) {
     if (!_isRunning) return;
 
     _log('📡 지오펜스: $placeId ${isEnter ? "ENTER" : "EXIT"}');
 
-    // 1. 직접 매칭된 알람 처리
-    if (isEnter) {
-      _handleGeofenceEnter(placeId);
-    } else {
-      _handleGeofenceExit(placeId);
+    final activeAlarms = HiveHelper.getActiveAlarmsForMonitoring();
+    final alarmIds = _getAlarmIdsForPlace(placeId, activeAlarms);
+
+    if (alarmIds.isEmpty) {
+      _log('⚠️ placeId "$placeId" 에 연결된 활성 알람 없음');
+      return;
     }
 
-    // 2. ★ 같은 장소의 다른 알람도 상태 동기화
-    _syncSiblingAlarmStates(placeId, isEnter);
+    if (isEnter) {
+      _handleGeofenceEnter(placeId, alarmIds);
+    } else {
+      _handleGeofenceExit(placeId, alarmIds);
+    }
   }
 
-  /// 같은 장소를 사용하는 다른 알람의 상태도 동기화
-  void _syncSiblingAlarmStates(String placeId, bool isEnter) {
-    // placeId로 장소 이름 찾기
-    String? placeName;
+  List<String> _getAlarmIdsForPlace(
+    String placeId,
+    List<Map<String, dynamic>> activeAlarms,
+  ) {
+    return activeAlarms
+        .where((alarm) {
+          final alarmId = alarm['id'] as String?;
+          if (alarmId == null || alarmId.isEmpty) return false;
+
+          final alarmPlaceId = alarm['placeId']?.toString();
+          if (alarmPlaceId != null && alarmPlaceId.isNotEmpty) {
+            return alarmPlaceId == placeId;
+          }
+
+          final alarmPlaceName =
+              (alarm['place'] ?? alarm['locationName']) as String?;
+          final fallbackPlaceName = _getSavedPlaceName(placeId);
+          return fallbackPlaceName != null &&
+              alarmPlaceName == fallbackPlaceName;
+        })
+        .map((alarm) => alarm['id'] as String)
+        .toList();
+  }
+
+  String? _getSavedPlaceName(String placeId) {
     try {
-      final alarms = HiveHelper.getActiveAlarmsForMonitoring();
-      for (final alarm in alarms) {
-        if (alarm['id'] == placeId) {
-          placeName = (alarm['place'] ?? alarm['locationName']) as String?;
-          break;
+      final places = HiveHelper.getSavedLocations();
+      for (final place in places) {
+        if (place['id']?.toString() == placeId) {
+          return place['name'] as String?;
         }
       }
-      if (placeName == null) return;
+    } catch (_) {}
+    return null;
+  }
 
-      // 같은 장소를 사용하는 다른 알람 찾기
-      for (final alarm in alarms) {
-        final aId = alarm['id'] as String?;
-        if (aId == null || aId == placeId) continue;
-        final aPlace = (alarm['place'] ?? alarm['locationName']) as String?;
-        if (aPlace != placeName) continue;
-
-        // 같은 장소의 다른 알람 → 상태 동기화
-        final currentState = _placeStates[aId];
-        if (isEnter) {
-          if (currentState == null || currentState == PlaceState.outside) {
-            _setPlaceState(aId, PlaceState.insideIdle);
-            _log('🔗 [${_shortId(aId)}] 형제 알람 동기화 → INSIDE_IDLE');
-          }
-        } else {
-          if (currentState != null && currentState != PlaceState.outside) {
-            _setPlaceState(aId, PlaceState.outside);
-            _log('🔗 [${_shortId(aId)}] 형제 알람 동기화 → OUTSIDE');
-          }
-        }
+  PlaceState _getAggregatePlaceState(List<String> alarmIds) {
+    var hasInsideIdle = false;
+    for (final alarmId in alarmIds) {
+      final state = _placeStates[alarmId];
+      if (state == PlaceState.insideMoving) {
+        return PlaceState.insideMoving;
       }
-    } catch (e) {
-      _log('⚠️ 형제 알람 동기화 실패: $e');
+      if (state == PlaceState.insideIdle) {
+        hasInsideIdle = true;
+      }
+    }
+    return hasInsideIdle ? PlaceState.insideIdle : PlaceState.outside;
+  }
+
+  void _setStatesForAlarms(List<String> alarmIds, PlaceState state) {
+    for (final alarmId in alarmIds) {
+      _setPlaceState(alarmId, state);
     }
   }
 
   // ─── ENTER 처리 ───
 
-  void _handleGeofenceEnter(String placeId) {
+  void _handleGeofenceEnter(String placeId, List<String> alarmIds) {
     // Init Guard 체크
     if (_initGuardUntil != null && DateTime.now().isBefore(_initGuardUntil!)) {
       _log('🛡️ Init Guard — ENTER 무시, INSIDE_IDLE 설정: $placeId');
-      _setPlaceState(placeId, PlaceState.insideIdle);
+      _setStatesForAlarms(alarmIds, PlaceState.insideIdle);
       return;
     }
 
-    final currentState = _placeStates[placeId];
+    final currentState = _getAggregatePlaceState(alarmIds);
 
     if (currentState == PlaceState.insideIdle ||
         currentState == PlaceState.insideMoving) {
@@ -332,7 +350,7 @@ class LocationMonitorService {
       if (currentState == PlaceState.insideMoving) {
         // INSIDE_MOVING 중에 다시 ENTER 수신 → 아직 안 나감 → IDLE로 안정화
         _log('🔙 [$placeId] INSIDE_MOVING 중 재 ENTER → INSIDE_IDLE 복원');
-        _setPlaceState(placeId, PlaceState.insideIdle);
+        _setStatesForAlarms(alarmIds, PlaceState.insideIdle);
         _evaluateMovingGpsNeed();
       } else {
         _log('⏭️ [$placeId] 이미 INSIDE_IDLE — ENTER 무시');
@@ -342,16 +360,16 @@ class LocationMonitorService {
 
     // OUTSIDE → ENTER: 즉시 알람!
     _log('🎯 [$placeId] OUTSIDE → ENTER → 즉시 알람!');
-    _setPlaceState(placeId, PlaceState.insideIdle);
+    _setStatesForAlarms(alarmIds, PlaceState.insideIdle);
     _processEntryAlarm(placeId);
   }
 
   // ─── EXIT 처리 ───
 
-  void _handleGeofenceExit(String placeId) {
-    final currentState = _placeStates[placeId];
+  void _handleGeofenceExit(String placeId, List<String> alarmIds) {
+    final currentState = _getAggregatePlaceState(alarmIds);
 
-    if (currentState == PlaceState.outside || currentState == null) {
+    if (currentState == PlaceState.outside) {
       _log('⏭️ [$placeId] 이미 OUTSIDE — EXIT 무시');
       return;
     }
@@ -359,7 +377,7 @@ class LocationMonitorService {
     // INSIDE_IDLE 또는 INSIDE_MOVING → 지오펜스 EXIT 수신
     // 즉시 EXIT 알람 + OUTSIDE 전환
     _log('🎯 [$placeId] ${currentState.name} → 지오펜스 EXIT → 즉시 진출 처리!');
-    _setPlaceState(placeId, PlaceState.outside);
+    _setStatesForAlarms(alarmIds, PlaceState.outside);
     _evaluateMovingGpsNeed();
     _processExitAlarm(placeId);
   }
@@ -581,11 +599,11 @@ class LocationMonitorService {
 
     final matchingAlarms =
         activeAlarms.where((alarm) {
-          final alarmId = alarm['id'] as String?;
+          final alarmPlaceId = alarm['placeId']?.toString();
           final alarmPlace = alarm['place'] ?? alarm['locationName'];
           final trigger = alarm['trigger'] ?? 'entry';
           if (trigger != 'entry') return false;
-          return alarmId == placeId || alarmPlace == placeName;
+          return alarmPlaceId == placeId || alarmPlace == placeName;
         }).toList();
 
     for (final alarm in matchingAlarms) {
@@ -628,11 +646,11 @@ class LocationMonitorService {
 
     final matchingAlarms =
         activeAlarms.where((alarm) {
-          final alarmId = alarm['id'] as String?;
+          final alarmPlaceId = alarm['placeId']?.toString();
           final alarmPlace = alarm['place'] ?? alarm['locationName'];
           final trigger = alarm['trigger'] ?? 'entry';
           if (trigger != 'exit') return false;
-          return alarmId == placeId || alarmPlace == placeName;
+          return alarmPlaceId == placeId || alarmPlace == placeName;
         }).toList();
 
     for (final alarm in matchingAlarms) {
@@ -764,11 +782,16 @@ class LocationMonitorService {
         for (final alarm in activeAlarms) {
           final placeName =
               (alarm['place'] ?? alarm['locationName']) as String?;
+          final placeId = alarm['placeId']?.toString();
           final alarmId = alarm['id'] as String?;
-          if (placeName == null || alarmId == null) continue;
+          if (alarmId == null) continue;
 
           final place = places.firstWhere(
-            (p) => p['name'] == placeName,
+            (p) =>
+                (placeId != null &&
+                    placeId.isNotEmpty &&
+                    p['id']?.toString() == placeId) ||
+                p['name'] == placeName,
             orElse: () => <String, dynamic>{},
           );
           if (place.isEmpty) continue;
@@ -1099,11 +1122,24 @@ class LocationMonitorService {
   Future<Map<String, dynamic>?> _getPlaceInfo(String placeId) async {
     try {
       final places = HiveHelper.getSavedLocations();
-      final activeAlarms = await _getActiveAlarms();
+      final allAlarms = HiveHelper.getLocationAlarms();
 
-      // placeId = alarmId UUID → 알람에서 장소 이름 찾기 → 장소 정보
-      for (final alarm in activeAlarms) {
+      for (final place in places) {
+        if (place['id']?.toString() == placeId) {
+          return place;
+        }
+      }
+
+      // 하위 호환: 과거 alarmId 기반 이벤트도 알람 레코드를 통해 장소 복원
+      for (final alarm in allAlarms) {
         if (alarm['id'] == placeId) {
+          final alarmPlaceId = alarm['placeId']?.toString();
+          if (alarmPlaceId != null && alarmPlaceId.isNotEmpty) {
+            for (final place in places) {
+              if (place['id']?.toString() == alarmPlaceId) return place;
+            }
+          }
+
           final placeName =
               (alarm['place'] ?? alarm['locationName']) as String?;
           if (placeName != null) {
@@ -1263,11 +1299,20 @@ class LocationMonitorService {
   List<Map<String, dynamic>> _extractAlarmedPlaces(
     List<Map<String, dynamic>> alarms,
   ) {
-    final alarmPlaceNames =
+    final alarmPlaceIds =
+        alarms
+            .where((a) => a['enabled'] == true)
+            .map((a) => a['placeId']?.toString())
+            .whereType<String>()
+            .where((id) => id.isNotEmpty)
+            .toSet();
+
+    final fallbackPlaceNames =
         alarms
             .where(
               (a) =>
                   a['enabled'] == true &&
+                  ((a['placeId']?.toString().isEmpty ?? true)) &&
                   (a['place'] ?? a['locationName']) != null,
             )
             .map((a) => (a['place'] ?? a['locationName']) as String)
@@ -1275,7 +1320,11 @@ class LocationMonitorService {
 
     try {
       return HiveHelper.getSavedLocations()
-          .where((p) => alarmPlaceNames.contains(p['name']))
+          .where(
+            (p) =>
+                alarmPlaceIds.contains(p['id']?.toString()) ||
+                fallbackPlaceNames.contains(p['name']),
+          )
           .toList();
     } catch (e) {
       _log('❌ _extractAlarmedPlaces 실패: $e');
@@ -1592,7 +1641,7 @@ class LocationMonitorService {
   // ═══════════════════════════════════════════════════════════
 
   @pragma('vm:entry-point')
-  Future<void> resetPlaceState(String placeName) async {
+  Future<void> resetPlaceState(String placeKey) async {
     try {
       final pos = await _getPosition();
 
@@ -1600,10 +1649,15 @@ class LocationMonitorService {
 
       final places = HiveHelper.getSavedLocations();
       final place = places.firstWhere(
-        (p) => p['name'] == placeName,
+        (p) =>
+            p['id']?.toString() == placeKey ||
+            p['name']?.toString() == placeKey,
         orElse: () => <String, dynamic>{},
       );
       if (place.isEmpty) return;
+
+      final resolvedPlaceId = place['id']?.toString();
+      final resolvedPlaceName = place['name']?.toString();
 
       final lat = _toDouble(place['latitude'] ?? place['lat']);
       final lng = _toDouble(place['longitude'] ?? place['lng']);
@@ -1622,8 +1676,12 @@ class LocationMonitorService {
 
       final activeAlarms = await _getActiveAlarms();
       for (final alarm in activeAlarms) {
-        final ap = alarm['place'] ?? alarm['locationName'];
-        if (ap == placeName) {
+        final alarmPlaceName = alarm['place'] ?? alarm['locationName'];
+        final alarmPlaceId = alarm['placeId']?.toString();
+        final matchesPlace =
+            (resolvedPlaceId != null && alarmPlaceId == resolvedPlaceId) ||
+            alarmPlaceName == resolvedPlaceName;
+        if (matchesPlace) {
           final alarmId = alarm['id'] as String?;
           if (alarmId != null) {
             _setPlaceState(alarmId, state);
@@ -1631,7 +1689,9 @@ class LocationMonitorService {
         }
       }
 
-      _log('✅ resetPlaceState: $placeName → ${state.name}');
+      _log(
+        '✅ resetPlaceState: ${resolvedPlaceName ?? placeKey} → ${state.name}',
+      );
     } catch (e) {
       _log('❌ resetPlaceState 실패: $e');
     }

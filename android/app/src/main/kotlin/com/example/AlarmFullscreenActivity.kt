@@ -35,6 +35,7 @@ class AlarmFullscreenActivity : Activity() {
     private var alarmId: Int = -1
     private var alarmTitle: String = "위치 알람"
     private var triggerCount: Int = 0
+    private var alarmKey: String = ""
     private var placeId: String = ""
 
     // ✅ 알람 종료 중 플래그 — stopAlarmAndGoHome()에서 startActivity() 호출 시
@@ -64,7 +65,11 @@ class AlarmFullscreenActivity : Activity() {
         // Intent에서 데이터 가져오기
         alarmId = intent.getIntExtra("alarmId", -1)
         alarmTitle = intent.getStringExtra("title") ?: "위치 알람"
+        alarmKey = intent.getStringExtra("alarmKey") ?: ""
         placeId = intent.getStringExtra("placeId") ?: ""
+        if (alarmKey.isEmpty()) {
+            alarmKey = placeId
+        }
 
         // SharedPreferences에서 triggerCount 가져오기
         val prefs = getSharedPreferences("ringinout", Context.MODE_PRIVATE)
@@ -84,15 +89,15 @@ class AlarmFullscreenActivity : Activity() {
 
         // 스누즈 알람이 실제로 울리기 시작하면 snoozed + disabled 플래그 해제
         val isSnoozeAlarm = intent.getBooleanExtra("isSnoozeAlarm", false)
-        if (isSnoozeAlarm && placeId.isNotEmpty()) {
+        if (isSnoozeAlarm && alarmKey.isNotEmpty()) {
             val flutterPrefs =
                     getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
             flutterPrefs.edit().apply {
-                remove("flutter.alarm_snoozed_$placeId")
-                remove("flutter.alarm_disabled_$placeId")
+                remove("flutter.alarm_snoozed_$alarmKey")
+                remove("flutter.alarm_disabled_$alarmKey")
                 apply()
             }
-            Log.d("AlarmFullscreen", "✅ 스누즈 플래그 + 비활성화 해제: $placeId")
+            Log.d("AlarmFullscreen", "✅ 스누즈 플래그 + 비활성화 해제: $alarmKey")
         }
 
         // ✅ 네이티브 UI 생성
@@ -386,19 +391,19 @@ class AlarmFullscreenActivity : Activity() {
         Log.d("AlarmFullscreen", "⏰ 스누즈 설정: ${minutes}분 후")
 
         // ✅ 스누즈 시 알람 비활성화 + 재트리거 방지 플래그 설정
-        if (placeId.isNotEmpty()) {
+        if (alarmKey.isNotEmpty()) {
             val flutterPrefs =
                     getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
             flutterPrefs.edit().apply {
-                putBoolean("flutter.alarm_snoozed_$placeId", true)
-                putBoolean("flutter.alarm_disabled_$placeId", true)
+                putBoolean("flutter.alarm_snoozed_$alarmKey", true)
+                putBoolean("flutter.alarm_disabled_$alarmKey", true)
                 apply()
             }
-            Log.d("AlarmFullscreen", "🔕 스누즈 플래그 + 비활성화 설정: $placeId")
+            Log.d("AlarmFullscreen", "🔕 스누즈 플래그 + 비활성화 설정: $alarmKey")
         }
 
         // ✅ AlarmManager 기반 스누즈 스케줄링 (앱이 죽어도 작동!)
-        SnoozeScheduler.scheduleSnooze(this, alarmId, alarmTitle, minutes, placeId)
+        SnoozeScheduler.scheduleSnooze(this, alarmId, alarmTitle, minutes, alarmKey, placeId)
 
         Log.d("AlarmFullscreen", "✅ AlarmManager 스누즈 스케줄 완료: ${minutes}분 후")
     }
@@ -436,14 +441,19 @@ class AlarmFullscreenActivity : Activity() {
         // ✅ FlutterSharedPreferences에 기록 (Flutter shared_preferences 플러그인과 일치)
         val flutterPrefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
         flutterPrefs.edit().apply {
-            putBoolean("flutter.alarm_disabled_$placeId", true)
+            if (alarmKey.isNotEmpty()) {
+                putBoolean("flutter.alarm_disabled_$alarmKey", true)
+            }
             apply()
         }
 
         // ✅ 알람 해제 처리는 Flutter 측 LocationMonitorService에서 관리
         // (네이티브 SmartLocationManager는 신호 전달만 담당)
-        if (placeId.isNotEmpty()) {
-            Log.d("AlarmFullscreen", "✅ 알람 해제 완료: $placeId (Flutter 측 관리)")
+        if (alarmKey.isNotEmpty()) {
+            Log.d(
+                    "AlarmFullscreen",
+                    "✅ 알람 해제 완료: alarmKey=$alarmKey, placeId=$placeId (Flutter 측 관리)"
+            )
         }
 
         // ✅ 스누즈 스케줄도 취소
@@ -541,10 +551,13 @@ class AlarmFullscreenActivity : Activity() {
             putBoolean("flutter.native_alarm_active", true)
             putString("flutter.native_alarm_title", alarmTitle)
             putString("flutter.native_alarm_place_id", placeId)
-            putString("flutter.native_alarm_id", alarmId.toString())
+            putString("flutter.native_alarm_id", if (alarmKey.isNotEmpty()) alarmKey else alarmId.toString())
             apply()
         }
-        Log.d("AlarmFullscreen", "✅ 알람 상태 저장 완료: title=$alarmTitle, placeId=$placeId, alarmId=$alarmId")
+        Log.d(
+                "AlarmFullscreen",
+                "✅ 알람 상태 저장 완료: title=$alarmTitle, placeId=$placeId, alarmKey=$alarmKey, alarmId=$alarmId"
+        )
     }
 
     // ✅ 멀티태스킹에서 다시 돌아올 때 — 알람 화면 유지

@@ -171,13 +171,8 @@ class SmartLocationService {
 
   /// 특정 알람 트리거 기록 제거 (재활성화 시 사용)
   static Future<void> clearTriggeredAlarm(String placeId) async {
-    // Flutter 모드에서는 _lastInside 상태를 리셋
     try {
-      final parts = placeId.split('_');
-      if (parts.length >= 2) {
-        final placeName = parts.sublist(1, parts.length - 1).join('_');
-        await LocationMonitorService.instance.resetPlaceState(placeName);
-      }
+      await LocationMonitorService.instance.resetPlaceState(placeId);
       _log('🔔 트리거 기록 제거: $placeId');
     } catch (e) {
       _log('❌ 트리거 기록 제거 실패: $e');
@@ -186,10 +181,11 @@ class SmartLocationService {
 
   /// 알람 데이터로 고유 placeId 생성
   static String buildPlaceIdFromAlarm(Map<String, dynamic> alarm) {
-    final placeName = alarm['place'] ?? alarm['locationName'] ?? '';
-    final trigger = alarm['trigger'] as String? ?? 'entry';
-    final alarmId = alarm['id']?.toString() ?? '';
-    return '${alarmId}_${placeName}_$trigger';
+    final placeId = alarm['placeId']?.toString();
+    if (placeId != null && placeId.isNotEmpty) {
+      return placeId;
+    }
+    return (alarm['place'] ?? alarm['locationName'] ?? '').toString();
   }
 
   /// 에러 리포트 (no-op in Flutter mode)
@@ -241,11 +237,7 @@ class SmartLocationService {
   }) async {
     _log('👋 Passing 요청: $placeId (Flutter 모드 - 장소 상태 리셋)');
     try {
-      final parts = placeId.split('_');
-      if (parts.length >= 2) {
-        final placeName = parts.sublist(1, parts.length - 1).join('_');
-        await LocationMonitorService.instance.resetPlaceState(placeName);
-      }
+      await LocationMonitorService.instance.resetPlaceState(placeId);
     } catch (e) {
       _log('❌ Passing 요청 실패: $e');
     }

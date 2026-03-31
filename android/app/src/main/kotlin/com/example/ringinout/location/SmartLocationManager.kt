@@ -98,10 +98,7 @@ class SmartLocationManager private constructor(private val context: Context) {
         saveAlarmPlaces()
 
         // 지오펜스 재등록
-        nativeGeofenceManager.removeAllGeofences()
-        if (places.isNotEmpty()) {
-            nativeGeofenceManager.registerGeofences(places)
-        }
+        nativeGeofenceManager.registerGeofences(places)
     }
 
     // ========== 이벤트 수신 → Flutter로 전달 ==========

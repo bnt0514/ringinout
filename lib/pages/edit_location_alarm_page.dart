@@ -4,7 +4,6 @@ import 'package:ringinout/config/app_theme.dart';
 import 'package:ringinout/services/app_localizations.dart';
 
 // Package imports:
-import 'package:hive/hive.dart';
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/location_monitor_service.dart'; // ✅ Heartbeat 전송용
 import 'package:ringinout/services/smart_location_service.dart'; // ✅ 네이티브 서비스 연동
@@ -731,6 +730,7 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
                                   'id': alarmId,
                                   'name': alarmName.trim(),
                                   'place': selectedPlace?['name'] ?? '',
+                                  'placeId': selectedPlace?['id']?.toString(),
                                   'trigger': triggerOnEntry ? 'entry' : 'exit',
                                   'repeat':
                                       selectedDate != null

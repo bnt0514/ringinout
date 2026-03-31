@@ -22,6 +22,7 @@ object SnoozeScheduler {
             alarmId: Int,
             alarmTitle: String,
             delayMinutes: Int,
+            alarmKey: String = "",
             placeId: String = ""
     ) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -31,7 +32,8 @@ object SnoozeScheduler {
                     action = SnoozeReceiver.ACTION_SNOOZE_ALARM
                     putExtra(SnoozeReceiver.EXTRA_ALARM_ID, alarmId)
                     putExtra(SnoozeReceiver.EXTRA_ALARM_TITLE, alarmTitle)
-                    putExtra(SnoozeReceiver.EXTRA_PLACE_ID, placeId) // ✅ placeId 전달
+                    putExtra(SnoozeReceiver.EXTRA_ALARM_KEY, alarmKey)
+                    putExtra(SnoozeReceiver.EXTRA_PLACE_ID, placeId)
                 }
 
         val pendingIntent =

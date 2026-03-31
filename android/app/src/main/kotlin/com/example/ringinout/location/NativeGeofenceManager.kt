@@ -44,67 +44,87 @@ class NativeGeofenceManager(private val context: Context) {
             return
         }
 
-        removeAllGeofences()
+        val oldGeofenceIds = registeredGeofences.toList()
+        registeredGeofences.clear()
 
-        if (places.isEmpty()) {
-            Log.d(TAG, "📭 등록할 장소 없음")
+        fun registerFreshGeofences() {
+            if (places.isEmpty()) {
+                Log.d(TAG, "📭 등록할 장소 없음")
+                return
+            }
+
+            val geofences =
+                    places.map { place ->
+                        val geofenceId = place.id
+                        registeredGeofences.add(geofenceId)
+
+                        Geofence.Builder()
+                                .setRequestId(geofenceId)
+                                .setCircularRegion(
+                                        place.latitude,
+                                        place.longitude,
+                                        place.radiusMeters // v2: 실제 반경 R 사용 (버퍼 없음)
+                                )
+                                .setExpirationDuration(Geofence.NEVER_EXPIRE)
+                                .setTransitionTypes(
+                                        Geofence.GEOFENCE_TRANSITION_ENTER or
+                                                Geofence.GEOFENCE_TRANSITION_EXIT
+                                )
+                                .setNotificationResponsiveness(5000) // 5초 반응
+                                .build()
+                    }
+
+            val request =
+                    GeofencingRequest.Builder()
+                            .setInitialTrigger(
+                                    GeofencingRequest.INITIAL_TRIGGER_ENTER or
+                                            GeofencingRequest.INITIAL_TRIGGER_EXIT
+                            )
+                            .addGeofences(geofences)
+                            .build()
+
+            pendingIntent = createPendingIntent(REQUEST_CODE)
+
+            try {
+                geofencingClient
+                        .addGeofences(request, pendingIntent!!)
+                        .addOnSuccessListener {
+                            Log.d(TAG, "✅ 지오펜스 ${places.size}개 등록 완료")
+                            places.forEach { place ->
+                                Log.d(TAG, "   📍 ${place.name}: R=${place.radiusMeters.toInt()}m")
+                            }
+                        }
+                        .addOnFailureListener { e ->
+                            Log.e(TAG, "❌ 지오펜스 등록 실패: ${e.message}")
+                        }
+            } catch (e: SecurityException) {
+                Log.e(TAG, "❌ 권한 오류: ${e.message}")
+            }
+        }
+
+        if (oldGeofenceIds.isEmpty()) {
+            registerFreshGeofences()
             return
         }
 
-        val geofences =
-                places.map { place ->
-                    val geofenceId = place.id
-                    registeredGeofences.add(geofenceId)
-
-                    Geofence.Builder()
-                            .setRequestId(geofenceId)
-                            .setCircularRegion(
-                                    place.latitude,
-                                    place.longitude,
-                                    place.radiusMeters // v2: 실제 반경 R 사용 (버퍼 없음)
-                            )
-                            .setExpirationDuration(Geofence.NEVER_EXPIRE)
-                            .setTransitionTypes(
-                                    Geofence.GEOFENCE_TRANSITION_ENTER or
-                                            Geofence.GEOFENCE_TRANSITION_EXIT
-                            )
-                            .setNotificationResponsiveness(5000) // 5초 반응
-                            .build()
-                }
-
-        // v2: INITIAL_TRIGGER_ENTER 사용 (Init Guard가 Flutter에서 5초간 억제)
-        val request =
-                GeofencingRequest.Builder()
-                        .setInitialTrigger(
-                                GeofencingRequest.INITIAL_TRIGGER_ENTER or
-                                        GeofencingRequest.INITIAL_TRIGGER_EXIT
-                        )
-                        .addGeofences(geofences)
-                        .build()
-
-        pendingIntent = createPendingIntent(REQUEST_CODE)
-
-        try {
-            geofencingClient
-                    .addGeofences(request, pendingIntent!!)
-                    .addOnSuccessListener {
-                        Log.d(TAG, "✅ 지오펜스 ${places.size}개 등록 완료")
-                        places.forEach { place ->
-                            Log.d(TAG, "   📍 ${place.name}: R=${place.radiusMeters.toInt()}m")
-                        }
-                    }
-                    .addOnFailureListener { e -> Log.e(TAG, "❌ 지오펜스 등록 실패: ${e.message}") }
-        } catch (e: SecurityException) {
-            Log.e(TAG, "❌ 권한 오류: ${e.message}")
+        geofencingClient.removeGeofences(oldGeofenceIds).addOnSuccessListener {
+            Log.d(TAG, "🗑️ 기존 지오펜스 제거: ${oldGeofenceIds.size}개")
+            registerFreshGeofences()
+        }.addOnFailureListener { e ->
+            Log.e(TAG, "⚠️ 기존 지오펜스 제거 실패: ${e.message} — 재등록 계속 진행")
+            registerFreshGeofences()
         }
     }
 
     /** 모든 지오펜스 제거 */
     fun removeAllGeofences() {
         if (registeredGeofences.isNotEmpty()) {
-            geofencingClient.removeGeofences(registeredGeofences.toList()).addOnSuccessListener {
-                Log.d(TAG, "🗑️ 지오펜스 제거: ${registeredGeofences.size}개")
-                registeredGeofences.clear()
+            val geofenceIds = registeredGeofences.toList()
+            registeredGeofences.clear()
+            geofencingClient.removeGeofences(geofenceIds).addOnSuccessListener {
+                Log.d(TAG, "🗑️ 지오펜스 제거: ${geofenceIds.size}개")
+            }.addOnFailureListener { e ->
+                Log.e(TAG, "⚠️ 지오펜스 제거 실패: ${e.message}")
             }
         }
     }

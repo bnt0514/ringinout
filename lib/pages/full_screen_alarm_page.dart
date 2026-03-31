@@ -336,7 +336,7 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
 
       // ✅ SmartLocationManager에도 dismiss 처리 (GateState DISABLED → 반복 알람 차단)
       try {
-        await _smartChannel.invokeMethod('dismissAlarm', {'placeId': alarmId});
+        await _smartChannel.invokeMethod('dismissAlarm', {'alarmKey': alarmId});
         print('✅ dismissAlarm 완료: $alarmId');
       } catch (e) {
         print('⚠️ dismissAlarm 채널 실패 (무시): $e');
