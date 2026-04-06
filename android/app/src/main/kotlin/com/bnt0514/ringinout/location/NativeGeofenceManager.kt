@@ -1,4 +1,4 @@
-package com.example.ringinout.location
+﻿package com.bnt0514.ringinout.location
 
 import android.Manifest
 import android.app.PendingIntent
@@ -24,7 +24,7 @@ class NativeGeofenceManager(private val context: Context) {
 
     companion object {
         private const val TAG = "NativeGeofence"
-        const val ACTION_GEOFENCE = "com.example.ringinout.ACTION_GEOFENCE_EVENT"
+        const val ACTION_GEOFENCE = "com.bnt0514.ringinout.ACTION_GEOFENCE_EVENT"
         private const val REQUEST_CODE = 2001
     }
 

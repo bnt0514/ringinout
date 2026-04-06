@@ -1,4 +1,4 @@
-package com.example.ringinout.location
+﻿package com.bnt0514.ringinout.location
 
 /** 알람 트리거 타입 */
 enum class AlarmTriggerType {

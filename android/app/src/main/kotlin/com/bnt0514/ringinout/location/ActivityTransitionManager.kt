@@ -1,4 +1,4 @@
-package com.example.ringinout.location
+﻿package com.bnt0514.ringinout.location
 
 import android.Manifest
 import android.app.PendingIntent
@@ -25,7 +25,7 @@ class ActivityTransitionManager(private val context: Context) {
 
     companion object {
         private const val TAG = "ActivityTransition"
-        const val ACTION_TRANSITION = "com.example.ringinout.ACTION_ACTIVITY_TRANSITION"
+        const val ACTION_TRANSITION = "com.bnt0514.ringinout.ACTION_ACTIVITY_TRANSITION"
         private const val REQUEST_CODE = 1001
     }
 

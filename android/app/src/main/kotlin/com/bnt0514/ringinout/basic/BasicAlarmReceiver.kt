@@ -1,4 +1,4 @@
-package com.example.ringinout.basic
+﻿package com.bnt0514.ringinout.basic
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -9,8 +9,8 @@ import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
 import android.util.Log
-import com.example.ringinout.AlarmFullscreenActivity
-import com.example.ringinout.flutterRingtone
+import com.bnt0514.ringinout.AlarmFullscreenActivity
+import com.bnt0514.ringinout.flutterRingtone
 
 class BasicAlarmReceiver : BroadcastReceiver() {
     companion object {
@@ -86,7 +86,7 @@ class BasicAlarmReceiver : BroadcastReceiver() {
 
                 val nextIntent =
                         Intent(context, BasicAlarmReceiver::class.java).apply {
-                            action = "com.example.ringinout.ACTION_BASIC_ALARM"
+                            action = "com.bnt0514.ringinout.ACTION_BASIC_ALARM"
                             putExtra("id", id)
                             putExtra("label", label)
                             putExtra("hour", hour)

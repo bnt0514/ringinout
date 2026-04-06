@@ -509,6 +509,7 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
                                   ? AppColors.saturday
                                   : AppColors.textPrimary;
                           return GestureDetector(
+                            behavior: HitTestBehavior.opaque,
                             onTap: () {
                               setState(() {
                                 if (selected) {

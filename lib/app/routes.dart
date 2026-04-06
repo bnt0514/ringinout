@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 // Project imports
@@ -13,7 +13,7 @@ import 'package:ringinout/features/navigation/main_navigation.dart';
 
 class AppRoutes {
   static Future<void> _stopAlarmSound() async {
-    const platform = MethodChannel('com.example.ringinout/audio');
+    const platform = MethodChannel('com.bnt0514.ringinout/audio');
     try {
       await platform.invokeMethod('stopRingtone');
     } catch (e) {

@@ -1,9 +1,9 @@
-/// Method channel names
+﻿/// Method channel names
 class ChannelNames {
-  static const String audio = 'com.example.ringinout/audio';
+  static const String audio = 'com.bnt0514.ringinout/audio';
   static const String notification = 'ringinout_channel';
   static const String fullscreenNative =
-      'com.example.ringinout/fullscreen_native';
+      'com.bnt0514.ringinout/fullscreen_native';
   static const String permissions = 'ringinout/permissions';
 }
 
@@ -19,7 +19,7 @@ class RouteNames {
 class ServiceConstants {
   static const int notificationId = 888;
   static const String channelId = 'ringinout_channel';
-  static const String notificationTitle = 'Ringinout 실행 중';
+  static const String notificationTitle = 'RingInOut 실행 중';
   static const String notificationContent = '위치 기반 알람 감시 중';
 }
 
@@ -34,4 +34,5 @@ class Defaults {
   static const String alarmTitle = 'Ringinout 알람';
   static const String untitledAlarm = '이름 없음';
 }
+
 // 상수정의 채널명 등

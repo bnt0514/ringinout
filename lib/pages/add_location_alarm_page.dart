@@ -19,6 +19,7 @@ import 'package:ringinout/widgets/subscription_limit_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:ringinout/services/locale_provider.dart';
 import 'package:ringinout/utils/trigger_keywords.dart';
+import 'package:ringinout/utils/voice_datetime_parser.dart';
 
 class AddLocationAlarmPage extends StatefulWidget {
   final Map<String, dynamic>? existingAlarmData; // ✅ 이름 통일
@@ -235,7 +236,7 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
   }
 
   void _checkAlarmConditionFromName(String input) {
-    // 다국어 키워드 매칭 (띄어쓰기 자동 정규화 포함)
+    // 1. 다국어 키워드 매칭: 진입/진출 트리거 감지
     final triggerType = TriggerKeywords.detectTriggerType(input);
 
     if (triggerType == 'entry') {
@@ -256,8 +257,46 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
       });
     }
 
-    // 장소 매칭 개선: 공백 제거 후 비교, 긴 이름 우선
+    // 2. 장소 매칭 개선: 공백 제거 후 비교, 긴 이름 우선
     _matchPlaceFromInput(input);
+
+    // 3. 요일 자동 감지
+    final localeId = _getSpeechLocaleId();
+    final detectedWeekdays = VoiceDateTimeParser.extractWeekdays(
+      input,
+      localeId: localeId,
+    );
+    if (detectedWeekdays.isNotEmpty) {
+      setState(() {
+        // 새로 감지된 요일로 교체 (기존 선택 초기화 후 설정)
+        selectedWeekdays = detectedWeekdays;
+        // 날짜 지정과 요일은 동시에 사용할 수 없으므로 날짜 초기화
+        selectedDate = null;
+      });
+    }
+
+    // 4. 날짜 자동 감지 (요일이 없을 때만)
+    if (detectedWeekdays.isEmpty) {
+      final detectedDate = VoiceDateTimeParser.extractDate(
+        input,
+        localeId: localeId,
+      );
+      if (detectedDate != null) {
+        setState(() {
+          selectedDate = detectedDate;
+          selectedWeekdays = {}; // 날짜 지정 시 요일 초기화
+        });
+      }
+    }
+
+    // 5. 시간 조건 자동 감지
+    final detectedTime = VoiceDateTimeParser.extractTime(
+      input,
+      localeId: localeId,
+    );
+    if (detectedTime != null) {
+      setState(() => conditionTime = detectedTime);
+    }
   }
 
   /// 음성 인식 텍스트에서 장소를 매칭하는 함수
@@ -769,6 +808,7 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
                                   ? AppColors.saturday
                                   : AppColors.textPrimary;
                           return GestureDetector(
+                            behavior: HitTestBehavior.opaque,
                             onTap: () {
                               setState(() {
                                 if (selected) {

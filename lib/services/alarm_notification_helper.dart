@@ -1,4 +1,4 @@
-// lib/services/alarm_notification_helper.dart
+﻿// lib/services/alarm_notification_helper.dart
 // Flutter imports:
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -34,7 +34,7 @@ Future<void> createNotificationChannel() async {
   const AndroidNotificationChannel backgroundChannel =
       AndroidNotificationChannel(
         'ringinout_background_quiet',
-        'Ringinout 백그라운드 서비스',
+        'RingInOut 백그라운드 서비스',
         description: '위치 기반 알람 서비스',
         importance: Importance.low, // 조용한 알림
         playSound: false,
@@ -126,8 +126,12 @@ class AlarmNotificationHelper {
     Map<String, dynamic>? alarmData,
   ) async {
     try {
-      const platform = MethodChannel('com.example.ringinout/alarm');
+      const platform = MethodChannel('com.bnt0514.ringinout/alarm');
       final alarmId = alarmData?['id'] ?? -1;
+
+      // ✅ repeat 필드가 List이면 반복 알람
+      final repeat = alarmData?['repeat'];
+      final isRepeat = (repeat is List && repeat.isNotEmpty);
 
       await platform.invokeMethod('showFullScreenAlarm', {
         'title': title,
@@ -135,6 +139,7 @@ class AlarmNotificationHelper {
         'alarmId': alarmId,
         'alarmKey': alarmData?['id']?.toString() ?? '',
         'placeId': alarmData?['placeId']?.toString() ?? '',
+        'isRepeat': isRepeat,
       });
       print('📱 네이티브 전체화면 알람 요청 완료 (ID: $alarmId)');
     } catch (e) {
@@ -226,7 +231,7 @@ class AlarmNotificationHelper {
     }
   }
 
-  // ✅ 전체화면 알람
+  // ✅ 전체화면 알람 (스택 지원 — 여러 알람이 중첩 가능)
   static void _showFullScreenAlarm({
     required String title,
     required String message,
@@ -234,7 +239,8 @@ class AlarmNotificationHelper {
     required Map<String, dynamic> alarmData,
   }) {
     try {
-      _navigatorKey?.currentState?.pushAndRemoveUntil(
+      // ✅ push 사용 — 기존 알람 화면 위에 새 알람 화면이 스택됨
+      _navigatorKey?.currentState?.push(
         MaterialPageRoute(
           builder:
               (context) => FullScreenAlarmPage(
@@ -250,10 +256,9 @@ class AlarmNotificationHelper {
                 },
               ),
         ),
-        (route) => false, // ✅ 모든 기존 화면 제거
       );
 
-      print('📱 전체화면 알람 표시: $title');
+      print('📱 전체화면 알람 표시 (스택): $title');
     } catch (e) {
       print('❌ 전체화면 알람 실패: $e');
     }

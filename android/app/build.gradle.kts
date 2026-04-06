@@ -1,11 +1,19 @@
+﻿import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(keystorePropertiesFile.inputStream())
+}
+
 android {
-    namespace = "com.example.ringinout"
+    namespace = "com.bnt0514.ringinout"
 
     compileSdk = 36
     ndkVersion = "27.0.12077973"
@@ -18,8 +26,17 @@ android {
 
     kotlinOptions { jvmTarget = "17" }
 
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProperties["keyAlias"] as String?
+            keyPassword = keystoreProperties["keyPassword"] as String?
+            storeFile = keystoreProperties["storeFile"]?.let { path -> file(path as String) }
+            storePassword = keystoreProperties["storePassword"] as String?
+        }
+    }
+
     defaultConfig {
-        applicationId = "com.example.ringinout"
+        applicationId = "com.bnt0514.ringinout"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -28,19 +45,19 @@ android {
 
     buildTypes {
         debug {
-            // ✅ 올바른 Kotlin 문법
+            // ???�바�?Kotlin 문법
             manifestPlaceholders += mapOf("dartObfuscation" to "false", "enableDebugging" to "true")
             isDebuggable = true
         }
         release {
-            // ✅ 올바른 Kotlin 문법
+            // ???�바�?Kotlin 문법
             proguardFiles(
                     getDefaultProguardFile("proguard-android-optimize.txt"),
                     "proguard-rules.pro"
             )
             isShrinkResources = false
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -55,7 +72,7 @@ android {
 
 flutter { source = "../.." }
 
-// ✅ 하위 모듈 설정
+// ???�위 모듈 ?�정
 subprojects {
     afterEvaluate {
         extensions.findByType<org.jetbrains.kotlin.gradle.dsl.KotlinJvmOptions>()?.apply {

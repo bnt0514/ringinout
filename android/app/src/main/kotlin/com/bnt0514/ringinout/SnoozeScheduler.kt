@@ -1,4 +1,4 @@
-package com.example.ringinout
+﻿package com.bnt0514.ringinout
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -23,7 +23,8 @@ object SnoozeScheduler {
             alarmTitle: String,
             delayMinutes: Int,
             alarmKey: String = "",
-            placeId: String = ""
+            placeId: String = "",
+            isRepeat: Boolean = false
     ) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
@@ -34,6 +35,7 @@ object SnoozeScheduler {
                     putExtra(SnoozeReceiver.EXTRA_ALARM_TITLE, alarmTitle)
                     putExtra(SnoozeReceiver.EXTRA_ALARM_KEY, alarmKey)
                     putExtra(SnoozeReceiver.EXTRA_PLACE_ID, placeId)
+                    putExtra(SnoozeReceiver.EXTRA_IS_REPEAT, isRepeat)
                 }
 
         val pendingIntent =

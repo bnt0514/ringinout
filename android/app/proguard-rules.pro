@@ -1,49 +1,49 @@
-# ============================================================
+﻿# ============================================================
 # Ringinout ProGuard / R8 Rules
 # ============================================================
 
-# ── Flutter ──
+# ?�?� Flutter ?�?�
 -keep class io.flutter.** { *; }
 -keep class io.flutter.plugins.** { *; }
 -dontwarn io.flutter.embedding.**
 
-# ── App Kotlin classes (MethodChannel, BroadcastReceiver, Activity) ──
--keep class com.example.ringinout.** { *; }
+# ?�?� App Kotlin classes (MethodChannel, BroadcastReceiver, Activity) ?�?�
+-keep class com.bnt0514.ringinout.** { *; }
 
-# ── Google Play Services (Location, Maps) ──
+# ?�?� Google Play Services (Location, Maps) ?�?�
 -keep class com.google.android.gms.** { *; }
 -dontwarn com.google.android.gms.**
 
-# ── Firebase ──
+# ?�?� Firebase ?�?�
 -keep class com.google.firebase.** { *; }
 -dontwarn com.google.firebase.**
 
-# ── Hive ──
+# ?�?� Hive ?�?�
 -keep class io.hive.** { *; }
 -dontwarn io.hive.**
 
-# ── Google Maps Flutter ──
+# ?�?� Google Maps Flutter ?�?�
 -keep class com.google.android.gms.maps.** { *; }
 
-# ── Naver Maps ──
+# ?�?� Naver Maps ?�?�
 -keep class com.naver.maps.** { *; }
 -dontwarn com.naver.maps.**
 
-# ── Gson / JSON serialization (Firebase 등에서 사용) ──
+# ?�?� Gson / JSON serialization (Firebase ?�에???�용) ?�?�
 -keepattributes Signature
 -keepattributes *Annotation*
 -keep class com.google.gson.** { *; }
 -dontwarn com.google.gson.**
 
-# ── gRPC (Firestore 내부 사용) ──
+# ?�?� gRPC (Firestore ?��? ?�용) ?�?�
 -keep class io.grpc.** { *; }
 -dontwarn io.grpc.**
 
-# ── SharedPreferences (Flutter plugin) ──
+# ?�?� SharedPreferences (Flutter plugin) ?�?�
 -keep class androidx.datastore.** { *; }
 -dontwarn androidx.datastore.**
 
-# ── Android 기본 ──
+# ?�?� Android 기본 ?�?�
 -keepclassmembers class * implements android.os.Parcelable {
     static ** CREATOR;
 }
@@ -57,11 +57,11 @@
     java.lang.Object readResolve();
 }
 
-# ── Ringtone (알람 벨소리) ──
+# ?�?� Ringtone (?�람 벨소�? ?�?�
 -keep class android.media.Ringtone { *; }
 -keep class android.media.RingtoneManager { *; }
 
-# ── Suppress warnings ──
+# ?�?� Suppress warnings ?�?�
 -dontwarn javax.annotation.**
 -dontwarn org.codehaus.mojo.**
 -dontwarn kotlin.**

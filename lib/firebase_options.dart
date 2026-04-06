@@ -44,8 +44,8 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBeH5HhLcpj2JL91U_1eSHU4vRyC_qmxao',
-    appId: '1:120131573076:android:cd1f34595b88962a4824c1',
+    apiKey: 'AIzaSyDQsAxnCZzieaLRvnoNIIkk61seTopxioY',
+    appId: '1:120131573076:android:29002ee16bee4f4e4824c1',
     messagingSenderId: '120131573076',
     projectId: 'ringgo-485705',
     storageBucket: 'ringgo-485705.firebasestorage.app',

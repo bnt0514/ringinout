@@ -340,6 +340,7 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
                                 ? AppColors.saturday
                                 : AppColors.textPrimary;
                         return GestureDetector(
+                          behavior: HitTestBehavior.opaque,
                           onTap: () {
                             setState(() {
                               if (selected) {
@@ -351,8 +352,8 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
                             });
                           },
                           child: Container(
-                            width: 32,
-                            height: 32,
+                            width: 40,
+                            height: 40,
                             alignment: Alignment.center,
                             decoration:
                                 selected

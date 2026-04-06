@@ -1,4 +1,4 @@
-// lib/widgets/unified_map_widget.dart
+﻿// lib/widgets/unified_map_widget.dart
 // 네이버맵 / 구글맵 / OSM 통합 위젯
 
 import 'package:flutter/material.dart';
@@ -212,7 +212,7 @@ class _UnifiedMapWidgetState extends State<UnifiedMapWidget> {
       children: [
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.example.ringinout',
+          userAgentPackageName: 'com.bnt0514.ringinout',
           // ✅ 뷰포트 주변 타일 미리 로드 → 드래그/줌 시 회색 방지
           keepBuffer: 6,
           panBuffer: 3,

@@ -288,8 +288,16 @@ class AppLocalizations {
       'voice_widget_got_it': 'Got it!',
       'voice_tip_title': '💡 Voice Recognition Examples',
       'voice_tip_examples':
-          '• "Notify me when I get home"\n• "Alert me when I leave work"\n• "Ring when I enter school"',
-      'voice_tip_note': 'Both entry and exit are auto-detected',
+          '• "Notify me when I arrive at work on Monday"\n'
+          '  → Every Monday, on entry\n'
+          '• "Alert me when I leave home on April 12"\n'
+          '  → April 12 only, on exit\n'
+          '• "Ring when I get home after 6 on Monday"\n'
+          '  → Every Monday, after 6:00, on entry\n'
+          '• "Remind me when I leave home at 9 on March 13"\n'
+          '  → March 13, after 9:00, on exit',
+      'voice_tip_note':
+          'Weekdays, dates & times are set automatically\n(GPS geofence may fire within ±seconds of boundary)',
       'voice_first_visit_title': '💡 Pro Tip!',
       'voice_first_visit_desc':
           'Add a widget to your home screen\nto start voice alarms\nwithout opening the app!',
@@ -424,6 +432,8 @@ class AppLocalizations {
       'delete_confirm_title': 'Confirm Delete',
       'delete_locked_msg': 'Delete this locked location?',
       'delete_place_msg': 'Are you sure you want to delete this location?',
+      'linked_alarm_delete_warning':
+          '⚠️ {count} linked alarm(s) will also be deleted.',
       'edit_places_menu': 'Edit Place',
       'add_alarm_menu': 'Add New Alarm',
       'add_place_tooltip': 'Add new location',
@@ -811,8 +821,16 @@ class AppLocalizations {
       'voice_widget_tip': '위젯을 추가하면 앱을 열지 않고도\n홈 화면에서 바로 음성 알람을 시작할 수 있어요!',
       'voice_widget_got_it': '알겠어요!',
       'voice_tip_title': '💡 음성 인식 예시',
-      'voice_tip_examples': '• "집 도착하면 알려줘"\n• "회사 출발하면 알려줘"\n• "학교 나가면 알려줘"',
-      'voice_tip_note': '진입/진출 모두 자동 인식됩니다',
+      'voice_tip_examples':
+          '• "월요일에 회사 도착하면 알려줘"\n'
+          '  → 매주 월요일, 회사 진입 시\n'
+          '• "4월 12일에 집에서 나갈 때 알려줘"\n'
+          '  → 4/12 하루, 집 진출 시\n'
+          '• "월요일 6시 이후 집에 도착하면 알려줘"\n'
+          '  → 매주 월요일, 오후 6시 이후 집 진입 시\n'
+          '• "3월 13일 9시에 집에서 나가면 알려줘"\n'
+          '  → 3/13, 오전 9시 이후 집 진출 시',
+      'voice_tip_note': '요일·날짜·시간이 자동으로 설정됩니다\n(GPS 특성상 경계 인식은 ±수십 초 오차 있음)',
       'voice_first_visit_title': '💡 꿀팁!',
       'voice_first_visit_desc':
           '홈 화면에 위젯을 추가하면\n앱을 열지 않고도 바로\n음성 알람을 시작할 수 있어요!',
@@ -946,6 +964,7 @@ class AppLocalizations {
       'delete_confirm_title': '삭제 확인',
       'delete_locked_msg': '잠긴 위치를 삭제하시겠습니까?',
       'delete_place_msg': '정말로 이 위치를 삭제하시겠습니까?',
+      'linked_alarm_delete_warning': '⚠️ 연결된 알람 {count}개도 함께 삭제됩니다.',
       'edit_places_menu': 'MyPlaces 편집',
       'add_alarm_menu': '새 알람 추가',
       'add_place_tooltip': '새 위치 추가',
@@ -1329,8 +1348,16 @@ class AppLocalizations {
       'voice_widget_tip': 'ウィジェットを追加すると、アプリを開かなくても\nホーム画面から直接音声アラームを開始できます！',
       'voice_widget_got_it': 'わかりました！',
       'voice_tip_title': '💡 音声認識の例',
-      'voice_tip_examples': '• 「家に着いたら知らせて」\n• 「会社を出たら知らせて」\n• 「学校に入ったら知らせて」',
-      'voice_tip_note': '入退場は自動認識されます',
+      'voice_tip_examples':
+          '• 「月曜日に会社に着いたら知らせて」\n'
+          '  → 毎週月曜日、入場時\n'
+          '• 「4月12日に家を出るとき知らせて」\n'
+          '  → 4/12のみ、退場時\n'
+          '• 「月曜日の6時以降に家に着いたら知らせて」\n'
+          '  → 毎週月曜日、18時以降、入場時\n'
+          '• 「3月13日の9時に家を出たら知らせて」\n'
+          '  → 3/13、9時以降、退場時',
+      'voice_tip_note': '曜日・日付・時間が自動設定されます\n(GPS特性上、境界検知に数十秒の誤差あり)',
       'voice_first_visit_title': '💡 おすすめ！',
       'voice_first_visit_desc':
           'ホーム画面にウィジェットを追加すると\nアプリを開かなくても\n音声アラームを開始できます！',
@@ -1462,6 +1489,7 @@ class AppLocalizations {
       'delete_confirm_title': '削除確認',
       'delete_locked_msg': 'ロックされた場所を削除しますか？',
       'delete_place_msg': '本当にこの場所を削除しますか？',
+      'linked_alarm_delete_warning': '⚠️ リンクされた{count}件のアラームも削除されます。',
       'edit_places_menu': '場所を編集',
       'add_alarm_menu': '新しいアラームを追加',
       'add_place_tooltip': '新しい場所を追加',
@@ -1840,8 +1868,16 @@ class AppLocalizations {
       'voice_widget_tip': '添加小组件后，无需打开应用\n即可从主屏幕直接开始语音闹钟！',
       'voice_widget_got_it': '知道了！',
       'voice_tip_title': '💡 语音识别示例',
-      'voice_tip_examples': '• "到家时提醒我"\n• "离开公司时提醒我"\n• "进入学校时提醒我"',
-      'voice_tip_note': '进入/离开均自动识别',
+      'voice_tip_examples':
+          '• "周一到公司时提醒我"\n'
+          '  → 每周一，进入时\n'
+          '• "4月12日离开家时提醒我"\n'
+          '  → 仅4/12，离开时\n'
+          '• "周一6点后到家时提醒我"\n'
+          '  → 每周一，18点后，进入时\n'
+          '• "3月13日9点离家时提醒我"\n'
+          '  → 3/13，9点后，离开时',
+      'voice_tip_note': '星期、日期和时间会自动设置\n(GPS特性，边界识别可能有数十秒误差)',
       'voice_first_visit_title': '💡 小贴士！',
       'voice_first_visit_desc': '在主屏幕添加小组件\n无需打开应用\n即可开始语音闹钟！',
       'voice_first_visit_btn': '查看添加方法',
@@ -1972,6 +2008,7 @@ class AppLocalizations {
       'delete_confirm_title': '确认删除',
       'delete_locked_msg': '删除此锁定位置？',
       'delete_place_msg': '确定要删除此位置吗？',
+      'linked_alarm_delete_warning': '⚠️ 关联的{count}个闹钟也将被删除。',
       'edit_places_menu': '编辑地点',
       'add_alarm_menu': '新建闹钟',
       'add_place_tooltip': '添加新位置',

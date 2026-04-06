@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:ringinout/services/app_localizations.dart';
@@ -17,7 +17,7 @@ class TermsAcceptancePage extends StatefulWidget {
 
 class _TermsAcceptancePageState extends State<TermsAcceptancePage> {
   static const MethodChannel _appLifecycleChannel = MethodChannel(
-    'com.example.ringinout/app_lifecycle',
+    'com.bnt0514.ringinout/app_lifecycle',
   );
   bool _agreed = false;
 

@@ -327,7 +327,7 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
 
     final TextEditingController nameController = TextEditingController();
 
-    await showDialog(
+    final result = await showDialog(
       context: context,
       builder:
           (context) => AlertDialog(
@@ -402,6 +402,11 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
             ],
           ),
     );
+
+    // 다이얼로그에서 저장 완료 시 맵 페이지도 닫고 내 장소 페이지로 복귀
+    if (result == 'location_saved' && mounted) {
+      Navigator.pop(context, true);
+    }
   }
 
   @override

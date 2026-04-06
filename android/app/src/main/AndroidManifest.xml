@@ -1,82 +1,82 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools" package="com.example.ringinout">
+    xmlns:tools="http://schemas.android.com/tools" package="com.bnt0514.ringinout">
 
-    <!-- 위치 관련 권한 -->
+    <!-- ?�치 관??권한 -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
-    <!-- 백그라운드 서비스 관련 권한 -->
+    <!-- 백그?�운???�비??관??권한 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
-    <!-- 알림 관련 권한 -->
+    <!-- ?�림 관??권한 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
 
-    <!-- 오디오 관련 권한 -->
+    <!-- ?�디??관??권한 -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
-    <!-- 음성 인식 권한 -->
+    <!-- ?�성 ?�식 권한 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- 활동 인식 권한 -->
+    <!-- ?�동 ?�식 권한 -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
 
-    <!-- ✅ 배터리 최적화 무시 (강제 종료 방지) -->
+    <!-- ??배터�?최적??무시 (강제 종료 방�?) -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
-    <!-- ✅ 정확한 알람 스케줄링 (스누즈용) -->
+    <!-- ???�확???�람 ?��?줄링 (?�누즈용) -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
-    <application android:label="ringinout" android:name="${applicationName}" android:icon="@mipmap/ic_launcher">
+    <application android:label="RingInOut" android:name="${applicationName}" android:icon="@mipmap/ic_launcher">
 
-        <!-- Flutter background service 선언 -->
+        <!-- Flutter background service ?�언 -->
         <service android:name="id.flutter.flutter_background_service.BackgroundService" android:foregroundServiceType="location" android:exported="false" android:stopWithTask="false" tools:replace="android:exported" />
 
-        <!-- 네이버 지도 API 키 (네이버 클라우드 플랫폼에서 발급) -->
+        <!-- ?�이�?지??API ??(?�이�??�라?�드 ?�랫?�에??발급) -->
         <meta-data android:name="com.naver.maps.map.NCP_KEY_ID" android:value="k68ej9xnz7" />
 
-        <!-- 구글 지도 API 키 (백업용) -->
+        <!-- 구�? 지??API ??(백업?? -->
         <meta-data android:name="com.google.android.geo.API_KEY" android:value="AIzaSyBeH5HhLcpj2JL91U_1eSHU4vRyC_qmxao" />
 
-        <!-- ✅ Google Maps Flutter Impeller 호환성 (하이브리드 컴포지션) -->
+        <!-- ??Google Maps Flutter Impeller ?�환??(?�이브리??컴포지?? -->
         <meta-data android:name="io.flutter.embedding.android.EnableImpeller" android:value="false" />
 
-        <!-- MainActivity (앱 실행 메인) -->
+        <!-- MainActivity (???�행 메인) -->
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:taskAffinity="" android:theme="@style/LaunchTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" android:hardwareAccelerated="true" android:windowSoftInputMode="adjustResize" android:turnScreenOn="true" android:excludeFromRecents="false">
 
-            <!-- 알림 클릭 처리 -->
+            <!-- ?�림 ?�릭 처리 -->
             <intent-filter>
                 <action android:name="FLUTTER_NOTIFICATION_CLICK" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
 
-            <!-- 앱 실행 메인 -->
+            <!-- ???�행 메인 -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <!-- AlarmFullscreenActivity (전체화면 알람 페이지) -->
-        <activity android:name=".AlarmFullscreenActivity" android:showWhenLocked="true" android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen" android:launchMode="singleInstance" android:excludeFromRecents="true" android:turnScreenOn="true" android:taskAffinity="" android:exported="true" />
+        <!-- AlarmFullscreenActivity (전체화면 알람 페이지) — singleTask로 onNewIntent() 지원 -->
+        <activity android:name=".AlarmFullscreenActivity" android:showWhenLocked="true" android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen" android:launchMode="singleTask" android:excludeFromRecents="true" android:turnScreenOn="true" android:taskAffinity="" android:exported="true" />
 
-        <!-- Flutter 설정 -->
+        <!-- Flutter ?�정 -->
         <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" />
 
         <meta-data android:name="flutterEmbedding" android:value="2" />
 
-        <!-- 🎤 음성 알람 홈 위젯 -->
+        <!-- ?�� ?�성 ?�람 ???�젯 -->
         <receiver android:name=".MicWidgetProvider" android:exported="true" android:label="@string/widget_name">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -84,49 +84,49 @@
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/mic_widget_info" />
         </receiver>
 
-        <!-- ⏰ 스누즈 알람 수신기 (AlarmManager에서 호출) -->
+        <!-- ???�누�??�람 ?�신�?(AlarmManager?�서 ?�출) -->
         <receiver android:name=".SnoozeReceiver" android:exported="false">
             <intent-filter>
-                <action android:name="com.example.ringinout.ACTION_SNOOZE_ALARM" />
+                <action android:name="com.bnt0514.ringinout.ACTION_SNOOZE_ALARM" />
             </intent-filter>
         </receiver>
 
 
 
-        <!-- 🛡️ 앱 종료 감지 서비스 (멀티태스킹에서 밀어서 종료 시 즉시 알림) -->
-        <!-- 앱 종료/죽음 감지 서비스 (위치 타입 제거) -->
+        <!-- ?���???종료 감�? ?�비??(멀?�태?�킹?�서 밀?�서 종료 ??즉시 ?�림) -->
+        <!-- ??종료/죽음 감�? ?�비??(?�치 ?�???�거) -->
         <service android:name=".AppDeathDetectorService" android:stopWithTask="false" android:exported="false" />
 
-        <!-- 🔔 알람 리시버 (스누즈 및 예약 알람) -->
+        <!-- ?�� ?�람 리시�?(?�누�?�??�약 ?�람) -->
 
-        <!-- 🐕 서비스 Watchdog (서비스 죽음 감지 및 복구) -->
+        <!-- ?�� ?�비??Watchdog (?�비??죽음 감�? �?복구) -->
         <receiver android:name=".ServiceWatchdogReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="com.example.ringinout.ACTION_CHECK_SERVICE" />
-                <action android:name="com.example.ringinout.ACTION_RESTART_SERVICE" />
+                <action android:name="com.bnt0514.ringinout.ACTION_CHECK_SERVICE" />
+                <action android:name="com.bnt0514.ringinout.ACTION_RESTART_SERVICE" />
             </intent-filter>
         </receiver>
 
-        <!-- 🎯 Activity Transition 수신기 (이동 시작/정지 감지) -->
+        <!-- ?�� Activity Transition ?�신�?(?�동 ?�작/?��? 감�?) -->
         <receiver android:name=".location.ActivityTransitionReceiver" android:exported="false">
             <intent-filter>
-                <action android:name="com.example.ringinout.ACTION_ACTIVITY_TRANSITION" />
+                <action android:name="com.bnt0514.ringinout.ACTION_ACTIVITY_TRANSITION" />
             </intent-filter>
         </receiver>
 
-        <!-- 📍 지오펜스 이벤트 수신기 -->
+        <!-- ?�� 지?�펜???�벤???�신�?-->
         <receiver android:name=".location.GeofenceBroadcastReceiver" android:exported="false">
             <intent-filter>
-                <action android:name="com.example.ringinout.ACTION_GEOFENCE_EVENT" />
+                <action android:name="com.bnt0514.ringinout.ACTION_GEOFENCE_EVENT" />
             </intent-filter>
         </receiver>
 
-        <!-- 🔥 HOT 모드 Foreground Service (짧은 수명 GPS 버스트) -->
+        <!-- ?�� HOT 모드 Foreground Service (짧�? ?�명 GPS 버스?? -->
         <service android:name=".location.HotModeForegroundService" android:foregroundServiceType="location" android:exported="false" />
     </application>
 
-    <!-- 프로세스 텍스트 인텐트 쿼리 -->
+    <!-- ?�로?�스 ?�스???�텐??쿼리 -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT" />

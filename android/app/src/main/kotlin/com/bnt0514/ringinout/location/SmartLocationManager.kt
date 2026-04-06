@@ -1,4 +1,4 @@
-package com.example.ringinout.location
+﻿package com.bnt0514.ringinout.location
 
 import android.content.Context
 import android.content.SharedPreferences

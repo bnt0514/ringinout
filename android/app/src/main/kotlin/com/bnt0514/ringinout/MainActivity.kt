@@ -1,4 +1,4 @@
-package com.example.ringinout
+﻿package com.bnt0514.ringinout
 
 import android.app.*
 import android.content.Context
@@ -14,10 +14,10 @@ import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.example.ringinout.AlarmFullscreenActivity
-import com.example.ringinout.location.AlarmPlace
-import com.example.ringinout.location.AlarmTriggerType
-import com.example.ringinout.location.SmartLocationManager
+import com.bnt0514.ringinout.AlarmFullscreenActivity
+import com.bnt0514.ringinout.location.AlarmPlace
+import com.bnt0514.ringinout.location.AlarmTriggerType
+import com.bnt0514.ringinout.location.SmartLocationManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterEngineCache
@@ -224,7 +224,7 @@ class MainActivity : FlutterActivity() {
         FlutterEngineCache.getInstance().put("my_engine_id", flutterEngine)
 
         // ✅ Watchdog heartbeat 채널
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.example.ringinout/watchdog")
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.bnt0514.ringinout/watchdog")
                 .setMethodCallHandler { call, result ->
                     when (call.method) {
                         "sendHeartbeat" -> {
@@ -247,7 +247,7 @@ class MainActivity : FlutterActivity() {
         // 🎤 음성 알람 모드 체크 채널
         MethodChannel(
                         flutterEngine.dartExecutor.binaryMessenger,
-                        "com.example.ringinout/voice_alarm"
+                        "com.bnt0514.ringinout/voice_alarm"
                 )
                 .setMethodCallHandler { call, result ->
                     when (call.method) {
@@ -263,7 +263,7 @@ class MainActivity : FlutterActivity() {
 
         MethodChannel(
                         flutterEngine.dartExecutor.binaryMessenger,
-                        "com.example.ringinout/app_lifecycle"
+                        "com.bnt0514.ringinout/app_lifecycle"
                 )
                 .setMethodCallHandler { call, result ->
                     when (call.method) {
@@ -295,7 +295,7 @@ class MainActivity : FlutterActivity() {
         // ✅ 지속 알림 채널
         MethodChannel(
                         flutterEngine.dartExecutor.binaryMessenger,
-                        "com.example.ringinout/notification"
+                        "com.bnt0514.ringinout/notification"
                 )
                 .setMethodCallHandler { call, result ->
                     when (call.method) {
@@ -311,7 +311,7 @@ class MainActivity : FlutterActivity() {
         // Native fullscreen alarm 호출
         MethodChannel(
                         flutterEngine.dartExecutor.binaryMessenger,
-                        "com.example.ringinout/fullscreen_native"
+                        "com.bnt0514.ringinout/fullscreen_native"
                 )
                 .setMethodCallHandler { call, result ->
                     if (call.method == "launchNativeAlarm") {
@@ -343,7 +343,7 @@ class MainActivity : FlutterActivity() {
                 }
 
         // ✅ 백그라운드 알람 채널
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.example.ringinout/alarm")
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.bnt0514.ringinout/alarm")
                 .setMethodCallHandler { call, result ->
                     when (call.method) {
                         "showFullScreenAlarm" -> {
@@ -352,6 +352,7 @@ class MainActivity : FlutterActivity() {
                             val alarmIdRaw = call.argument<Any>("alarmId") // ✅ Any로 받아서 변환
                             val alarmKey = call.argument<String>("alarmKey") ?: ""
                             val placeId = call.argument<String>("placeId") ?: ""
+                            val isRepeat = call.argument<Boolean>("isRepeat") ?: false
 
                             // ✅ String UUID를 hashCode로 변환
                             val alarmId =
@@ -366,7 +367,8 @@ class MainActivity : FlutterActivity() {
                                     message,
                                     alarmId,
                                     alarmKey,
-                                    placeId
+                                    placeId,
+                                    isRepeat
                                 )
                             result.success(true)
                         }
@@ -410,14 +412,14 @@ class MainActivity : FlutterActivity() {
         }
 
         // 상태 보고 채널
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.example.ringinout/status")
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.bnt0514.ringinout/status")
                 .invokeMethod("engineReady", null)
 
         // 🎯 SmartLocationManager 채널 (3단계 위치 모니터링)
         val smartLocationChannel =
                 MethodChannel(
                         flutterEngine.dartExecutor.binaryMessenger,
-                        "com.example.ringinout/smart_location"
+                        "com.bnt0514.ringinout/smart_location"
                 )
 
         // Flutter에서 알람 트리거 수신할 수 있도록 채널 연결
@@ -649,12 +651,13 @@ class MainActivity : FlutterActivity() {
             message: String,
             alarmId: Int,
             alarmKey: String = "",
-            placeId: String = ""
+            placeId: String = "",
+            isRepeat: Boolean = false
     ) {
         try {
             Log.d(
                 "MainActivity",
-                "📱 백그라운드 전체화면 알람 표시: $title (ID: $alarmId, alarmKey: $alarmKey, placeId: $placeId)"
+                "📱 백그라운드 전체화면 알람 표시: $title (ID: $alarmId, alarmKey: $alarmKey, placeId: $placeId, isRepeat: $isRepeat)"
             )
 
             // ✅ SharedPreferences에서 triggerCount 가져오기
@@ -669,17 +672,17 @@ class MainActivity : FlutterActivity() {
                         putExtra("alarmId", alarmId) // ✅ alarmId 전달
                         putExtra("alarmKey", alarmKey)
                         putExtra("placeId", placeId)
+                        putExtra("isRepeat", isRepeat) // ✅ 반복 알람 여부 전달
                         putExtra("isBackgroundAlarm", true)
+                        // ✅ 스택 호환: CLEAR_TOP / NO_HISTORY 제거 → 새 알람이 기존 위에 쌓임
                         addFlags(
                                 Intent.FLAG_ACTIVITY_NEW_TASK or
-                                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                                        Intent.FLAG_ACTIVITY_NO_HISTORY
+                                        Intent.FLAG_ACTIVITY_SINGLE_TOP
                         )
                     }
 
             applicationContext.startActivity(intent)
-            Log.d("MainActivity", "✅ 백그라운드 전체화면 알람 시작 (triggerCount: $count)")
+            Log.d("MainActivity", "✅ 백그라운드 전체화면 알람 시작 (triggerCount: $count, isRepeat: $isRepeat)")
         } catch (e: Exception) {
             Log.e("MainActivity", "❌ 백그라운드 전체화면 알람 실패: ${e.message}")
         }

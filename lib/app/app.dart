@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -165,7 +165,7 @@ class RinginoutApp extends StatelessWidget {
   }
 
   Future<void> _stopAlarmSound() async {
-    const platform = MethodChannel('com.example.ringinout/audio');
+    const platform = MethodChannel('com.bnt0514.ringinout/audio');
     try {
       await platform.invokeMethod('stopRingtone');
     } catch (e) {

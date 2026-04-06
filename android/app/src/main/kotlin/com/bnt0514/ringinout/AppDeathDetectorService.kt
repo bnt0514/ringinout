@@ -1,4 +1,4 @@
-package com.example.ringinout
+﻿package com.bnt0514.ringinout
 
 import android.app.*
 import android.content.Context
@@ -26,7 +26,6 @@ class AppDeathDetectorService : Service() {
 
         fun start(context: Context) {
             val intent = Intent(context, AppDeathDetectorService::class.java)
-            // 일반 서비스로 시작 (FGS 권한 충돌 회피)
             context.startService(intent)
             Log.d("AppDeathDetector", "🛡️ 앱 종료 감지 서비스 시작")
         }
@@ -49,7 +48,6 @@ class AppDeathDetectorService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        // FGS 아님 - 알림 표시 안 함
         Log.d("AppDeathDetector", "🛡️ onCreate - 서비스 생성됨")
         startAliveLoggingIfNeeded()
     }

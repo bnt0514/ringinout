@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -20,7 +20,7 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   static const String _termsVersion = 'v2.0_beta_2026-02-06';
   static const MethodChannel _appLifecycleChannel = MethodChannel(
-    'com.example.ringinout/app_lifecycle',
+    'com.bnt0514.ringinout/app_lifecycle',
   );
   bool _isLoading = false;
 

@@ -1,0 +1,393 @@
+import 'package:flutter/material.dart';
+
+/// 음성인식 텍스트에서 날짜/시간/요일 정보를 추출하는 유틸리티
+///
+/// 지원 언어: 한국어(ko), 영어(en), 일본어(ja), 중국어(zh)
+class VoiceDateTimeParser {
+  // ═══════════════════════════════════════════════════════════
+  //  요일 코드 → 한국어 이름 (UI 표시용)
+  // ═══════════════════════════════════════════════════════════
+  static const Map<String, String> weekdayNames = {
+    'sun': '일',
+    'mon': '월',
+    'tue': '화',
+    'wed': '수',
+    'thu': '목',
+    'fri': '금',
+    'sat': '토',
+  };
+
+  // ═══════════════════════════════════════════════════════════
+  //  요일 키워드 맵 (언어별)
+  // ═══════════════════════════════════════════════════════════
+  static const Map<String, Map<String, List<String>>> _weekdayKeywords = {
+    'ko': {
+      'mon': ['월요일', '월욜'],
+      'tue': ['화요일', '화욜'],
+      'wed': ['수요일', '수욜'],
+      'thu': ['목요일', '목욜'],
+      'fri': ['금요일', '금욜'],
+      'sat': ['토요일', '토욜'],
+      'sun': ['일요일', '일욜'],
+    },
+    'en': {
+      'mon': ['monday', 'mon'],
+      'tue': ['tuesday', 'tue', 'tues'],
+      'wed': ['wednesday', 'wed'],
+      'thu': ['thursday', 'thu', 'thur', 'thurs'],
+      'fri': ['friday', 'fri'],
+      'sat': ['saturday', 'sat'],
+      'sun': ['sunday', 'sun'],
+    },
+    'ja': {
+      'mon': ['月曜日', '月曜', 'げつようび', 'げつよう'],
+      'tue': ['火曜日', '火曜', 'かようび', 'かよう'],
+      'wed': ['水曜日', '水曜', 'すいようび', 'すいよう'],
+      'thu': ['木曜日', '木曜', 'もくようび', 'もくよう'],
+      'fri': ['金曜日', '金曜', 'きんようび', 'きんよう'],
+      'sat': ['土曜日', '土曜', 'どようび', 'どよう'],
+      'sun': ['日曜日', '日曜', 'にちようび', 'にちよう'],
+    },
+    'zh': {
+      'mon': ['星期一', '周一', '礼拜一'],
+      'tue': ['星期二', '周二', '礼拜二'],
+      'wed': ['星期三', '周三', '礼拜三'],
+      'thu': ['星期四', '周四', '礼拜四'],
+      'fri': ['星期五', '周五', '礼拜五'],
+      'sat': ['星期六', '周六', '礼拜六'],
+      'sun': ['星期日', '星期天', '周日', '周天', '礼拜天'],
+    },
+    'vi': {
+      'mon': ['thứ hai', 'thứ 2', 't2'],
+      'tue': ['thứ ba', 'thứ 3', 't3'],
+      'wed': ['thứ tư', 'thứ 4', 't4'],
+      'thu': ['thứ năm', 'thứ 5', 't5'],
+      'fri': ['thứ sáu', 'thứ 6', 't6'],
+      'sat': ['thứ bảy', 'thứ 7', 't7'],
+      'sun': ['chủ nhật', 'cn'],
+    },
+  };
+
+  /// 음성 텍스트에서 요일을 추출하여 요일 코드 Set 반환
+  /// 매칭된 요일이 없으면 빈 Set 반환
+  ///
+  /// [text] 음성인식 원본 텍스트
+  /// [localeId] 언어 코드 (예: 'ko-KR', 'en-US', 'ja-JP', 'zh-CN')
+  ///           null이면 모든 언어에서 검색
+  static Set<String> extractWeekdays(String text, {String? localeId}) {
+    final normalized = _normalize(text);
+    final result = <String>{};
+
+    // 언어 코드 추출 (ko-KR → ko)
+    final lang = localeId?.split('-').first.split('_').first.toLowerCase();
+
+    // 검사할 언어 목록
+    final langKeys =
+        (lang != null && _weekdayKeywords.containsKey(lang))
+            ? [lang]
+            : _weekdayKeywords.keys.toList();
+
+    for (final l in langKeys) {
+      final dayMap = _weekdayKeywords[l]!;
+      for (final entry in dayMap.entries) {
+        final dayCode = entry.key;
+        for (final keyword in entry.value) {
+          if (normalized.contains(_normalize(keyword))) {
+            result.add(dayCode);
+            break;
+          }
+        }
+      }
+    }
+
+    return result;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  날짜 추출
+  // ═══════════════════════════════════════════════════════════
+
+  /// 음성 텍스트에서 날짜(월/일)를 추출하여 DateTime 반환
+  /// 추출 실패 시 null 반환
+  ///
+  /// 지원 형식:
+  /// - KO: "4월 12일", "4월12일"
+  /// - EN: "april 12", "april 12th", "4/12"
+  /// - JA: "4月12日", "4月12日"
+  /// - ZH: "4月12号", "4月12日"
+  static DateTime? extractDate(String text, {String? localeId}) {
+    final normalized = _normalize(text);
+
+    // 1. 한국어/일본어: N월 M일 (공백 정규화 후)
+    final koJaMatch = RegExp(
+      r'(\d{1,2})\s*[월月]\s*(\d{1,2})\s*[일日]',
+    ).firstMatch(text);
+    if (koJaMatch != null) {
+      final month = int.tryParse(koJaMatch.group(1)!);
+      final day = int.tryParse(koJaMatch.group(2)!);
+      if (month != null && day != null && _isValidDate(month, day)) {
+        final now = DateTime.now();
+        final dt = DateTime(now.year, month, day);
+        return dt.isBefore(DateTime(now.year, now.month, now.day))
+            ? DateTime(now.year + 1, month, day)
+            : dt;
+      }
+    }
+
+    // 2. 중국어: N月M号 / N月M日
+    final zhMatch = RegExp(
+      r'(\d{1,2})\s*[月]\s*(\d{1,2})\s*[号日]',
+    ).firstMatch(text);
+    if (zhMatch != null) {
+      final month = int.tryParse(zhMatch.group(1)!);
+      final day = int.tryParse(zhMatch.group(2)!);
+      if (month != null && day != null && _isValidDate(month, day)) {
+        final now = DateTime.now();
+        final dt = DateTime(now.year, month, day);
+        return dt.isBefore(DateTime(now.year, now.month, now.day))
+            ? DateTime(now.year + 1, month, day)
+            : dt;
+      }
+    }
+
+    // 3. 숫자 슬래시: M/D
+    final slashMatch = RegExp(
+      r'\b(\d{1,2})\s*/\s*(\d{1,2})\b',
+    ).firstMatch(normalized);
+    if (slashMatch != null) {
+      final month = int.tryParse(slashMatch.group(1)!);
+      final day = int.tryParse(slashMatch.group(2)!);
+      if (month != null && day != null && _isValidDate(month, day)) {
+        final now = DateTime.now();
+        final dt = DateTime(now.year, month, day);
+        return dt.isBefore(DateTime(now.year, now.month, now.day))
+            ? DateTime(now.year + 1, month, day)
+            : dt;
+      }
+    }
+
+    // 4. 영어 월 이름: "april 12", "april 12th"
+    final enMonthMatch = RegExp(
+      r'\b(january|february|march|april|may|june|july|august|september|october|november|december|'
+      r'jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\b\s*(\d{1,2})(?:st|nd|rd|th)?',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (enMonthMatch != null) {
+      final monthName = enMonthMatch.group(1)!.toLowerCase();
+      final day = int.tryParse(enMonthMatch.group(2)!);
+      final month = _englishMonthToNumber(monthName);
+      if (month != null && day != null && _isValidDate(month, day)) {
+        final now = DateTime.now();
+        final dt = DateTime(now.year, month, day);
+        return dt.isBefore(DateTime(now.year, now.month, now.day))
+            ? DateTime(now.year + 1, month, day)
+            : dt;
+      }
+    }
+
+    return null;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  시간 추출
+  // ═══════════════════════════════════════════════════════════
+
+  /// 음성 텍스트에서 시간을 추출하여 TimeOfDay 반환
+  /// 추출 실패 시 null 반환
+  ///
+  /// 지원 형식:
+  /// - KO: "6시", "오전 9시", "오후 3시 30분", "9시 30분"
+  /// - EN: "6 o'clock", "9am", "3:30pm", "at 6"
+  /// - JA: "6時", "午前9時", "午後3時30分"
+  /// - ZH: "6点", "上午9点", "下午3点30分"
+  static TimeOfDay? extractTime(String text, {String? localeId}) {
+    // 오전/오후/AM/PM 판별 (P.M., A.M. 등 점 포함 형태도 처리)
+    final isPM = _containsAfternoon(text);
+    final isAM = _containsMorning(text);
+
+    // 1. 한국어/일본어: N시 M분 / N時M分
+    final koJaMatch = RegExp(
+      r'(\d{1,2})\s*[시時]\s*(\d{1,2})?\s*[분分]?',
+    ).firstMatch(text);
+    if (koJaMatch != null) {
+      final h = int.tryParse(koJaMatch.group(1)!);
+      final m = int.tryParse(koJaMatch.group(2) ?? '0') ?? 0;
+      if (h != null && h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+        final hour = _adjustHour(h, isPM: isPM, isAM: isAM);
+        return TimeOfDay(hour: hour, minute: m);
+      }
+    }
+
+    // 2. 중국어: N点M分 / N点
+    final zhMatch = RegExp(
+      r'(\d{1,2})\s*[点點]\s*(\d{1,2})?\s*[分]?',
+    ).firstMatch(text);
+    if (zhMatch != null) {
+      final h = int.tryParse(zhMatch.group(1)!);
+      final m = int.tryParse(zhMatch.group(2) ?? '0') ?? 0;
+      if (h != null && h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+        final hour = _adjustHour(h, isPM: isPM, isAM: isAM);
+        return TimeOfDay(hour: hour, minute: m);
+      }
+    }
+
+    // 3. 영어: HH:MM (am/pm 선택) — "5:00 PM", "5:00 P.M.", "5:00pm" 모두 처리
+    // 점 제거 버전에서도 검색
+    final textNoDot = text.replaceAll('.', '');
+    final colonMatch = RegExp(
+      r'\b(\d{1,2}):(\d{2})\s*([aApP][mM])?',
+    ).firstMatch(textNoDot);
+    if (colonMatch != null) {
+      final h = int.tryParse(colonMatch.group(1)!);
+      final m = int.tryParse(colonMatch.group(2)!);
+      final ampm = colonMatch.group(3)?.toLowerCase();
+      if (h != null && m != null && h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+        final pmLocal = ampm == 'pm' || isPM;
+        final amLocal = ampm == 'am' || isAM;
+        final hour = _adjustHour(h, isPM: pmLocal, isAM: amLocal);
+        return TimeOfDay(hour: hour, minute: m);
+      }
+    }
+
+    // 4. 영어: "N am/pm", "N o'clock", "N PM", "N A.M." 등
+    // 점 제거 버전에서 검색
+    final enSimpleMatch = RegExp(
+      r"\b(\d{1,2})\s*(?:o'clock|o clock|oclock|[aApP][mM])\b",
+    ).firstMatch(textNoDot);
+    if (enSimpleMatch != null) {
+      final h = int.tryParse(enSimpleMatch.group(1)!);
+      final suffix = enSimpleMatch.group(0)!.toLowerCase().replaceAll('.', '');
+      if (h != null && h >= 1 && h <= 12) {
+        final pmLocal = suffix.contains('pm') || isPM;
+        final amLocal = suffix.contains('am') || isAM;
+        final hour = _adjustHour(h, isPM: pmLocal, isAM: amLocal);
+        return TimeOfDay(hour: hour, minute: 0);
+      }
+    }
+
+    // 5. "after N pm/am" 패턴 — "after 5 pm" 처리
+    final afterMatch = RegExp(
+      r'\bafter\s+(\d{1,2})(?:\s*(?:pm|am|p\.m\.|a\.m\.))?\b',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (afterMatch != null) {
+      final h = int.tryParse(afterMatch.group(1)!);
+      if (h != null && h >= 0 && h <= 23) {
+        final hour = _adjustHour(h, isPM: isPM, isAM: isAM);
+        return TimeOfDay(hour: hour, minute: 0);
+      }
+    }
+
+    // 6. "at N" 패턴 (영어 단순)
+    final atMatch = RegExp(
+      r'\bat\s+(\d{1,2})\b',
+    ).firstMatch(text.toLowerCase());
+    if (atMatch != null) {
+      final h = int.tryParse(atMatch.group(1)!);
+      if (h != null && h >= 0 && h <= 23) {
+        final hour = _adjustHour(h, isPM: isPM, isAM: isAM);
+        return TimeOfDay(hour: hour, minute: 0);
+      }
+    }
+
+    return null;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  내부 헬퍼
+  // ═══════════════════════════════════════════════════════════
+
+  static String _normalize(String text) {
+    return text.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  /// 텍스트에서 오후(PM) 표현 감지
+  /// "P.M.", "p.m.", "PM", "pm", "오후", "午後", "下午", "chiều", "บ่าย" 등 처리
+  static bool _containsAfternoon(String text) {
+    // 점 제거한 버전으로도 검사 (P.M. → pm)
+    final t = text.toLowerCase();
+    final tNoDot = t.replaceAll('.', '');
+    return t.contains('오후') ||
+        tNoDot.contains('pm') ||
+        t.contains('午後') ||
+        t.contains('下午') ||
+        t.contains('chiều') || // 베트남어
+        t.contains('ตอนบ่าย') || // 태국어
+        t.contains('บ่าย') || // 태국어 단축
+        t.contains('afternoon') ||
+        t.contains('after noon') ||
+        // "after N" 패턴 — "after 5" 같은 경우 PM으로 간주하지 않음
+        // 단, "in the afternoon", "in the evening" 은 PM
+        t.contains('in the afternoon') ||
+        t.contains('in the evening') ||
+        t.contains('tonight') ||
+        t.contains('this evening') ||
+        // 말레이어
+        t.contains('petang') ||
+        t.contains('malam');
+  }
+
+  /// 텍스트에서 오전(AM) 표현 감지
+  /// "A.M.", "a.m.", "AM", "am", "오전", "午前", "上午" 등 처리
+  static bool _containsMorning(String text) {
+    final t = text.toLowerCase();
+    final tNoDot = t.replaceAll('.', '');
+    return t.contains('오전') ||
+        tNoDot.contains('am') ||
+        t.contains('午前') ||
+        t.contains('上午') ||
+        t.contains('sáng') || // 베트남어
+        t.contains('ตอนเช้า') || // 태국어
+        t.contains('เช้า') || // 태국어 단축
+        t.contains('morning') ||
+        t.contains('in the morning') ||
+        // 말레이어
+        t.contains('pagi');
+  }
+
+  /// 오전/오후 기반으로 시간 조정
+  /// - isPM + h < 12 → h + 12
+  /// - isAM + h == 12 → 0 (자정)
+  /// - 아무 힌트 없고 h <= 11 → 그대로 (24시간제 기준)
+  static int _adjustHour(int h, {required bool isPM, required bool isAM}) {
+    if (isPM && h < 12) return h + 12;
+    if (isAM && h == 12) return 0;
+    return h;
+  }
+
+  static bool _isValidDate(int month, int day) {
+    if (month < 1 || month > 12) return false;
+    if (day < 1 || day > 31) return false;
+    const maxDays = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    return day <= maxDays[month];
+  }
+
+  static int? _englishMonthToNumber(String month) {
+    const map = {
+      'january': 1,
+      'jan': 1,
+      'february': 2,
+      'feb': 2,
+      'march': 3,
+      'mar': 3,
+      'april': 4,
+      'apr': 4,
+      'may': 5,
+      'june': 6,
+      'jun': 6,
+      'july': 7,
+      'jul': 7,
+      'august': 8,
+      'aug': 8,
+      'september': 9,
+      'sep': 9,
+      'october': 10,
+      'oct': 10,
+      'november': 11,
+      'nov': 11,
+      'december': 12,
+      'dec': 12,
+    };
+    return map[month.toLowerCase()];
+  }
+}

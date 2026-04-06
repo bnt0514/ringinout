@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -30,12 +30,12 @@ class _MainNavigationPageState extends State<MainNavigationPage>
 
   // 🎤 음성 알람 채널
   static const _voiceAlarmChannel = MethodChannel(
-    'com.example.ringinout/voice_alarm',
+    'com.bnt0514.ringinout/voice_alarm',
   );
 
   // ✅ 앱 백그라운드 전환 채널
   static const _appLifecycleChannel = MethodChannel(
-    'com.example.ringinout/app_lifecycle',
+    'com.bnt0514.ringinout/app_lifecycle',
   );
 
   final List<Widget> _pages = [

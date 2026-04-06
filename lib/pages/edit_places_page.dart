@@ -137,7 +137,35 @@ class _EditPlacePageState extends State<EditPlacePage> {
 
   void _deletePlace() async {
     final l10n = AppLocalizations.of(context);
-    await HiveHelper.deleteLocation(widget.index);
+
+    // 연결된 알람 수 확인
+    final linkedCount = HiveHelper.getLinkedAlarmCount(widget.index);
+    final msg =
+        linkedCount > 0
+            ? '${l10n.get('delete_place_msg')}\n\n${l10n.get('linked_alarm_delete_warning').replaceAll('{count}', '$linkedCount')}'
+            : l10n.get('delete_place_msg');
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (_) => AlertDialog(
+            title: Text(l10n.get('delete_confirm_title')),
+            content: Text(msg),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(l10n.get('cancel')),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(l10n.get('delete')),
+              ),
+            ],
+          ),
+    );
+    if (confirm != true) return;
+
+    await HiveHelper.deleteLocationWithLinkedAlarms(widget.index);
 
     // 🔄 네이티브 지오펜스 실시간 업데이트
     await SmartLocationService.updatePlaces();

@@ -6,6 +6,7 @@ import 'package:ringinout/pages/add_location_alarm_page.dart';
 import 'package:ringinout/pages/edit_places_page.dart';
 import 'package:ringinout/pages/add_myplaces_page.dart';
 import 'package:ringinout/services/hive_helper.dart';
+import 'package:ringinout/services/smart_location_service.dart';
 import 'package:ringinout/services/app_localizations.dart';
 import 'package:ringinout/pages/settings_page.dart';
 import 'package:ringinout/services/subscription_service.dart';
@@ -444,6 +445,16 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
                                                 ? PopupMenuButton<String>(
                                                   onSelected: (value) async {
                                                     if (value == 'delete') {
+                                                      final linkedCount =
+                                                          HiveHelper.getLinkedAlarmCount(
+                                                            actualIndex,
+                                                          );
+                                                      final msg =
+                                                          linkedCount > 0
+                                                              ? '${l10n.get('delete_locked_msg')}\n\n${l10n.get('linked_alarm_delete_warning').replaceAll('{count}', '$linkedCount')}'
+                                                              : l10n.get(
+                                                                'delete_locked_msg',
+                                                              );
                                                       final confirm = await showDialog<
                                                         bool
                                                       >(
@@ -456,9 +467,7 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
                                                                 ),
                                                               ),
                                                               content: Text(
-                                                                l10n.get(
-                                                                  'delete_locked_msg',
-                                                                ),
+                                                                msg,
                                                               ),
                                                               actions: [
                                                                 TextButton(
@@ -489,9 +498,10 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
                                                             ),
                                                       );
                                                       if (confirm == true) {
-                                                        await HiveHelper.deleteLocation(
+                                                        await HiveHelper.deleteLocationWithLinkedAlarms(
                                                           actualIndex,
                                                         );
+                                                        await SmartLocationService.updatePlaces();
                                                         setState(() {});
                                                       }
                                                     }
@@ -551,6 +561,16 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
                                                       );
                                                     } else if (value ==
                                                         'delete') {
+                                                      final linkedCount =
+                                                          HiveHelper.getLinkedAlarmCount(
+                                                            actualIndex,
+                                                          );
+                                                      final msg =
+                                                          linkedCount > 0
+                                                              ? '${l10n.get('delete_place_msg')}\n\n${l10n.get('linked_alarm_delete_warning').replaceAll('{count}', '$linkedCount')}'
+                                                              : l10n.get(
+                                                                'delete_place_msg',
+                                                              );
                                                       final confirm = await showDialog<
                                                         bool
                                                       >(
@@ -563,9 +583,7 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
                                                                 ),
                                                               ),
                                                               content: Text(
-                                                                l10n.get(
-                                                                  'delete_place_msg',
-                                                                ),
+                                                                msg,
                                                               ),
                                                               actions: [
                                                                 TextButton(
@@ -596,9 +614,10 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
                                                             ),
                                                       );
                                                       if (confirm == true) {
-                                                        await HiveHelper.deleteLocation(
+                                                        await HiveHelper.deleteLocationWithLinkedAlarms(
                                                           actualIndex,
                                                         );
+                                                        await SmartLocationService.updatePlaces();
                                                         setState(() {});
                                                       }
                                                     }

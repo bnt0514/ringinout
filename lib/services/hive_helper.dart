@@ -217,6 +217,85 @@ class HiveHelper {
     }
   }
 
+  /// 장소에 연결된 알람 수를 반환합니다.
+  static int getLinkedAlarmCount(int placeIndex) {
+    try {
+      final place = Map<String, dynamic>.from(_placeBox.getAt(placeIndex));
+      final placeId = place['id']?.toString() ?? '';
+      final placeName = place['name']?.toString() ?? '';
+      if (placeId.isEmpty && placeName.isEmpty) return 0;
+
+      int count = 0;
+      for (final alarm in _alarmBox.values) {
+        final a = Map<String, dynamic>.from(alarm);
+        final aPlaceId = a['placeId']?.toString() ?? '';
+        final aPlaceName = a['placeName']?.toString() ?? '';
+        if ((placeId.isNotEmpty && aPlaceId == placeId) ||
+            (placeId.isEmpty &&
+                placeName.isNotEmpty &&
+                aPlaceName == placeName)) {
+          count++;
+        }
+      }
+      return count;
+    } catch (e) {
+      debugPrint('❌ getLinkedAlarmCount 에러: $e');
+      return 0;
+    }
+  }
+
+  /// 장소를 삭제하면서 연결된 알람도 모두 함께 삭제합니다.
+  static Future<void> deleteLocationWithLinkedAlarms(int index) async {
+    try {
+      final place = Map<String, dynamic>.from(_placeBox.getAt(index));
+      final placeId = place['id']?.toString() ?? '';
+      final placeName = place['name']?.toString() ?? '';
+
+      // 1) 연결된 알람 ID 수집
+      final alarmKeysToDelete = <dynamic>[];
+      for (final key in _alarmBox.keys) {
+        final alarm = Map<String, dynamic>.from(_alarmBox.get(key));
+        final aPlaceId = alarm['placeId']?.toString() ?? '';
+        final aPlaceName = alarm['placeName']?.toString() ?? '';
+        if ((placeId.isNotEmpty && aPlaceId == placeId) ||
+            (placeId.isEmpty &&
+                placeName.isNotEmpty &&
+                aPlaceName == placeName)) {
+          alarmKeysToDelete.add(key);
+        }
+      }
+
+      // 2) 연결된 알람 및 관련 데이터 삭제
+      if (alarmKeysToDelete.isNotEmpty) {
+        final triggerBox = await Hive.openBox('trigger_counts_v2');
+        final snoozeBox = await Hive.openBox('snoozeSchedules');
+        final prefs = await SharedPreferences.getInstance();
+
+        for (final alarmKey in alarmKeysToDelete) {
+          final alarmId = alarmKey.toString();
+          await _alarmBox.delete(alarmKey);
+          await triggerBox.delete(alarmId);
+          await snoozeBox.delete(alarmId);
+          await prefs.remove('alarm_name_$alarmId');
+          await prefs.remove('alarm_disabled_$alarmId');
+          await prefs.remove('place_state_$alarmId');
+          await prefs.remove('cooldown_until_$alarmId');
+          await prefs.remove('alarm_triggered_date_$alarmId');
+        }
+        debugPrint(
+          '🗑️ 장소 "${place['name']}" 연결 알람 ${alarmKeysToDelete.length}개 삭제 완료',
+        );
+      }
+
+      // 3) 장소 삭제
+      await _placeBox.deleteAt(index);
+      debugPrint('🗑️ 장소 인덱스 $index 삭제 완료');
+    } catch (e) {
+      debugPrint('❌ deleteLocationWithLinkedAlarms 에러: $e');
+      rethrow;
+    }
+  }
+
   static Map<String, dynamic> getLocation(int index) {
     try {
       return Map<String, dynamic>.from(_placeBox.getAt(index));
@@ -314,8 +393,10 @@ class HiveHelper {
 
     // 요일별 알람: repeat이 List
     if (repeat is List && repeat.isNotEmpty) {
-      final weekdayStr = ['일', '월', '화', '수', '목', '금', '토'][now.weekday % 7];
-      final days = repeat.map((e) => e.toString()).toList();
+      final weekdayStr =
+          ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][now.weekday % 7];
+      // 구 데이터(한글/일본어/중국어 요일) 호환: 모든 값을 영문 코드로 정규화
+      final days = repeat.map((e) => _toWeekdayCode(e.toString())).toList();
       return days.contains(weekdayStr);
     }
 
@@ -615,6 +696,13 @@ class HiveHelper {
       }
     }
 
+    // 구 데이터 요일(한글/일본어/중국어 등) → 영문 코드로 정규화
+    final repeat = normalized['repeat'];
+    if (repeat is List && repeat.isNotEmpty) {
+      normalized['repeat'] =
+          repeat.map((e) => _toWeekdayCode(e.toString())).toList();
+    }
+
     return normalized;
   }
 
@@ -652,6 +740,38 @@ class HiveHelper {
       }
     }
   }
+
+  /// 구 데이터(한글/일본어/중국어 요일 등) → 영문 코드 변환 (마이그레이션 호환)
+  static const _weekdayCodeMap = <String, String>{
+    // Korean
+    '일': 'sun',
+    '월': 'mon',
+    '화': 'tue',
+    '수': 'wed',
+    '목': 'thu',
+    '금': 'fri',
+    '토': 'sat',
+    // Japanese
+    '日': 'sun',
+    '月': 'mon',
+    '火': 'tue',
+    '水': 'wed',
+    '木': 'thu',
+    '金': 'fri',
+    '土': 'sat',
+    // Chinese
+    '一': 'mon', '二': 'tue', '三': 'wed', '四': 'thu', '五': 'fri', '六': 'sat',
+    // English abbreviated (대소문자)
+    'Sun': 'sun',
+    'Mon': 'mon',
+    'Tue': 'tue',
+    'Wed': 'wed',
+    'Thu': 'thu',
+    'Fri': 'fri',
+    'Sat': 'sat',
+  };
+
+  static String _toWeekdayCode(String val) => _weekdayCodeMap[val] ?? val;
 
   static bool _mapsEqual(Map<String, dynamic> a, Map<String, dynamic> b) {
     if (a.length != b.length) return false;

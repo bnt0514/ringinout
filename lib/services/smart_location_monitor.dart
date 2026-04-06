@@ -1,4 +1,4 @@
-// lib/services/smart_location_monitor.dart
+﻿// lib/services/smart_location_monitor.dart
 //
 // ✅ v3 지오펜스 + ActivityTransition — 모니터링 오케스트레이터
 //
@@ -27,7 +27,7 @@ class SmartLocationMonitor {
 
   // 네이티브 신호 수신 채널
   static const MethodChannel _nativeChannel = MethodChannel(
-    'com.example.ringinout/smart_location',
+    'com.bnt0514.ringinout/smart_location',
   );
   static bool _nativeListenerSetup = false;
 

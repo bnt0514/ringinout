@@ -870,7 +870,14 @@ class LocationMonitorService {
         final current = box.get(alarmId);
         if (current != null) {
           final updated = Map<String, dynamic>.from(current);
-          updated['enabled'] = false;
+          // ✅ 반복 알람이면 enabled=false 하지 않음 (safety check)
+          final repeat = current['repeat'];
+          final isRepeat = (repeat is List && repeat.isNotEmpty);
+          if (isRepeat) {
+            _log('🔄 반복 알람 — enabled 유지 (alarm_disabled 플래그만 제거)');
+          } else {
+            updated['enabled'] = false;
+          }
           await box.put(alarmId, updated);
         }
         await prefs.remove('alarm_disabled_$alarmId');
@@ -1025,7 +1032,12 @@ class LocationMonitorService {
             final current = box.get(alarmId);
             if (current != null) {
               final updated = Map<String, dynamic>.from(current);
-              updated['enabled'] = false;
+              // ✅ 반복 알람이면 enabled=false 하지 않음
+              final repeat = current['repeat'];
+              final isRepeat = (repeat is List && repeat.isNotEmpty);
+              if (!isRepeat) {
+                updated['enabled'] = false;
+              }
               await box.put(alarmId, updated);
             }
             await prefs.remove('alarm_disabled_$alarmId');
@@ -1193,13 +1205,48 @@ class LocationMonitorService {
     }
 
     if (repeat is List && repeat.isNotEmpty) {
-      final weekdayStr = ['일', '월', '화', '수', '목', '금', '토'][now.weekday % 7];
-      return repeat.map((e) => e.toString()).contains(weekdayStr) &&
+      final weekdayStr =
+          ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][now.weekday % 7];
+      // 구 데이터(한글/일본어/중국어 요일) 호환: 영문 코드로 정규화 후 비교
+      final days = repeat.map((e) => _toWeekdayCode(e.toString())).toList();
+      return days.contains(weekdayStr) &&
           await _checkHolidayCondition(alarm, now);
     }
 
     return _checkHolidayCondition(alarm, now);
   }
+
+  /// 구 데이터(한글/일본어/중국어 요일 등) → 영문 코드 변환 (마이그레이션 호환)
+  static const _weekdayCodeMap = <String, String>{
+    // Korean
+    '일': 'sun',
+    '월': 'mon',
+    '화': 'tue',
+    '수': 'wed',
+    '목': 'thu',
+    '금': 'fri',
+    '토': 'sat',
+    // Japanese
+    '日': 'sun',
+    '月': 'mon',
+    '火': 'tue',
+    '水': 'wed',
+    '木': 'thu',
+    '金': 'fri',
+    '土': 'sat',
+    // Chinese
+    '一': 'mon', '二': 'tue', '三': 'wed', '四': 'thu', '五': 'fri', '六': 'sat',
+    // English abbreviated (대소문자)
+    'Sun': 'sun',
+    'Mon': 'mon',
+    'Tue': 'tue',
+    'Wed': 'wed',
+    'Thu': 'thu',
+    'Fri': 'fri',
+    'Sat': 'sat',
+  };
+
+  static String _toWeekdayCode(String val) => _weekdayCodeMap[val] ?? val;
 
   Future<bool> _checkHolidayCondition(
     Map<String, dynamic> alarm,
@@ -1374,7 +1421,7 @@ class LocationMonitorService {
   // ═══════════════════════════════════════════════════════════
 
   static const _watchdogChannel = MethodChannel(
-    'com.example.ringinout/watchdog',
+    'com.bnt0514.ringinout/watchdog',
   );
 
   void _startWatchdogHeartbeat() {
@@ -1501,24 +1548,36 @@ class LocationMonitorService {
         if (isDisabled) {
           _log('🔕 네이티브 비활성화 플래그 감지: ${alarm['name']} (${_shortId(alarmId)})');
           final updated = Map<String, dynamic>.from(alarm);
-          updated['enabled'] = false;
-          updated['snoozePending'] = false;
+
+          // ✅ 반복 알람이면 enabled=false 하지 않음
+          final repeat = alarm['repeat'];
+          final isRepeat = (repeat is List && repeat.isNotEmpty);
+          if (isRepeat) {
+            _log(
+              '🔄 반복 알람 — enabled 유지 (alarm_disabled 플래그만 제거): ${alarm['name']}',
+            );
+            updated['snoozePending'] = false;
+          } else {
+            updated['enabled'] = false;
+            updated['snoozePending'] = false;
+
+            // 트리거 카운트 제거 (일회성만)
+            try {
+              final triggerBox = await Hive.openBox('trigger_counts_v2');
+              await triggerBox.delete(alarmId);
+            } catch (_) {}
+          }
+
           await box.put(alarmId, updated);
           await prefs.remove('alarm_disabled_$alarmId');
 
-          // 트리거 카운트 제거
-          try {
-            final triggerBox = await Hive.openBox('trigger_counts_v2');
-            await triggerBox.delete(alarmId);
-          } catch (_) {}
-
-          // 스누즈 스케줄 제거
+          // 스누즈 스케줄 제거 (반복/일회 모두)
           try {
             final snoozeBox = await Hive.openBox('snoozeSchedules');
             await snoozeBox.delete(alarmId);
           } catch (_) {}
 
-          _log('✅ 네이티브 비활성화 → Hive 반영 완료: ${alarm['name']}');
+          _log('✅ 네이티브 비활성화 → Hive 반영 완료: ${alarm['name']} (repeat=$isRepeat)');
         }
       }
     } catch (e) {
@@ -1549,26 +1608,38 @@ class LocationMonitorService {
 
         final isDisabled = prefs.getBool('alarm_disabled_$alarmId') ?? false;
         if (isDisabled) {
-          debugPrint('[LMS] 🔕 네이티브 비활성화 플래그 감지 (즉시): ${alarm['name']}');
           final updated = Map<String, dynamic>.from(alarm);
-          updated['enabled'] = false;
-          updated['snoozePending'] = false;
+
+          // ✅ 반복 알람이면 enabled=false 하지 않음
+          final repeat = alarm['repeat'];
+          final isRepeat = (repeat is List && repeat.isNotEmpty);
+          if (isRepeat) {
+            debugPrint('[LMS] 🔄 반복 알람 — enabled 유지 (즉시): ${alarm['name']}');
+            updated['snoozePending'] = false;
+          } else {
+            debugPrint('[LMS] 🔕 네이티브 비활성화 플래그 감지 (즉시): ${alarm['name']}');
+            updated['enabled'] = false;
+            updated['snoozePending'] = false;
+
+            // 트리거 카운트 제거 (일회성만)
+            try {
+              final triggerBox = await Hive.openBox('trigger_counts_v2');
+              await triggerBox.delete(alarmId);
+            } catch (_) {}
+          }
+
           await box.put(alarmId, updated);
           await prefs.remove('alarm_disabled_$alarmId');
 
-          // 트리거 카운트 제거
-          try {
-            final triggerBox = await Hive.openBox('trigger_counts_v2');
-            await triggerBox.delete(alarmId);
-          } catch (_) {}
-
-          // 스누즈 스케줄 제거
+          // 스누즈 스케줄 제거 (반복/일회 모두)
           try {
             final snoozeBox = await Hive.openBox('snoozeSchedules');
             await snoozeBox.delete(alarmId);
           } catch (_) {}
 
-          debugPrint('[LMS] ✅ 네이티브 비활성화 → Hive 반영 완료 (즉시): ${alarm['name']}');
+          debugPrint(
+            '[LMS] ✅ 네이티브 비활성화 → Hive 반영 완료 (즉시): ${alarm['name']} (repeat=$isRepeat)',
+          );
         }
       }
     } catch (e) {

@@ -1,4 +1,4 @@
-package com.example.ringinout
+﻿package com.bnt0514.ringinout
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -12,7 +12,7 @@ class MicWidgetProvider : AppWidgetProvider() {
 
     companion object {
         const val TAG = "MicWidgetProvider"
-        const val ACTION_VOICE_ALARM = "com.example.ringinout.ACTION_VOICE_ALARM"
+        const val ACTION_VOICE_ALARM = "com.bnt0514.ringinout.ACTION_VOICE_ALARM"
     }
 
     override fun onUpdate(

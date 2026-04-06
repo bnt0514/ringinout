@@ -1,12 +1,58 @@
 ﻿// lib/pages/admin_dashboard_page.dart
-// 어드민 전용: 맵 사용량 대시보드 + 킬스위치 관리
+// 어드민 전용: 탭 네비게이션 Shell (Maps | 버그리포트 | ...)
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:ringinout/config/app_config.dart';
 import 'package:ringinout/services/map_provider_service.dart';
 import 'package:ringinout/services/map_usage_service.dart';
+
+// ── 버그 리포트 데이터 모델 ──────────────────────────────────────────
+class _BugReport {
+  final String id;
+  final String memo;
+  final String severity; // 'error' | 'warn' | 'info'
+  final int errorCount;
+  final int warnCount;
+  final int logCount;
+  final List<String> logs;
+  final Map<String, dynamic> deviceInfo;
+  final String appVersion;
+  final DateTime? createdAt;
+
+  const _BugReport({
+    required this.id,
+    required this.memo,
+    required this.severity,
+    required this.errorCount,
+    required this.warnCount,
+    required this.logCount,
+    required this.logs,
+    required this.deviceInfo,
+    required this.appVersion,
+    this.createdAt,
+  });
+
+  factory _BugReport.fromDoc(DocumentSnapshot doc) {
+    final d = doc.data() as Map<String, dynamic>;
+    return _BugReport(
+      id: doc.id,
+      memo: d['memo'] as String? ?? '',
+      severity: d['severity'] as String? ?? 'info',
+      errorCount: (d['errorCount'] as num?)?.toInt() ?? 0,
+      warnCount: (d['warnCount'] as num?)?.toInt() ?? 0,
+      logCount: (d['logCount'] as num?)?.toInt() ?? 0,
+      logs:
+          (d['logs'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
+          [],
+      deviceInfo: (d['deviceInfo'] as Map<String, dynamic>?) ?? {},
+      appVersion: d['appVersion'] as String? ?? 'unknown',
+      createdAt: (d['createdAt'] as Timestamp?)?.toDate(),
+    );
+  }
+}
 
 class AdminDashboardPage extends StatefulWidget {
   const AdminDashboardPage({super.key});
@@ -15,11 +61,91 @@ class AdminDashboardPage extends StatefulWidget {
   State<AdminDashboardPage> createState() => _AdminDashboardPageState();
 }
 
+// ── 탭 정의 (나중에 탭 추가 시 여기만 수정) ─────────────────────────
+class _TabItem {
+  final String label;
+  final IconData icon;
+  const _TabItem(this.label, this.icon);
+}
+
+const _kTabs = [
+  _TabItem('Maps', Icons.map_outlined),
+  _TabItem('버그리포트', Icons.bug_report_outlined),
+];
+
 class _AdminDashboardPageState extends State<AdminDashboardPage> {
+  int _selectedTab = 0;
+
+  // 탭별 GlobalKey — 각 탭 State의 새로고침 메서드 호출용
+  final _mapsKey = GlobalKey<_MapsDashboardTabState>();
+  final _bugKey = GlobalKey<_BugReportsTabState>();
+
+  void _refreshCurrentTab() {
+    switch (_selectedTab) {
+      case 0:
+        _mapsKey.currentState?.refresh();
+        break;
+      case 1:
+        _bugKey.currentState?.refresh();
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('어드민'),
+        backgroundColor: Colors.red.shade900,
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: '새로고침',
+            onPressed: _refreshCurrentTab,
+          ),
+        ],
+      ),
+      // ── 탭 네비게이션 바 ──
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedTab,
+        onDestinationSelected: (i) => setState(() => _selectedTab = i),
+        backgroundColor: Colors.red.shade50,
+        indicatorColor: Colors.red.shade200,
+        height: 60,
+        destinations:
+            _kTabs
+                .map(
+                  (t) =>
+                      NavigationDestination(icon: Icon(t.icon), label: t.label),
+                )
+                .toList(),
+      ),
+      // ── 탭 콘텐츠 (IndexedStack: 전환 시 상태 유지) ──
+      body: IndexedStack(
+        index: _selectedTab,
+        children: [
+          _MapsDashboardTab(key: _mapsKey),
+          _BugReportsTab(key: _bugKey),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 탭 1: Maps 대시보드
+// ═══════════════════════════════════════════════════════════════════════
+class _MapsDashboardTab extends StatefulWidget {
+  const _MapsDashboardTab({super.key});
+  @override
+  State<_MapsDashboardTab> createState() => _MapsDashboardTabState();
+}
+
+class _MapsDashboardTabState extends State<_MapsDashboardTab> {
   MapUsageStats? _stats;
   bool _loading = true;
   String? _error;
-
   List<WeeklyMapStats> _weeklyHistory = [];
   bool _weeklyLoading = true;
   bool _forceUploadInProgress = false;
@@ -27,6 +153,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   @override
   void initState() {
     super.initState();
+    _loadStats();
+    _loadWeeklyHistory();
+  }
+
+  void refresh() {
     _loadStats();
     _loadWeeklyHistory();
   }
@@ -64,31 +195,28 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       }
       await _loadStats();
     } catch (e) {
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('오류: $e')));
-      }
     }
   }
 
   Future<void> _forceUpload() async {
     try {
       await MapUsageService.forceUpload();
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Firestore 업로드 완료'),
             duration: Duration(seconds: 2),
           ),
         );
-      }
     } catch (e) {
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('업로드 실패: $e')));
-      }
     }
   }
 
@@ -121,11 +249,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         }
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('오류: $e'), backgroundColor: Colors.red),
         );
-      }
     } finally {
       if (mounted) setState(() => _forceUploadInProgress = false);
     }
@@ -133,34 +260,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('어드민  맵 사용량'),
-        backgroundColor: Colors.red.shade900,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: '새로고침',
-            onPressed: () {
-              _loadStats();
-              _loadWeeklyHistory();
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.cloud_upload_outlined),
-            tooltip: 'Firestore 강제 업로드',
-            onPressed: _forceUpload,
-          ),
-        ],
-      ),
-      body:
-          _loading
-              ? const Center(child: CircularProgressIndicator())
-              : _error != null
-              ? _buildError()
-              : _buildBody(),
-    );
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) return _buildError();
+    return _buildBody();
   }
 
   Widget _buildError() {
@@ -189,6 +291,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 어드민 배너
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -208,6 +311,15 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                     color: Colors.red,
                   ),
                 ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: _forceUpload,
+                  child: Icon(
+                    Icons.cloud_upload_outlined,
+                    color: Colors.red.shade300,
+                    size: 20,
+                  ),
+                ),
               ],
             ),
           ),
@@ -221,7 +333,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             currentCount: stats?.google ?? 0,
             freeLimit: MapUsageStats.googleFreeLimit,
             fmt: fmt,
-            onToggle: (enabled) => _toggleProvider('google', enabled),
+            onToggle: (e) => _toggleProvider('google', e),
           ),
           const SizedBox(height: 12),
           _ProviderCard(
@@ -233,7 +345,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             currentCount: stats?.naver ?? 0,
             freeLimit: MapUsageStats.naverFreeLimit,
             fmt: fmt,
-            onToggle: (enabled) => _toggleProvider('naver', enabled),
+            onToggle: (e) => _toggleProvider('naver', e),
           ),
           const SizedBox(height: 12),
           _OsmCard(osmCount: stats?.osm ?? 0, fmt: fmt),
@@ -257,10 +369,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             style: TextStyle(color: Colors.grey, fontSize: 12),
           ),
           const SizedBox(height: 24),
-          // 전체 강제 업로드 섹션
           _buildForceUploadSection(),
           const SizedBox(height: 24),
-          // 주간 히스토리 테이블
           _buildWeeklyHistorySection(),
           const SizedBox(height: 32),
         ],
@@ -367,6 +477,338 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         else
           _WeeklyHistoryTable(history: _weeklyHistory),
       ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 탭 2: 버그 리포트
+// ═══════════════════════════════════════════════════════════════════════
+class _BugReportsTab extends StatefulWidget {
+  const _BugReportsTab({super.key});
+  @override
+  State<_BugReportsTab> createState() => _BugReportsTabState();
+}
+
+class _BugReportsTabState extends State<_BugReportsTab> {
+  List<_BugReport> _reports = [];
+  bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  DocumentSnapshot? _cursor;
+
+  String? _filter; // null | 'today' | '7d' | '30d'
+  DateTime? _filterStart;
+  String _filterLabel = '전체';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  void refresh() => _load();
+
+  void _applyFilter(String? filter) {
+    setState(() {
+      _filter = filter;
+      switch (filter) {
+        case 'today':
+          final now = DateTime.now();
+          _filterStart = DateTime(now.year, now.month, now.day);
+          _filterLabel = '오늘';
+          break;
+        case '7d':
+          _filterStart = DateTime.now().subtract(const Duration(days: 7));
+          _filterLabel = '7일';
+          break;
+        case '30d':
+          _filterStart = DateTime.now().subtract(const Duration(days: 30));
+          _filterLabel = '30일';
+          break;
+        default:
+          _filterStart = null;
+          _filterLabel = '전체';
+      }
+    });
+    _load();
+  }
+
+  Query<Map<String, dynamic>> _buildQuery() {
+    var q = FirebaseFirestore.instance
+        .collection('bug_reports')
+        .orderBy('createdAt', descending: true);
+    if (_filterStart != null) {
+      q = q.where(
+        'createdAt',
+        isGreaterThanOrEqualTo: Timestamp.fromDate(_filterStart!),
+      );
+    }
+    return q;
+  }
+
+  Future<void> _load() async {
+    if (mounted)
+      setState(() {
+        _loading = true;
+        _reports = [];
+        _cursor = null;
+        _hasMore = true;
+      });
+    try {
+      final snap = await _buildQuery().limit(20).get();
+      if (mounted)
+        setState(() {
+          _reports = snap.docs.map((d) => _BugReport.fromDoc(d)).toList();
+          _cursor = snap.docs.isNotEmpty ? snap.docs.last : null;
+          _hasMore = snap.docs.length == 20;
+        });
+    } catch (e) {
+      debugPrint('버그 리포트 로드 실패: $e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore || _cursor == null) return;
+    if (mounted) setState(() => _loadingMore = true);
+    try {
+      final snap =
+          await _buildQuery().startAfterDocument(_cursor!).limit(20).get();
+      if (mounted)
+        setState(() {
+          _reports.addAll(snap.docs.map((d) => _BugReport.fromDoc(d)));
+          _cursor = snap.docs.isNotEmpty ? snap.docs.last : _cursor;
+          _hasMore = snap.docs.length == 20;
+        });
+    } catch (e) {
+      debugPrint('버그 리포트 추가 로드 실패: $e');
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filterOptions = [
+      (null, '전체'),
+      ('today', '오늘'),
+      ('7d', '7일'),
+      ('30d', '30일'),
+    ];
+
+    return Column(
+      children: [
+        // ── 필터 바 ──
+        Container(
+          color: Colors.grey.shade50,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            children: [
+              const Text(
+                '기간:',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Wrap(
+                  spacing: 6,
+                  children:
+                      filterOptions.map((opt) {
+                        final (key, label) = opt;
+                        final sel = _filter == key;
+                        return GestureDetector(
+                          onTap: () => _applyFilter(key),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: sel ? Colors.teal : Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: sel ? Colors.teal : Colors.grey.shade400,
+                              ),
+                            ),
+                            child: Text(
+                              label,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight:
+                                    sel ? FontWeight.bold : FontWeight.normal,
+                                color:
+                                    sel ? Colors.white : Colors.grey.shade700,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        // ── 리스트 ──
+        Expanded(
+          child:
+              _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _reports.isEmpty
+                  ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.bug_report_outlined,
+                          size: 48,
+                          color: Colors.grey.shade300,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '버그 리포트 없음 ($_filterLabel)',
+                          style: const TextStyle(color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  )
+                  : ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: _reports.length + 1, // +1 for footer
+                    itemBuilder: (ctx, i) {
+                      if (i < _reports.length) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _BugReportCard(
+                            report: _reports[i],
+                            onTap: () => _showLogDialog(_reports[i]),
+                          ),
+                        );
+                      }
+                      // Footer
+                      return Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Text(
+                              '$_filterLabel  |  ${_reports.length}건 로드됨${_hasMore ? "  (더 있음 →)" : "  (전체)"}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade400,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          if (_hasMore)
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: _loadingMore ? null : _loadMore,
+                                icon:
+                                    _loadingMore
+                                        ? const SizedBox(
+                                          width: 14,
+                                          height: 14,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                        : const Icon(
+                                          Icons.expand_more,
+                                          size: 18,
+                                        ),
+                                label: Text(
+                                  _loadingMore ? '로딩 중…' : '다음 20개 보기',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            )
+                          else
+                            Text(
+                              '— 모두 불러왔습니다 —',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade400,
+                              ),
+                            ),
+                          const SizedBox(height: 16),
+                        ],
+                      );
+                    },
+                  ),
+        ),
+      ],
+    );
+  }
+
+  void _showLogDialog(_BugReport r) {
+    final timeStr =
+        r.createdAt != null
+            ? DateFormat('MM/dd HH:mm:ss').format(r.createdAt!.toLocal())
+            : '시간 없음';
+    showDialog(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: Row(
+              children: [
+                _SeverityBadge(severity: r.severity),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '로그 뷰어  $timeStr',
+                    style: const TextStyle(fontSize: 14),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 420,
+              child:
+                  r.logs.isEmpty
+                      ? const Center(child: Text('로그 없음'))
+                      : ListView.builder(
+                        itemCount: r.logs.length,
+                        itemBuilder: (_, i) {
+                          final line = r.logs[i];
+                          final isError =
+                              line.contains('❌') ||
+                              line.toLowerCase().contains('[error]') ||
+                              line.toLowerCase().contains('fatal');
+                          final isWarn =
+                              line.contains('⚠️') ||
+                              line.toLowerCase().contains('[warn]');
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 1),
+                            child: Text(
+                              line,
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontFamily: 'monospace',
+                                color:
+                                    isError
+                                        ? Colors.red.shade700
+                                        : isWarn
+                                        ? Colors.orange.shade700
+                                        : Colors.black87,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('닫기'),
+              ),
+            ],
+          ),
     );
   }
 }
@@ -770,6 +1212,210 @@ class _SectionHeader extends StatelessWidget {
         color: Colors.grey.shade600,
         letterSpacing: 0.5,
       ),
+    );
+  }
+}
+
+// ── 버그 리포트 severity 배지 ─────────────────────────────────────────
+class _SeverityBadge extends StatelessWidget {
+  final String severity;
+  const _SeverityBadge({required this.severity});
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = switch (severity) {
+      'error' => ('ERROR', Colors.red),
+      'warn' => ('WARN', Colors.orange),
+      _ => ('INFO', Colors.blue),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withAlpha(30),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withAlpha(120)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: color.shade700,
+        ),
+      ),
+    );
+  }
+}
+
+// ── 버그 리포트 카드 ───────────────────────────────────────────────────
+class _BugReportCard extends StatelessWidget {
+  final _BugReport report;
+  final VoidCallback onTap;
+  const _BugReportCard({required this.report, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final r = report;
+    final timeStr =
+        r.createdAt != null
+            ? DateFormat('MM/dd HH:mm').format(r.createdAt!.toLocal())
+            : '--:--';
+    final borderColor = switch (r.severity) {
+      'error' => Colors.red.shade300,
+      'warn' => Colors.orange.shade300,
+      _ => Colors.grey.shade300,
+    };
+    final bgColor = switch (r.severity) {
+      'error' => Colors.red.shade50,
+      'warn' => Colors.orange.shade50,
+      _ => Colors.white,
+    };
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: borderColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 상단 행: severity + 시간 + 로그 수
+            Row(
+              children: [
+                _SeverityBadge(severity: r.severity),
+                const SizedBox(width: 8),
+                Text(
+                  timeStr,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                if (r.errorCount > 0)
+                  _CountChip(label: '❌ ${r.errorCount}', color: Colors.red),
+                if (r.warnCount > 0) ...[
+                  const SizedBox(width: 4),
+                  _CountChip(label: '⚠️ ${r.warnCount}', color: Colors.orange),
+                ],
+                const SizedBox(width: 4),
+                _CountChip(label: '📋 ${r.logCount}줄', color: Colors.grey),
+              ],
+            ),
+            // 사용자 메모
+            if (r.memo.isNotEmpty) ...[
+              const SizedBox(height: 7),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.chat_bubble_outline,
+                    size: 13,
+                    color: Colors.teal,
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      r.memo,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.teal,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            // 디바이스 정보 요약
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                if (r.deviceInfo['gps'] != null)
+                  _InfoChip(
+                    icon: Icons.location_on,
+                    label: 'GPS: ${r.deviceInfo['gps']}',
+                  ),
+                if (r.deviceInfo['accuracy'] != null)
+                  _InfoChip(
+                    icon: Icons.radar,
+                    label: '정확도: ${r.deviceInfo['accuracy']}m',
+                  ),
+                if (r.deviceInfo['alarmCount'] != null)
+                  _InfoChip(
+                    icon: Icons.alarm,
+                    label: '알람: ${r.deviceInfo['alarmCount']}개',
+                  ),
+                if (r.deviceInfo['lmsRunning'] != null)
+                  _InfoChip(
+                    icon: Icons.monitor_heart,
+                    label:
+                        'LMS: ${r.deviceInfo['lmsRunning'] == true ? "ON" : "OFF"}',
+                    highlight: r.deviceInfo['lmsRunning'] != true,
+                  ),
+                _InfoChip(icon: Icons.app_settings_alt, label: r.appVersion),
+              ],
+            ),
+            // 탭 안내
+            const SizedBox(height: 4),
+            const Text(
+              '탭하여 전체 로그 보기 →',
+              style: TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CountChip extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _CountChip({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withAlpha(25),
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Text(label, style: TextStyle(fontSize: 11, color: color)),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool highlight;
+  const _InfoChip({
+    required this.icon,
+    required this.label,
+    this.highlight = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = highlight ? Colors.red.shade400 : Colors.grey.shade600;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 11, color: color),
+        const SizedBox(width: 2),
+        Text(label, style: TextStyle(fontSize: 11, color: color)),
+      ],
     );
   }
 }

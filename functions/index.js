@@ -197,7 +197,8 @@ exports.verifyPurchase = functions.https.onRequest(async (req, res) => {
 });
 
 // ============================================================
-// POST /bugreport - 버그 리포트 (30분 로그 + 디바이스 정보)
+// POST /submitBugReport - 버그 리포트 (30분 로그 + 사용자 메모 + 디바이스 정보)
+// Firestore > bug_reports 컬렉션에 저장
 // ============================================================
 exports.submitBugReport = functions.https.onRequest(async (req, res) => {
     res.set('Access-Control-Allow-Origin', '*');
@@ -224,19 +225,44 @@ exports.submitBugReport = functions.https.onRequest(async (req, res) => {
             return res.status(400).json({ error: 'logs array is required' });
         }
 
+        // 로그 분석: severity 자동 판단
+        const trimmedLogs = logs.slice(0, 1000);
+        let errorCount = 0;
+        let warnCount = 0;
+        trimmedLogs.forEach(line => {
+            const lower = (line || '').toLowerCase();
+            if (lower.includes('[error]') || lower.includes('❌') || lower.includes('fatal')) errorCount++;
+            else if (lower.includes('[warn]') || lower.includes('⚠️') || lower.includes('warning')) warnCount++;
+        });
+
+        // severity 등급
+        let severity = 'info';
+        if (errorCount > 0) severity = 'error';
+        else if (warnCount > 0) severity = 'warn';
+
         // Firestore에 저장
         const reportRef = admin.firestore().collection('bug_reports').doc();
         await reportRef.set({
+            // 식별 정보
             anonUserId: anonUserId.substring(0, 16),
-            deviceInfo: deviceInfo || {},
             appVersion: appVersion || 'unknown',
+            // 사용자 메모
             memo: memo || '',
-            logCount: logs.length,
-            logs: logs.slice(0, 1000), // 최대 1000줄
+            hasMemo: !!(memo && memo.trim().length > 0),
+            // 디바이스 정보
+            deviceInfo: deviceInfo || {},
+            // 로그 분석 요약 (Firebase Console 필터용)
+            severity,          // 'error' | 'warn' | 'info'
+            errorCount,
+            warnCount,
+            logCount: trimmedLogs.length,
+            // 전체 로그 (문자열 배열)
+            logs: trimmedLogs,
+            // 타임스탬프
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
 
-        console.log(`🐛 버그 리포트 저장: ${reportRef.id} (${logs.length}줄)`);
+        console.log(`🐛 버그 리포트 저장: ${reportRef.id} | severity=${severity} | errors=${errorCount} warns=${warnCount} logs=${trimmedLogs.length} | memo="${memo || ''}"`);
 
         res.json({ success: true, reportId: reportRef.id });
     } catch (error) {

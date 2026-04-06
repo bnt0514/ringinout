@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:ringinout/config/app_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:hive/hive.dart';
@@ -30,7 +30,7 @@ class FullScreenAlarmPage extends StatefulWidget {
 class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
   static const bellPlatform = MethodChannel('flutter.bell');
   static const _smartChannel = MethodChannel(
-    'com.example.ringinout/smart_location',
+    'com.bnt0514.ringinout/smart_location',
   );
   int _triggerCount = 0;
 
@@ -94,13 +94,18 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
 
     if (!mounted) return;
 
-    // 2) ✅ 홈화면으로 완전 교체 (Navigator 스택 초기화)
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const MainNavigationPage()),
-      (route) => false,
-    );
-
-    print('✅ 전체알람화면 종료 - 홈화면으로 복귀');
+    // 2) ✅ 알람 스택 지원: pop으로 이전 화면으로 돌아감
+    // 이전 화면이 없으면 (최초 알람) 홈화면으로 완전 교체
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+      print('✅ 알람화면 pop — 이전 화면으로 복귀');
+    } else {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const MainNavigationPage()),
+        (route) => false,
+      );
+      print('✅ 전체알람화면 종료 - 홈화면으로 복귀');
+    }
   }
   // _increaseAndLoadTriggerCount 메서드 수정
 
@@ -177,10 +182,14 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
     }
   }
 
+  /// ✅ 반복 알람 여부 확인 헬퍼
+  bool get _isRepeatAlarm {
+    final repeat = widget.alarmData?['repeat'];
+    return (repeat is List && repeat.isNotEmpty);
+  }
+
   Future<void> _disableAlarm(String alarmId) async {
     try {
-      print('🔕 알람 비활성화 시작 (ID): $alarmId');
-
       final box = HiveHelper.alarmBox;
 
       // ✅ Hive 키 = 알람 ID → 직접 조회
@@ -191,24 +200,32 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
       }
 
       final updatedAlarm = Map<String, dynamic>.from(alarm);
-      updatedAlarm['enabled'] = false;
-      updatedAlarm['snoozePending'] = false;
-      await box.put(alarmId, updatedAlarm);
-      print('✅ 알람 비활성화 완료 (id: $alarmId)');
 
-      // ✅ 트리거 카운트 제거
-      final triggerBox = await Hive.openBox('trigger_counts_v2');
-      await triggerBox.delete(alarmId);
-      print('🗑️ 트리거 카운트 제거: $alarmId');
+      // ✅ 반복 알람이면 enabled=false 하지 않음! (내일 다시 울려야 함)
+      if (_isRepeatAlarm) {
+        updatedAlarm['snoozePending'] = false;
+        await box.put(alarmId, updatedAlarm);
+        print('🔄 반복 알람 — enabled 유지 (비활성화 스킵): $alarmId');
+      } else {
+        updatedAlarm['enabled'] = false;
+        updatedAlarm['snoozePending'] = false;
+        await box.put(alarmId, updatedAlarm);
+        print('✅ 일회성 알람 비활성화 완료 (id: $alarmId)');
 
-      // ✅ 스누즈 스케줄도 제거
+        // ✅ 트리거 카운트 제거 (일회성만)
+        final triggerBox = await Hive.openBox('trigger_counts_v2');
+        await triggerBox.delete(alarmId);
+        print('🗑️ 트리거 카운트 제거: $alarmId');
+      }
+
+      // ✅ 스누즈 스케줄 제거 (반복/일회 모두)
       final snoozeBox = await Hive.openBox('snoozeSchedules');
       await snoozeBox.delete(alarmId);
       print('🗑️ 스누즈 스케줄 제거: $alarmId');
 
       // ✅ Watchdog heartbeat 전송
       await LocationMonitorService.sendWatchdogHeartbeat();
-      print('💓 알람 비활성화 후 Heartbeat 전송');
+      print('💓 알람 처리 후 Heartbeat 전송');
     } catch (e) {
       print('❌ 알람 비활성화 실패: $e');
       print('스택 트레이스: ${StackTrace.current}');
@@ -250,7 +267,10 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
       final alarm = alarmBox.get(alarmId);
       if (alarm is Map) {
         final updatedAlarm = Map<String, dynamic>.from(alarm);
-        updatedAlarm['enabled'] = false;
+        // ✅ 반복 알람이면 enabled=true 유지
+        if (!_isRepeatAlarm) {
+          updatedAlarm['enabled'] = false;
+        }
         updatedAlarm['snoozePending'] = true;
         await alarmBox.put(alarmId, updatedAlarm);
       }
@@ -334,10 +354,12 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
     if (alarmId != null) {
       await _disableAlarm(alarmId);
 
-      // ✅ SmartLocationManager에도 dismiss 처리 (GateState DISABLED → 반복 알람 차단)
+      // ✅ SmartLocationManager에도 dismiss 처리
+      // 반복 알람: 당일 재트리거만 방지 (alarm_triggered_date로 이미 관리됨)
+      // 일회성 알람: GateState DISABLED
       try {
         await _smartChannel.invokeMethod('dismissAlarm', {'alarmKey': alarmId});
-        print('✅ dismissAlarm 완료: $alarmId');
+        print('✅ dismissAlarm 완료: $alarmId (반복: $_isRepeatAlarm)');
       } catch (e) {
         print('⚠️ dismissAlarm 채널 실패 (무시): $e');
       }
@@ -379,12 +401,17 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
 
     print('✅ 오발동 처리 완료 - 알람 enabled=true 유지');
 
-    // 4. 홈 화면으로 이동
+    // 4. 이전 화면으로 복귀 (알람 스택 지원)
     if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const MainNavigationPage()),
-      (route) => false,
-    );
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+      print('✅ 오발동 — 이전 알람 화면으로 복귀');
+    } else {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const MainNavigationPage()),
+        (route) => false,
+      );
+    }
   }
 
   @override

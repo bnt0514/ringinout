@@ -1,4 +1,4 @@
-package com.example.ringinout
+﻿package com.bnt0514.ringinout
 
 import android.app.ActivityManager
 import android.app.AlarmManager
@@ -25,9 +25,9 @@ import java.util.Calendar
 class ServiceWatchdogReceiver : BroadcastReceiver() {
 
     companion object {
-        const val ACTION_CHECK_SERVICE = "com.example.ringinout.ACTION_CHECK_SERVICE"
-        const val ACTION_RESTART_SERVICE = "com.example.ringinout.ACTION_RESTART_SERVICE"
-        const val ACTION_DAILY_CHECK = "com.example.ringinout.ACTION_DAILY_CHECK"
+        const val ACTION_CHECK_SERVICE = "com.bnt0514.ringinout.ACTION_CHECK_SERVICE"
+        const val ACTION_RESTART_SERVICE = "com.bnt0514.ringinout.ACTION_RESTART_SERVICE"
+        const val ACTION_DAILY_CHECK = "com.bnt0514.ringinout.ACTION_DAILY_CHECK"
         private const val WATCHDOG_INTERVAL_MS = 5 * 60 * 1000L // 5분마다 체크 (백업용, 메인은 onTaskRemoved)
         private const val DAILY_CHECK_REQUEST_CODE_BASE = 9990
         private val DAILY_CHECK_HOURS = listOf(0, 6, 12, 18)

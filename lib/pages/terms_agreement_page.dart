@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,7 +17,7 @@ class TermsAgreementPage extends StatefulWidget {
 
 class _TermsAgreementPageState extends State<TermsAgreementPage> {
   static const MethodChannel _appLifecycleChannel = MethodChannel(
-    'com.example.ringinout/app_lifecycle',
+    'com.bnt0514.ringinout/app_lifecycle',
   );
   bool _agreed = false;
 

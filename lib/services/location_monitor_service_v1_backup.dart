@@ -1,4 +1,4 @@
-// location_monitor_service.dart
+﻿// location_monitor_service.dart
 //
 // ✅ 지오펜스 + 모션 감지 하이브리드 아키텍처
 //
@@ -1392,7 +1392,7 @@ class LocationMonitorService {
   // ========== Watchdog Heartbeat ==========
 
   static const _watchdogChannel = MethodChannel(
-    'com.example.ringinout/watchdog',
+    'com.bnt0514.ringinout/watchdog',
   );
 
   void _startWatchdogHeartbeat() {

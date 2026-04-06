@@ -1,4 +1,4 @@
-package com.example.ringinout
+﻿package com.bnt0514.ringinout
 
 import android.app.Activity
 import android.content.Context
@@ -30,13 +30,32 @@ class AlarmFullscreenActivity : Activity() {
         /** AlarmFullscreenActivity가 현재 화면에 표시 중인지 여부.
          *  MainActivity.playDefaultRingtone()에서 이중 재생 방지에 사용. */
         var isActive: Boolean = false
+
+        /** 알람 큐 최대 크기 */
+        private const val MAX_QUEUE_SIZE = 5
     }
+
+    // ═══════════════════════════════════════════════════════════
+    //  알람 큐 시스템 — 동시 다발 알람을 순차 처리
+    // ═══════════════════════════════════════════════════════════
+
+    /** 대기 중인 알람 데이터 큐 */
+    private data class AlarmData(
+        val alarmId: Int,
+        val alarmTitle: String,
+        val alarmKey: String,
+        val placeId: String,
+        val isRepeat: Boolean,
+        val isSnoozeAlarm: Boolean
+    )
+    private val pendingAlarms = ArrayDeque<AlarmData>()
 
     private var alarmId: Int = -1
     private var alarmTitle: String = "위치 알람"
     private var triggerCount: Int = 0
     private var alarmKey: String = ""
     private var placeId: String = ""
+    private var isRepeat: Boolean = false // ✅ 반복 알람 여부
 
     // ✅ 알람 종료 중 플래그 — stopAlarmAndGoHome()에서 startActivity() 호출 시
     // onUserLeaveHint()가 트리거되어 native_alarm_active를 다시 true로 설정하는 것을 방지
@@ -67,6 +86,7 @@ class AlarmFullscreenActivity : Activity() {
         alarmTitle = intent.getStringExtra("title") ?: "위치 알람"
         alarmKey = intent.getStringExtra("alarmKey") ?: ""
         placeId = intent.getStringExtra("placeId") ?: ""
+        isRepeat = intent.getBooleanExtra("isRepeat", false) // ✅ 반복 알람 여부
         if (alarmKey.isEmpty()) {
             alarmKey = placeId
         }
@@ -75,7 +95,7 @@ class AlarmFullscreenActivity : Activity() {
         val prefs = getSharedPreferences("ringinout", Context.MODE_PRIVATE)
         triggerCount = prefs.getInt("trigger_count_$alarmId", 0)
 
-        Log.d("AlarmFullscreen", "📋 알람 정보: ID=$alarmId, 제목=$alarmTitle, 트리거=$triggerCount")
+        Log.d("AlarmFullscreen", "📋 알람 정보: ID=$alarmId, 제목=$alarmTitle, 트리거=$triggerCount, 반복=$isRepeat")
 
         // ✅ 뒤로가기 완전 차단 (Android 13+ onBackPressedDispatcher)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -108,6 +128,65 @@ class AlarmFullscreenActivity : Activity() {
 
         // ✅ 볼륨 에스컬레이션 시작
         startVolumeEscalation()
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  ✅ onNewIntent — 이미 알람 화면이 떠 있을 때 새 알람이 도착한 경우
+    //  현재 알람을 큐에 저장하고, 새 알람으로 UI 교체
+    // ═══════════════════════════════════════════════════════════
+    override fun onNewIntent(newAlarmIntent: Intent?) {
+        super.onNewIntent(newAlarmIntent)
+        if (newAlarmIntent == null) return
+
+        Log.d("AlarmFullscreen", "🔔 onNewIntent — 새 알람 도착 (현재: $alarmTitle)")
+
+        // 현재 알람을 큐에 저장 (최대 MAX_QUEUE_SIZE)
+        if (pendingAlarms.size < MAX_QUEUE_SIZE) {
+            pendingAlarms.addLast(
+                AlarmData(
+                    alarmId = this.alarmId,
+                    alarmTitle = this.alarmTitle,
+                    alarmKey = this.alarmKey,
+                    placeId = this.placeId,
+                    isRepeat = this.isRepeat,
+                    isSnoozeAlarm = false
+                )
+            )
+            Log.d("AlarmFullscreen", "📥 현재 알람 큐에 저장: $alarmTitle (큐 크기: ${pendingAlarms.size})")
+        } else {
+            Log.w("AlarmFullscreen", "⚠️ 알람 큐 가득 참 (${MAX_QUEUE_SIZE}개) — 현재 알람 버림: $alarmTitle")
+        }
+
+        // 새 알람 데이터로 교체
+        alarmId = newAlarmIntent.getIntExtra("alarmId", -1)
+        alarmTitle = newAlarmIntent.getStringExtra("title") ?: "위치 알람"
+        alarmKey = newAlarmIntent.getStringExtra("alarmKey") ?: ""
+        placeId = newAlarmIntent.getStringExtra("placeId") ?: ""
+        isRepeat = newAlarmIntent.getBooleanExtra("isRepeat", false)
+        if (alarmKey.isEmpty()) alarmKey = placeId
+
+        // 스누즈 알람이면 플래그 해제
+        val isSnoozeAlarm = newAlarmIntent.getBooleanExtra("isSnoozeAlarm", false)
+        if (isSnoozeAlarm && alarmKey.isNotEmpty()) {
+            val flutterPrefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            flutterPrefs.edit().apply {
+                remove("flutter.alarm_snoozed_$alarmKey")
+                remove("flutter.alarm_disabled_$alarmKey")
+                apply()
+            }
+        }
+
+        // triggerCount 갱신
+        val prefs = getSharedPreferences("ringinout", Context.MODE_PRIVATE)
+        triggerCount = prefs.getInt("trigger_count_$alarmId", 0)
+
+        Log.d("AlarmFullscreen", "📋 새 알람으로 교체: $alarmTitle (ID=$alarmId, 반복=$isRepeat)")
+
+        // UI 교체 (기존 벨소리는 그대로 유지 — 이미 울리고 있으므로)
+        setupNativeUI()
+
+        // Intent 업데이트
+        intent = newAlarmIntent
     }
 
     /// 알람 벨소리 직접 재생 (MainActivity 의존 제거)
@@ -372,7 +451,12 @@ class AlarmFullscreenActivity : Activity() {
         builder.setItems(options) { dialog, which ->
             val selectedMinutes = minutes[which]
             scheduleSnooze(selectedMinutes)
-            stopAlarmAndGoHome()
+            // ✅ 큐에 대기 중인 알람이 있으면 다음 알람으로 전환
+            if (pendingAlarms.isNotEmpty()) {
+                showNextQueuedAlarm()
+            } else {
+                stopAlarmAndGoHome()
+            }
         }
         // ✅ 취소 버튼 추가 — 알람 화면으로 돌아감
         builder.setNegativeButton("취소") { dialog, _ ->
@@ -388,22 +472,29 @@ class AlarmFullscreenActivity : Activity() {
     }
 
     private fun scheduleSnooze(minutes: Int) {
-        Log.d("AlarmFullscreen", "⏰ 스누즈 설정: ${minutes}분 후")
+        Log.d("AlarmFullscreen", "⏰ 스누즈 설정: ${minutes}분 후 (반복알람: $isRepeat)")
 
-        // ✅ 스누즈 시 알람 비활성화 + 재트리거 방지 플래그 설정
+        // ✅ 스누즈 시 플래그 설정
         if (alarmKey.isNotEmpty()) {
             val flutterPrefs =
                     getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
             flutterPrefs.edit().apply {
                 putBoolean("flutter.alarm_snoozed_$alarmKey", true)
-                putBoolean("flutter.alarm_disabled_$alarmKey", true)
+                // ✅ 반복 알람이면 alarm_disabled_ 플래그 설정하지 않음!
+                if (!isRepeat) {
+                    putBoolean("flutter.alarm_disabled_$alarmKey", true)
+                }
                 apply()
             }
-            Log.d("AlarmFullscreen", "🔕 스누즈 플래그 + 비활성화 설정: $alarmKey")
+            if (isRepeat) {
+                Log.d("AlarmFullscreen", "🔄 반복 알람 — 스누즈 중 alarm_disabled 스킵 (enabled 유지)")
+            } else {
+                Log.d("AlarmFullscreen", "🔕 일회성 알람 — 스누즈 플래그 + 비활성화 설정: $alarmKey")
+            }
         }
 
         // ✅ AlarmManager 기반 스누즈 스케줄링 (앱이 죽어도 작동!)
-        SnoozeScheduler.scheduleSnooze(this, alarmId, alarmTitle, minutes, alarmKey, placeId)
+        SnoozeScheduler.scheduleSnooze(this, alarmId, alarmTitle, minutes, alarmKey, placeId, isRepeat)
 
         Log.d("AlarmFullscreen", "✅ AlarmManager 스누즈 스케줄 완료: ${minutes}분 후")
     }
@@ -431,28 +522,37 @@ class AlarmFullscreenActivity : Activity() {
             apply()
         }
 
-        stopAlarmAndGoHome()
+        // ✅ 큐에 대기 중인 알람이 있으면 다음 알람으로 전환
+        if (pendingAlarms.isNotEmpty()) {
+            showNextQueuedAlarm()
+        } else {
+            stopAlarmAndGoHome()
+        }
     }
 
     private fun dismissAlarm() {
-        Log.d("AlarmFullscreen", "🔴 알람 종료 처리")
+        Log.d("AlarmFullscreen", "🔴 알람 종료 처리 (반복알람: $isRepeat)")
 
-        // triggerCount 초기화
-        // ✅ FlutterSharedPreferences에 기록 (Flutter shared_preferences 플러그인과 일치)
+        // ✅ FlutterSharedPreferences에 기록
         val flutterPrefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
         flutterPrefs.edit().apply {
             if (alarmKey.isNotEmpty()) {
-                putBoolean("flutter.alarm_disabled_$alarmKey", true)
+                // ✅ 반복 알람이면 alarm_disabled_ 플래그 설정하지 않음! (enabled 유지)
+                if (!isRepeat) {
+                    putBoolean("flutter.alarm_disabled_$alarmKey", true)
+                    Log.d("AlarmFullscreen", "🔕 일회성 알람 비활성화: $alarmKey")
+                } else {
+                    Log.d("AlarmFullscreen", "🔄 반복 알람 — alarm_disabled 스킵 (enabled 유지, 내일 다시 울림)")
+                }
             }
             apply()
         }
 
         // ✅ 알람 해제 처리는 Flutter 측 LocationMonitorService에서 관리
-        // (네이티브 SmartLocationManager는 신호 전달만 담당)
         if (alarmKey.isNotEmpty()) {
             Log.d(
                     "AlarmFullscreen",
-                    "✅ 알람 해제 완료: alarmKey=$alarmKey, placeId=$placeId (Flutter 측 관리)"
+                    "✅ 알람 해제 완료: alarmKey=$alarmKey, placeId=$placeId, isRepeat=$isRepeat (Flutter 측 관리)"
             )
         }
 
@@ -461,14 +561,47 @@ class AlarmFullscreenActivity : Activity() {
 
         // 목표 달성 기록 (Flutter에 전달)
         val intent =
-                Intent("com.example.ringinout.ALARM_DISMISSED").apply {
+                Intent("com.bnt0514.ringinout.ALARM_DISMISSED").apply {
                     putExtra("alarmId", alarmId)
                     putExtra("achieved", true)
-                    putExtra("disabled", true) // ✅ 비활성화됨
+                    putExtra("disabled", !isRepeat) // ✅ 반복알람이면 비활성화 안 됨
+                    putExtra("isRepeat", isRepeat)
                 }
         sendBroadcast(intent)
 
-        stopAlarmAndGoHome()
+        // ✅ 큐에 대기 중인 알람이 있으면 다음 알람으로 전환
+        if (pendingAlarms.isNotEmpty()) {
+            showNextQueuedAlarm()
+        } else {
+            stopAlarmAndGoHome()
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  ✅ 큐에서 다음 알람을 꺼내서 UI 교체
+    // ═══════════════════════════════════════════════════════════
+    private fun showNextQueuedAlarm() {
+        val next = pendingAlarms.removeFirst()
+        Log.d("AlarmFullscreen", "📤 큐에서 다음 알람 로드: ${next.alarmTitle} (남은 큐: ${pendingAlarms.size})")
+
+        // 현재 알람 데이터를 큐의 다음 알람으로 교체
+        alarmId = next.alarmId
+        alarmTitle = next.alarmTitle
+        alarmKey = next.alarmKey
+        placeId = next.placeId
+        isRepeat = next.isRepeat
+
+        // triggerCount 갱신
+        val prefs = getSharedPreferences("ringinout", Context.MODE_PRIVATE)
+        triggerCount = prefs.getInt("trigger_count_$alarmId", 0)
+
+        // UI 갱신
+        setupNativeUI()
+
+        // 벨소리가 꺼져있으면 다시 재생
+        if (flutterRingtone?.isPlaying != true) {
+            playAlarmRingtone()
+        }
     }
 
     private fun stopAlarmAndGoHome() {
