@@ -786,6 +786,15 @@ class LocationMonitorService {
           final alarmId = alarm['id'] as String?;
           if (alarmId == null) continue;
 
+          // ✅ 이미 SharedPreferences에서 복원된 상태가 있으면 GPS로 덮어쓰지 않음
+          if (_placeStates.containsKey(alarmId)) {
+            _log(
+              '📦 "$placeName" (${_shortId(alarmId)}) '
+              '이미 복원된 상태: ${_placeStates[alarmId]!.name} → GPS 덮어쓰기 생략',
+            );
+            continue;
+          }
+
           final place = places.firstWhere(
             (p) =>
                 (placeId != null &&
@@ -903,7 +912,7 @@ class LocationMonitorService {
       await prefs.reload(); // ★ 네이티브에서 직접 쓴 값을 읽기 위해 리로드
       final nowMs = DateTime.now().millisecondsSinceEpoch;
 
-      // 트리거 직후 중복 방지 쿨다운 (60초)
+      // 트리거 직후 중복 방지 쿨다운 (10초)
       final cooldownMs = prefs.getInt('cooldown_until_$alarmId') ?? 0;
       if (cooldownMs > nowMs) {
         final remaining = (cooldownMs - nowMs) ~/ 1000;
@@ -1049,12 +1058,12 @@ class LocationMonitorService {
 
     _log('✅ 알람 트리거: ${alarmData['name']} ($trigger)');
 
-    // 트리거 직후 중복 방지 쿨다운 (3초)
-    // ★ 'cooldown_until_' 키 사용 — 트리거 직후 중복 방지 (3초)
+    // 트리거 직후 중복 방지 쿨다운 (10초)
+    // ★ 'cooldown_until_' 키 사용 — 트리거 직후 중복 방지 (10초)
     if (alarmId is String) {
       try {
         final prefs = await SharedPreferences.getInstance();
-        final cooldownUntil = DateTime.now().millisecondsSinceEpoch + 3000;
+        final cooldownUntil = DateTime.now().millisecondsSinceEpoch + 10000;
         await prefs.setInt('cooldown_until_$alarmId', cooldownUntil);
 
         // ★ 당일 트리거 기록 — 반복 알람의 같은 날 재트리거 방지
@@ -1089,12 +1098,28 @@ class LocationMonitorService {
       _log('❌ 트리거 카운트 실패: $e');
     }
 
-    // ★ 알람 즉시 비활성화 제거
-    // 사용자 선택에 따라 처리:
-    //   - "다시 울림" → 비활성화 후 n분 후 재트리거
-    //   - "알람 종료" → 영구 비활성화
-    // 중복 트리거는 cooldown_until_ (60초)로 방지
-    _log('ℹ️ 알람 유지 (사용자 선택 대기): ${alarmData['name']}');
+    // ★ 알람 즉시 비활성화 — 일회성 알람만 (반복 알람은 enabled 유지)
+    if (alarmId is String) {
+      try {
+        final repeat = alarmData['repeat'];
+        final isRepeat = (repeat is List && repeat.isNotEmpty);
+        if (!isRepeat) {
+          // 일회성(최초/특정날짜) 알람 → 즉시 비활성화
+          final box = HiveHelper.alarmBox;
+          final current = box.get(alarmId);
+          if (current != null) {
+            final updated = Map<String, dynamic>.from(current);
+            updated['enabled'] = false;
+            await box.put(alarmId, updated);
+          }
+          _log('🔕 일회성 알람 즉시 비활성화: ${alarmData['name']}');
+        } else {
+          _log('🔄 반복 알람 — enabled 유지: ${alarmData['name']}');
+        }
+      } catch (e) {
+        _log('⚠️ 알람 비활성화 실패: $e');
+      }
+    }
 
     // 진동
     try {
@@ -1397,8 +1422,14 @@ class LocationMonitorService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final wasRunning = prefs.getBool('geofence_running') ?? false;
+
       if (wasRunning && !_isRunning) {
-        _log('🔄 서비스 복원 예약');
+        _log('🔄 서비스 복원 감지 — placeStates 미리 로드');
+        // ✅ 서비스가 실행 중이었으면 placeStates를 미리 복원
+        //    이후 startGeofenceService() → _initializePlaceStates()에서
+        //    containsKey guard로 이 값이 보호됨
+        await _loadPlaceStates();
+        _log('✅ placeStates ${_placeStates.length}개 미리 복원 완료');
       }
     } catch (e) {
       _log('⚠️ 서비스 복원 실패: $e');

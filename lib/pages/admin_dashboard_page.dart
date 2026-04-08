@@ -71,6 +71,7 @@ class _TabItem {
 const _kTabs = [
   _TabItem('Maps', Icons.map_outlined),
   _TabItem('버그리포트', Icons.bug_report_outlined),
+  _TabItem('설정', Icons.settings_outlined),
 ];
 
 class _AdminDashboardPageState extends State<AdminDashboardPage> {
@@ -79,6 +80,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   // 탭별 GlobalKey — 각 탭 State의 새로고침 메서드 호출용
   final _mapsKey = GlobalKey<_MapsDashboardTabState>();
   final _bugKey = GlobalKey<_BugReportsTabState>();
+  final _settingsKey = GlobalKey<_AdminSettingsTabState>();
 
   void _refreshCurrentTab() {
     switch (_selectedTab) {
@@ -87,6 +89,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         break;
       case 1:
         _bugKey.currentState?.refresh();
+        break;
+      case 2:
+        _settingsKey.currentState?.refresh();
         break;
     }
   }
@@ -127,6 +132,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         children: [
           _MapsDashboardTab(key: _mapsKey),
           _BugReportsTab(key: _bugKey),
+          _AdminSettingsTab(key: _settingsKey),
         ],
       ),
     );
@@ -1415,6 +1421,140 @@ class _InfoChip extends StatelessWidget {
         Icon(icon, size: 11, color: color),
         const SizedBox(width: 2),
         Text(label, style: TextStyle(fontSize: 11, color: color)),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 탭 3: 어드민 설정
+// ═══════════════════════════════════════════════════════════════════════
+class _AdminSettingsTab extends StatefulWidget {
+  const _AdminSettingsTab({super.key});
+  @override
+  State<_AdminSettingsTab> createState() => _AdminSettingsTabState();
+}
+
+class _AdminSettingsTabState extends State<_AdminSettingsTab> {
+  bool _testLoginEnabled = false;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  void refresh() => _loadSettings();
+
+  Future<void> _loadSettings() async {
+    setState(() => _loading = true);
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('admin_config')
+          .doc('dev_settings')
+          .get();
+      if (doc.exists && mounted) {
+        setState(() {
+          _testLoginEnabled = doc.data()?['testLoginEnabled'] == true;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ 설정 로드 실패: $e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _toggleTestLogin(bool value) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('admin_config')
+          .doc('dev_settings')
+          .set({'testLoginEnabled': value}, SetOptions(merge: true));
+      setState(() => _testLoginEnabled = value);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('테스트 로그인: ${value ? "ON ✅" : "OFF 🔒"}'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ 설정 저장 실패: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // 섹션 헤더
+        Text(
+          '🔧 개발자 설정',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.red.shade900,
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // 테스트 로그인 토글
+        Card(
+          child: SwitchListTile(
+            title: const Text('테스트 로그인 허용'),
+            subtitle: Text(
+              _testLoginEnabled
+                  ? '로그인 화면에서 로고 10탭 → 테스트 계정 로그인 가능'
+                  : '테스트 로그인 비활성화 (로고 10탭 무시)',
+              style: TextStyle(
+                color: _testLoginEnabled ? Colors.green : Colors.grey,
+                fontSize: 13,
+              ),
+            ),
+            value: _testLoginEnabled,
+            onChanged: _toggleTestLogin,
+            secondary: Icon(
+              _testLoginEnabled ? Icons.lock_open : Icons.lock,
+              color: _testLoginEnabled ? Colors.green : Colors.grey,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // 안내 텍스트
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.amber.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.amber.shade200),
+          ),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '💡 안내',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              SizedBox(height: 8),
+              Text(
+                '• 테스트 로그인 OFF 시: 로고 10탭해도 테스트 패널이 나오지 않습니다.\n'
+                '• 개발자 기능(GPS 디버그, LMS 상태, 강제 트리거 등)은 Firestore '
+                'admin_config/special_users에 등록된 UID만 접근 가능합니다.\n'
+                '• 구글 플레이 배포 전 OFF로 설정해주세요.',
+                style: TextStyle(fontSize: 13, height: 1.5),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }

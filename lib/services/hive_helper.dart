@@ -102,22 +102,28 @@ class HiveHelper {
     }
   }
 
-  // ✅ 충돌 시 폴백 재시도
+  // ✅ 충돌 시 폴백 재시도 — 기존 데이터 유지를 위해 동일 경로/박스명 사용
   static Future<void> _retryWithFallback() async {
     try {
+      // ⚠️ 기존 코드는 매번 새 타임스탬프 경로 + _fallback 박스명을 사용하여
+      //    기존 알람/장소 데이터가 전부 빈 박스로 교체되는 치명적 버그가 있었음.
+      //    동일 경로와 동일 박스명을 사용하여 기존 데이터를 유지한다.
       final appDir = await getApplicationDocumentsDirectory();
-      final fallbackPath =
-          '${appDir.path}/ringinout_fallback_${DateTime.now().millisecondsSinceEpoch}';
+      final uniquePath = '${appDir.path}/ringinout_unique_v3'; // ✅ 원본과 동일 경로
 
-      await Hive.initFlutter(fallbackPath);
-      print('🔄 폴백 경로로 재시도: $fallbackPath');
+      // 짧은 지연 후 재시도 (락 파일 해제 대기)
+      await Future.delayed(const Duration(milliseconds: 500));
 
-      _placeBox = await Hive.openBox('savedLocations_fallback');
-      _alarmBox = await Hive.openBox('locationAlarms_fallback');
-      _settingsBox = await Hive.openBox('settings_fallback');
+      await Hive.initFlutter(uniquePath);
+      print('🔄 동일 경로로 폴백 재시도: $uniquePath');
+
+      // ✅ 원본과 동일한 박스명 사용 → 기존 데이터 보존
+      _placeBox = await Hive.openBox('savedLocations_v2');
+      _alarmBox = await Hive.openBox('locationAlarms_v2');
+      _settingsBox = await Hive.openBox('settings_v2');
 
       _isInitialized = true;
-      print('✅ 폴백 초기화 성공');
+      print('✅ 폴백 초기화 성공 (기존 데이터 유지)');
     } catch (e) {
       print('❌ 폴백 초기화도 실패: $e');
       throw e;

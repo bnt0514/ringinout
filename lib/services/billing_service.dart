@@ -54,16 +54,6 @@ class BillingService extends ChangeNotifier {
         return;
       }
 
-      // TODO: 배포 전 제거 — 개발자 UID 하드코딩
-      const _devUids = ['IPf2TW0c62et7bwi8B5hZGyKLlc2'];
-      if (_devUids.contains(uid)) {
-        _cachedPlan = SubscriptionPlan.special;
-        _cachedExpiresAt = null;
-        _lastFetch = DateTime.now();
-        debugPrint('✅ Plan: special (dev uid)');
-        return;
-      }
-
       // 1. Firestore users/{uid} 에 직접 플랜이 지정된 경우 (테스트 계정 포함)
       final userDoc =
           await FirebaseFirestore.instance.collection('users').doc(uid).get();

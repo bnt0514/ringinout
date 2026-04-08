@@ -512,13 +512,19 @@ class AlarmFullscreenActivity : Activity() {
         }
 
         // alarm_disabled 플래그 설정 안 함 — 알람 enabled 유지
-        // native_alarm_active 플래그만 클리어
+        // native_alarm_active 플래그 클리어 + 당일 트리거 기록/쿨다운 초기화
         val flutterPrefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
         flutterPrefs.edit().apply {
             remove("flutter.native_alarm_active")
             remove("flutter.native_alarm_title")
             remove("flutter.native_alarm_place_id")
             remove("flutter.native_alarm_id")
+            // ★ 오발동 = 트리거 안 된 것으로 처리 → 당일 트리거 기록 + 쿨다운 초기화
+            if (alarmKey.isNotEmpty()) {
+                remove("flutter.alarm_triggered_date_$alarmKey")
+                remove("flutter.cooldown_until_$alarmKey")
+                Log.d("AlarmFullscreen", "⚡ 당일 트리거 기록 + 쿨다운 초기화: $alarmKey")
+            }
             apply()
         }
 
@@ -651,10 +657,14 @@ class AlarmFullscreenActivity : Activity() {
                 }
         startActivity(mainIntent)
 
-        // Activity 종료
-        finish()
+        // ✅ Activity 종료 — finishAndRemoveTask()로 태스크 잔여도 완전 제거
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            finishAndRemoveTask()
+        } else {
+            finish()
+        }
 
-        Log.d("AlarmFullscreen", "✅ 앱 메인화면으로 복귀")
+        Log.d("AlarmFullscreen", "✅ 앱 메인화면으로 복귀 (finishAndRemoveTask)")
     }
 
     @Suppress("DEPRECATION")

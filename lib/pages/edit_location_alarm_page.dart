@@ -739,9 +739,7 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
                                           : (sortedWeekdays.isNotEmpty
                                               ? sortedWeekdays
                                               : null),
-                                  'enabled':
-                                      widget.existingAlarmData['enabled'] ??
-                                      true,
+                                  'enabled': true, // ✅ 저장 시 항상 활성화
                                   'triggerCount':
                                       widget
                                           .existingAlarmData['triggerCount'] ??
@@ -770,17 +768,30 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
                                 );
                                 print('✅ 알람 업데이트 완료: ${updatedAlarm['name']}');
 
-                                // ✅ 네이티브 SmartLocationService 즉시 업데이트
-                                await SmartLocationService.updatePlaces();
-                                print('🎯 SmartLocationService 장소 업데이트 완료');
-
-                                // ✅ Watchdog heartbeat 전송 (활성 알람 수 동기화)
-                                await LocationMonitorService.sendWatchdogHeartbeat();
-                                print('💓 알람 수정 후 Heartbeat 전송');
-
+                                // ✅ 저장 즉시 화면 이탈 (UX 개선)
                                 if (mounted) {
                                   Navigator.pop(context);
                                 }
+
+                                // ✅ 백그라운드에서 서비스 업데이트 (화면 이탈 후 처리)
+                                SmartLocationService.updatePlaces()
+                                    .then((_) {
+                                      print(
+                                        '🎯 SmartLocationService 장소 업데이트 완료',
+                                      );
+                                    })
+                                    .catchError((e) {
+                                      print(
+                                        '⚠️ SmartLocationService 업데이트 실패: $e',
+                                      );
+                                    });
+                                LocationMonitorService.sendWatchdogHeartbeat()
+                                    .then((_) {
+                                      print('💓 알람 수정 후 Heartbeat 전송');
+                                    })
+                                    .catchError((e) {
+                                      print('⚠️ Heartbeat 전송 실패: $e');
+                                    });
                               } catch (e) {
                                 print('❌ 알람 저장 실패: $e');
                                 if (mounted) {

@@ -2,6 +2,7 @@
 import 'package:ringinout/config/app_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:hive/hive.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/alarm_notification_helper.dart'; // cancelAllAlarmNotifications() 사용
 import 'package:ringinout/features/navigation/main_navigation.dart'; // ✅ 홈 화면 import
@@ -374,6 +375,7 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
 
   /// ⚡ 오발동 처리
   /// 소리만 끄고, 알람은 활성(enabled=true) 상태 그대로 유지
+  /// 반복 알람: 당일 트리거 기록 + 쿨다운 초기화 (같은 날 재트리거 허용)
   Future<void> _onFalseTrigger() async {
     print('⚡ 오발동 버튼 클릭 - 소리만 끄고 알람 유지');
 
@@ -394,9 +396,37 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
         await box.put(alarmId, current - 1);
         print('⚡ 트리거 카운트 원복: $current → ${current - 1}');
       }
+
+      // 3. 당일 트리거 기록 + 쿨다운 초기화 (오발동 = 트리거 안 된 것으로 처리)
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('alarm_triggered_date_$alarmId');
+        await prefs.remove('cooldown_until_$alarmId');
+        print('⚡ 당일 트리거 기록 + 쿨다운 초기화: $alarmId');
+      } catch (e) {
+        print('⚠️ 오발동 SharedPrefs 초기화 실패: $e');
+      }
+
+      // 4. 일회성 알람이면 enabled=true 복원 (트리거 시 disabled 되었으므로)
+      try {
+        final hiveBox = HiveHelper.alarmBox;
+        final current = hiveBox.get(alarmId);
+        if (current != null) {
+          final repeat = current['repeat'];
+          final isRepeat = (repeat is List && repeat.isNotEmpty);
+          if (!isRepeat && current['enabled'] != true) {
+            final updated = Map<String, dynamic>.from(current);
+            updated['enabled'] = true;
+            await hiveBox.put(alarmId, updated);
+            print('⚡ 일회성 알람 enabled=true 복원: $alarmId');
+          }
+        }
+      } catch (e) {
+        print('⚠️ 오발동 알람 복원 실패: $e');
+      }
     }
 
-    // 3. 화면 상태 해제 (enabled 핀드는 터치 안 함)
+    // 5. 화면 상태 해제 (enabled 필드는 터치 안 함)
     ActiveAlarmState.clear();
 
     print('✅ 오발동 처리 완료 - 알람 enabled=true 유지');

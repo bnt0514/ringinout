@@ -27,6 +27,7 @@ class _LoginPageState extends State<LoginPage> {
   // 개발자 테스트 모드
   int _devTapCount = 0;
   bool _showTestLogin = false;
+  bool _testLoginEnabled = false; // Firestore admin_config에서 제어
 
   Future<void> _signInWithGoogle(AuthService authService) async {
     if (_isLoading) return;
@@ -136,15 +137,26 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  // 로고 10번 탭 핸들러
-  void _handleLogoTap() {
-    setState(() {
-      _devTapCount++;
-      if (_devTapCount >= 10) {
-        _showTestLogin = true;
-        _devTapCount = 0;
-      }
-    });
+  // 로고 10번 탭 핸들러 — Firestore admin_config/dev_settings.testLoginEnabled 확인
+  void _handleLogoTap() async {
+    _devTapCount++;
+    if (_devTapCount >= 10) {
+      _devTapCount = 0;
+      // Firestore에서 테스트 로그인 허용 여부 확인
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('admin_config')
+            .doc('dev_settings')
+            .get();
+        final enabled = doc.data()?['testLoginEnabled'] == true;
+        if (enabled && mounted) {
+          setState(() {
+            _testLoginEnabled = true;
+            _showTestLogin = true;
+          });
+        }
+      } catch (_) {}
+    }
   }
 
   // 테스트 계정 로그인 (Remote Config 기반 - Functions 불필요)

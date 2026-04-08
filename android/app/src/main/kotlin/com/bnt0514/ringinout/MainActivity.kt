@@ -674,9 +674,13 @@ class MainActivity : FlutterActivity() {
                         putExtra("placeId", placeId)
                         putExtra("isRepeat", isRepeat) // ✅ 반복 알람 여부 전달
                         putExtra("isBackgroundAlarm", true)
-                        // ✅ 스택 호환: CLEAR_TOP / NO_HISTORY 제거 → 새 알람이 기존 위에 쌓임
+                        // ✅ CLEAR_TOP 추가: singleTask Activity가 이미 있으면 onNewIntent() 호출
+                        //    FLAG_ACTIVITY_NEW_TASK: applicationContext에서 시작하므로 필수
+                        //    FLAG_ACTIVITY_CLEAR_TOP: 기존 인스턴스 위의 Activity 제거
+                        //    FLAG_ACTIVITY_SINGLE_TOP: 기존 인스턴스 재사용 (onNewIntent)
                         addFlags(
                                 Intent.FLAG_ACTIVITY_NEW_TASK or
+                                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
                                         Intent.FLAG_ACTIVITY_SINGLE_TOP
                         )
                     }

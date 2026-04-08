@@ -24,6 +24,7 @@ class SmartLocationManager private constructor(private val context: Context) {
         private const val PREFS_NAME = "smart_location_prefs"
         private const val KEY_ALARM_PLACES = "alarm_places"
         private const val KEY_PENDING_EVENTS = "pending_geofence_events"
+        private const val KEY_PENDING_TRANSITIONS = "pending_activity_transitions"
 
         @Volatile private var instance: SmartLocationManager? = null
 
@@ -156,7 +157,8 @@ class SmartLocationManager private constructor(private val context: Context) {
         Log.d(TAG, "🚶 ActivityTransition: ${if (isMoving) "이동 시작" else "정지"}")
 
         if (flutterChannel == null) {
-            Log.w(TAG, "⚠️ flutterChannel null — ActivityTransition 전달 불가")
+            Log.w(TAG, "⚠️ flutterChannel null — ActivityTransition 보류 이벤트 저장")
+            savePendingActivityTransition(isMoving)
             return
         }
 
@@ -281,41 +283,106 @@ class SmartLocationManager private constructor(private val context: Context) {
             val pendingJson = prefs.getString(KEY_PENDING_EVENTS, "[]")
             val pendingArray = JSONArray(pendingJson)
 
-            if (pendingArray.length() == 0) return
+            if (pendingArray.length() == 0) {
+                Log.d(TAG, "📬 보류 지오펜스 이벤트 없음")
+            } else {
+                Log.d(TAG, "📬 보류 지오펜스 이벤트 ${pendingArray.length()}개 전달 시작")
 
-            Log.d(TAG, "📬 보류 이벤트 ${pendingArray.length()}개 전달 시작")
-
-            val mainHandler = Handler(Looper.getMainLooper())
-            for (i in 0 until pendingArray.length()) {
-                val event = pendingArray.getJSONObject(i)
-                mainHandler.postDelayed(
-                        {
-                            try {
-                                flutterChannel?.invokeMethod(
-                                        "onNativeSignal",
-                                        mapOf(
-                                                "type" to "geofence",
-                                                "placeId" to event.getString("placeId"),
-                                                "placeName" to event.getString("placeName"),
-                                                "isEnter" to event.getBoolean("isEnter"),
-                                                "timestamp" to event.getLong("timestamp"),
-                                                "wasPending" to true
-                                        )
-                                )
-                                Log.d(TAG, "✅ 보류 이벤트 전달: ${event.getString("placeName")}")
-                            } catch (e: Exception) {
-                                Log.e(TAG, "❌ 보류 이벤트 전달 실패: ${e.message}")
-                            }
-                        },
-                        (i * 500L) + 1000L // 1초 후부터 0.5초 간격
-                )
+                val totalEvents = pendingArray.length()
+                val mainHandler = Handler(Looper.getMainLooper())
+                for (i in 0 until totalEvents) {
+                    val event = pendingArray.getJSONObject(i)
+                    val isLast = (i == totalEvents - 1)
+                    mainHandler.postDelayed(
+                            {
+                                try {
+                                    flutterChannel?.invokeMethod(
+                                            "onNativeSignal",
+                                            mapOf(
+                                                    "type" to "geofence",
+                                                    "placeId" to event.getString("placeId"),
+                                                    "placeName" to event.getString("placeName"),
+                                                    "isEnter" to event.getBoolean("isEnter"),
+                                                    "timestamp" to event.getLong("timestamp"),
+                                                    "wasPending" to true
+                                            )
+                                    )
+                                    Log.d(TAG, "✅ 보류 이벤트 전달: ${event.getString("placeName")}")
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "❌ 보류 이벤트 전달 실패: ${e.message}")
+                                }
+                                // ✅ 마지막 이벤트 전달 후 보류 목록 삭제 (조기 삭제 방지)
+                                if (isLast) {
+                                    prefs.edit().remove(KEY_PENDING_EVENTS).apply()
+                                    Log.d(TAG, "🗑️ 보류 지오펜스 이벤트 목록 초기화")
+                                }
+                            },
+                            (i * 500L) + 1000L // 1초 후부터 0.5초 간격
+                    )
+                }
             }
 
-            // 전달 후 보류 이벤트 삭제
-            prefs.edit().remove(KEY_PENDING_EVENTS).apply()
-            Log.d(TAG, "🗑️ 보류 이벤트 목록 초기화")
+            // ✅ ActivityTransition 보류 이벤트도 전달
+            deliverPendingActivityTransitions()
         } catch (e: Exception) {
             Log.e(TAG, "❌ 보류 이벤트 전달 실패: ${e.message}")
+        }
+    }
+
+    // ========== ActivityTransition 보류 이벤트 저장/전달 ==========
+
+    /** flutterChannel null일 때 ActivityTransition 이벤트 저장 */
+    private fun savePendingActivityTransition(isMoving: Boolean) {
+        try {
+            val pendingJson = prefs.getString(KEY_PENDING_TRANSITIONS, "[]")
+            val pendingArray = JSONArray(pendingJson)
+
+            val event = JSONObject().apply {
+                put("isMoving", isMoving)
+                put("timestamp", System.currentTimeMillis())
+            }
+            pendingArray.put(event)
+
+            prefs.edit().putString(KEY_PENDING_TRANSITIONS, pendingArray.toString()).apply()
+            Log.d(TAG, "💾 보류 ActivityTransition 저장: isMoving=$isMoving (총 ${pendingArray.length()}개)")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 보류 ActivityTransition 저장 실패: ${e.message}")
+        }
+    }
+
+    /** 보류된 ActivityTransition 이벤트 전달 — 가장 최신 것만 전달 (이동/정지 상태) */
+    private fun deliverPendingActivityTransitions() {
+        try {
+            val pendingJson = prefs.getString(KEY_PENDING_TRANSITIONS, "[]")
+            val pendingArray = JSONArray(pendingJson)
+
+            if (pendingArray.length() == 0) return
+
+            // ✅ 가장 최신 이벤트만 전달 (중간 전이 상태는 무의미)
+            val lastEvent = pendingArray.getJSONObject(pendingArray.length() - 1)
+            Log.d(TAG, "📬 보류 ActivityTransition ${pendingArray.length()}개 중 최신 1개 전달")
+
+            val mainHandler = Handler(Looper.getMainLooper())
+            mainHandler.postDelayed({
+                try {
+                    flutterChannel?.invokeMethod(
+                            "onNativeSignal",
+                            mapOf(
+                                    "type" to "activityTransition",
+                                    "isMoving" to lastEvent.getBoolean("isMoving"),
+                                    "timestamp" to lastEvent.getLong("timestamp"),
+                                    "wasPending" to true
+                            )
+                    )
+                    Log.d(TAG, "✅ 보류 ActivityTransition 전달: isMoving=${lastEvent.getBoolean("isMoving")}")
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ 보류 ActivityTransition 전달 실패: ${e.message}")
+                }
+                prefs.edit().remove(KEY_PENDING_TRANSITIONS).apply()
+                Log.d(TAG, "🗑️ 보류 ActivityTransition 목록 초기화")
+            }, 2000L) // 지오펜스 이벤트 이후 전달
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 보류 ActivityTransition 전달 실패: ${e.message}")
         }
     }
 }

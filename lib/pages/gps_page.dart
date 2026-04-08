@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ringinout/pages/admin_dashboard_page.dart';
 import 'package:ringinout/services/app_log_buffer.dart';
 import 'package:ringinout/services/hive_helper.dart';
@@ -20,6 +21,9 @@ class GpsPage extends StatefulWidget {
 }
 
 class _GpsPageState extends State<GpsPage> {
+  // ── 개발자 모드 (Firestore 기반) ──
+  bool _isDevUser = false;
+
   // ── GPS ──
   Position? _pos;
   DateTime? _lastGps;
@@ -41,9 +45,28 @@ class _GpsPageState extends State<GpsPage> {
   @override
   void initState() {
     super.initState();
+    _checkDevUser();
     _startGpsStream();
     _fetchGps();
     _startAutoRefresh();
+  }
+
+  /// Firestore admin_config/special_users 기반 개발자 여부 체크
+  Future<void> _checkDevUser() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+      final doc = await FirebaseFirestore.instance
+          .collection('admin_config')
+          .doc('special_users')
+          .get();
+      if (doc.exists) {
+        final uids = List<String>.from(doc.data()?['uids'] ?? []);
+        if (uids.contains(uid) && mounted) {
+          setState(() => _isDevUser = true);
+        }
+      }
+    } catch (_) {}
   }
 
   @override
@@ -255,9 +278,8 @@ class _GpsPageState extends State<GpsPage> {
               ? AppBar(
                 title: const Text('GPS 디버그'),
                 actions: [
-                  // 어드민 버튼 — dev UID만 표시
-                  if (FirebaseAuth.instance.currentUser?.uid ==
-                      'IPf2TW0c62et7bwi8B5hZGyKLlc2')
+                  // 어드민 버튼 — Firestore 기반 개발자 계정만 표시
+                  if (_isDevUser)
                     IconButton(
                       onPressed:
                           () => Navigator.push(
@@ -282,23 +304,20 @@ class _GpsPageState extends State<GpsPage> {
         child: ListView(
           padding: const EdgeInsets.all(12),
           children: [
-            // 어드민 카드 — showAppBar 여부와 무관하게 dev UID일 때 항상 표시
-            if (FirebaseAuth.instance.currentUser?.uid ==
-                'IPf2TW0c62et7bwi8B5hZGyKLlc2')
+            // 어드민 카드 — Firestore 기반 개발자 계정일 때 표시
+            if (_isDevUser)
               _buildAdminCard(),
             _buildGpsCard(),
             const SizedBox(height: 12),
             // LMS v3 상태 — dev only
-            if (FirebaseAuth.instance.currentUser?.uid ==
-                'IPf2TW0c62et7bwi8B5hZGyKLlc2') ...[
+            if (_isDevUser) ...[
               _buildServiceCard(),
               const SizedBox(height: 12),
             ],
             _buildPlaceStatesCard(),
             const SizedBox(height: 12),
             // 강제 테스트 — dev only
-            if (FirebaseAuth.instance.currentUser?.uid ==
-                'IPf2TW0c62et7bwi8B5hZGyKLlc2') ...[
+            if (_isDevUser) ...[
               _buildForceTestCard(),
               const SizedBox(height: 12),
             ],
