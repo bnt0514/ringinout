@@ -489,6 +489,33 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
   /// 외부(AlarmPage)에서 정렬 다이얼로그 호출용
   static void showSortDialog() => _instance?._showSortOptions();
 
+  /// 알람 그룹의 장소가 Wi-Fi 등록되어 있는지 확인
+  bool _placeGroupHasWifi(
+    List<MapEntry<int, Map<String, dynamic>>> groupAlarms,
+  ) {
+    if (groupAlarms.isEmpty) return false;
+    final alarm = groupAlarms.first.value;
+
+    // 1) placeId로 먼저 조회
+    final placeId = alarm['placeId']?.toString();
+    if (placeId != null && placeId.isNotEmpty) {
+      if (HiveHelper.getWifiNetworksForPlace(placeId).isNotEmpty) return true;
+    }
+
+    // 2) 장소명으로 폴백 조회 (placeId가 없거나 매칭 실패 시)
+    final placeName =
+        (alarm['place'] ?? alarm['locationName'] ?? '').toString();
+    if (placeName.isEmpty) return false;
+    final places = HiveHelper.getSavedLocations();
+    for (final place in places) {
+      final pName = (place['name'] ?? '').toString();
+      if (pName == placeName) {
+        if (HiveHelper.placeHasWifi(place)) return true;
+      }
+    }
+    return false;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -746,6 +773,7 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
                         selectedIndexes: selectedIndexes,
                         isSelectionMode: _controller.isSelectionMode.value,
                         alarmLimit: alarmLimit,
+                        hasWifi: _placeGroupHasWifi(groupAlarms),
                         onSelect: _controller.toggleSelection,
                         onTap: _handleAlarmTap,
                       );
@@ -952,6 +980,7 @@ class _PlaceGroupCard extends StatefulWidget {
   final Set<int> selectedIndexes;
   final bool isSelectionMode;
   final int? alarmLimit;
+  final bool hasWifi;
   final Function(int) onSelect;
   final Function(int) onTap;
 
@@ -961,6 +990,7 @@ class _PlaceGroupCard extends StatefulWidget {
     required this.selectedIndexes,
     required this.isSelectionMode,
     required this.alarmLimit,
+    this.hasWifi = false,
     required this.onSelect,
     required this.onTap,
   });
@@ -1008,6 +1038,15 @@ class _PlaceGroupCardState extends State<_PlaceGroupCard> {
               child: Row(
                 children: [
                   Icon(Icons.place, color: AppColors.primary, size: 22),
+                  if (widget.hasWifi)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Icon(
+                        Icons.wifi,
+                        color: AppColors.primary.withValues(alpha: 0.7),
+                        size: 16,
+                      ),
+                    ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(

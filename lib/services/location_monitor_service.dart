@@ -69,10 +69,18 @@ class LocationMonitorService {
   bool _isRunning = false;
   Timer? _watchdogTimer;
   Timer? _snoozeTimer;
+  Timer? _gpsStateCheckTimer;
   Position? _currentPosition;
 
   /// 알람별 v3 상태 (key = alarmId UUID)
   final Map<String, PlaceState> _placeStates = {};
+
+  /// GPS ENTER 후 Wi-Fi 연결 대기 중인 장소 (placeId Set)
+  /// Wi-Fi 등록 장소에서 GPS ENTER가 먼저 발생 → Wi-Fi ENTER 시 알람 발동 허용
+  final Set<String> _pendingGpsEntryPlaces = {};
+
+  /// Wi-Fi 연결 대기 타이머: GPS ENTER 후 15분 내 Wi-Fi 미연결 → GPS 보조 알람
+  final Map<String, Timer> _wifiWaitTimers = {};
 
   /// Init Guard: 앱 시작 후 5초간 ENTER 억제
   DateTime? _initGuardUntil;
@@ -227,6 +235,7 @@ class LocationMonitorService {
 
     _startSnoozeChecker(onTrigger);
     _startWatchdogHeartbeat();
+    _startGpsStateCheckTimer();
 
     _isRunning = true;
     await _saveServiceState(true);
@@ -242,6 +251,14 @@ class LocationMonitorService {
     _watchdogTimer = null;
     _snoozeTimer?.cancel();
     _snoozeTimer = null;
+    _gpsStateCheckTimer?.cancel();
+    _gpsStateCheckTimer = null;
+    // Wi-Fi 대기 타이머 전체 취소
+    for (final timer in _wifiWaitTimers.values) {
+      timer.cancel();
+    }
+    _wifiWaitTimers.clear();
+    _pendingGpsEntryPlaces.clear();
     _isRunning = false;
     _isCurrentlyMoving = false;
     _onTriggerCallback = null;
@@ -358,8 +375,26 @@ class LocationMonitorService {
       return;
     }
 
-    // OUTSIDE → ENTER: 즉시 알람!
-    _log('🎯 [$placeId] OUTSIDE → ENTER → 즉시 알람!');
+    // OUTSIDE → ENTER
+    // Wi-Fi가 등록된 장소면: 상태만 insideIdle로 변경, 알람은 Wi-Fi 연결 확인 후 발동
+    final wifiNetworks = HiveHelper.getWifiNetworksForPlace(placeId);
+    if (wifiNetworks.isNotEmpty) {
+      _log(
+        '📡 [$placeId] GPS ENTER — Wi-Fi 등록 장소 → 상태 insideIdle, 알람은 Wi-Fi 연결 대기',
+      );
+      _setStatesForAlarms(alarmIds, PlaceState.insideIdle);
+
+      // ★ pendingGpsEntry 기록 → Wi-Fi ENTER 시 insideIdle이어도 알람 발동 허용
+      _pendingGpsEntryPlaces.add(placeId);
+      _log('📌 [$placeId] pendingGpsEntry 등록 — Wi-Fi ENTER 대기');
+
+      // ★ 15분 Wi-Fi 대기 타이머 시작
+      _startWifiWaitTimer(placeId);
+      return;
+    }
+
+    // Wi-Fi 미등록 장소: 즉시 알람!
+    _log('🎯 [$placeId] OUTSIDE → ENTER → 즉시 알람! (Wi-Fi 미등록)');
     _setStatesForAlarms(alarmIds, PlaceState.insideIdle);
     _processEntryAlarm(placeId);
   }
@@ -377,6 +412,105 @@ class LocationMonitorService {
     // INSIDE_IDLE 또는 INSIDE_MOVING → 지오펜스 EXIT 수신
     // 즉시 EXIT 알람 + OUTSIDE 전환
     _log('🎯 [$placeId] ${currentState.name} → 지오펜스 EXIT → 즉시 진출 처리!');
+    _setStatesForAlarms(alarmIds, PlaceState.outside);
+    _evaluateMovingGpsNeed();
+    _processExitAlarm(placeId);
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  핵심: Wi-Fi 이벤트 수신 (GPS와 독립 — 6-gate가 중복 방지)
+  // ═══════════════════════════════════════════════════════════
+
+  /// Wi-Fi 기반 장소 진입/진출 이벤트
+  /// GPS 지오펜스와 동일한 경로로 처리 — 6-gate validation이 중복 알람을 방지
+  void onWifiEvent(String placeId, bool isEnter) {
+    if (!_isRunning) return;
+
+    _log('📶 Wi-Fi: $placeId ${isEnter ? "ENTER" : "EXIT"}');
+
+    final activeAlarms = HiveHelper.getActiveAlarmsForMonitoring();
+    final alarmIds = _getAlarmIdsForPlace(placeId, activeAlarms);
+
+    if (alarmIds.isEmpty) {
+      _log('⚠️ Wi-Fi placeId "$placeId" 에 연결된 활성 알람 없음');
+      return;
+    }
+
+    if (isEnter) {
+      _handleWifiEnter(placeId, alarmIds);
+    } else {
+      _handleWifiExit(placeId, alarmIds);
+    }
+  }
+
+  /// Wi-Fi 하드웨어 ON/OFF 이벤트
+  /// Wi-Fi OFF 시: GPS 폴백만 남음 (별도 처리 불필요, 이미 지오펜스가 동작 중)
+  void onWifiHardwareChanged(bool isEnabled) {
+    if (!_isRunning) return;
+
+    _log('📶 Wi-Fi 하드웨어: ${isEnabled ? "ON ✅" : "OFF ⚠️"}');
+
+    if (!isEnabled) {
+      _log('📶 Wi-Fi OFF → GPS 지오펜스만으로 모니터링 계속');
+      // Wi-Fi OFF일 때는 GPS 지오펜스가 이미 독립적으로 동작 중
+      // 추가 처리 불필요 (persistent notification 경고는 UI에서 처리)
+    }
+  }
+
+  // ─── Wi-Fi ENTER 처리 ───
+
+  void _handleWifiEnter(String placeId, List<String> alarmIds) {
+    // Init Guard 체크 (GPS와 동일)
+    if (_initGuardUntil != null && DateTime.now().isBefore(_initGuardUntil!)) {
+      _log('🛡️ Init Guard — Wi-Fi ENTER 무시, INSIDE_IDLE 설정: $placeId');
+      _setStatesForAlarms(alarmIds, PlaceState.insideIdle);
+      return;
+    }
+
+    final currentState = _getAggregatePlaceState(alarmIds);
+
+    // ★ GPS ENTER가 먼저 발생하여 insideIdle로 바뀐 경우:
+    //   pendingGpsEntry에 등록되어 있으면 Wi-Fi ENTER로 알람 발동!
+    if (currentState != PlaceState.outside) {
+      if (_pendingGpsEntryPlaces.contains(placeId)) {
+        // GPS가 먼저 상태를 insideIdle로 바꿔놓았고, 이제 Wi-Fi도 확인됨 → 알람!
+        // ★ 타이머/pending 정리는 _triggerAlarm 에서 알람 실제 발동 후 수행
+        //   만약 _processEntryAlarm 게이트에서 전부 차단되면 타이머가 살아있어
+        //   15분 후 GPS 보조가 재시도함 (안전망)
+        _log(
+          '📶 [$placeId] Wi-Fi ENTER — GPS 대기 해소! (${currentState.name}) → 진입 알람 발동',
+        );
+        _processEntryAlarm(placeId);
+        return;
+      }
+      // 일반적인 INSIDE 상태 (Wi-Fi 끊겼다 재연결 등) → 알람 없음
+      _log(
+        '⏭️ [$placeId] Wi-Fi ENTER — 이미 INSIDE (${currentState.name}), 상태 유지',
+      );
+      return;
+    }
+
+    // OUTSIDE → Wi-Fi ENTER: 상태를 insideIdle로 복원
+    // 알람 발동은 _processEntryAlarm의 gate(cooldown/triggered_today)에 위임
+    // → 방금 진출 알람이 울렸으면 쿨다운으로 자동 차단됨
+    // ★ 타이머/pending 정리는 _triggerAlarm 에서 알람 실제 발동 후 수행
+    _log('📶 [$placeId] Wi-Fi ENTER (OUTSIDE→INSIDE_IDLE) — 진입 알람 gate 체크 위임');
+    _setStatesForAlarms(alarmIds, PlaceState.insideIdle);
+    _processEntryAlarm(placeId);
+  }
+
+  // ─── Wi-Fi EXIT 처리 ───
+
+  void _handleWifiExit(String placeId, List<String> alarmIds) {
+    final currentState = _getAggregatePlaceState(alarmIds);
+
+    if (currentState == PlaceState.outside) {
+      _log('⏭️ [$placeId] Wi-Fi EXIT — 이미 OUTSIDE');
+      return;
+    }
+
+    // INSIDE → Wi-Fi EXIT (이미 5s×3 디바운스 완료)
+    _log('🎯 [$placeId] Wi-Fi EXIT → 즉시 진출 처리!');
     _setStatesForAlarms(alarmIds, PlaceState.outside);
     _evaluateMovingGpsNeed();
     _processExitAlarm(placeId);
@@ -1058,6 +1192,17 @@ class LocationMonitorService {
 
     _log('✅ 알람 트리거: ${alarmData['name']} ($trigger)');
 
+    // ★ 알람 실제 발동 확인 → Wi-Fi 대기 타이머 + pending GPS 정리
+    //   WiFi ENTER 시점이 아닌, 알람이 진짜 울린 후에만 정리하여
+    //   WiFi 연결됐지만 gate에 의해 알람 미발동 시 15분 GPS 보조가 살아남음
+    {
+      final triggerPlaceId = alarmData['placeId']?.toString();
+      if (triggerPlaceId != null) {
+        _pendingGpsEntryPlaces.remove(triggerPlaceId);
+        _cancelWifiWaitTimer(triggerPlaceId);
+      }
+    }
+
     // 트리거 직후 중복 방지 쿨다운 (10초)
     // ★ 'cooldown_until_' 키 사용 — 트리거 직후 중복 방지 (10초)
     if (alarmId is String) {
@@ -1098,26 +1243,16 @@ class LocationMonitorService {
       _log('❌ 트리거 카운트 실패: $e');
     }
 
-    // ★ 알람 즉시 비활성화 — 일회성 알람만 (반복 알람은 enabled 유지)
+    // ★ 알람 비활성화는 사용자가 "알람 종료" 버튼을 눌렀을 때만 수행
+    //   (full_screen_alarm_page._disableAlarm / AlarmFullscreenActivity.dismissAlarm)
+    //   여기서 즉시 비활성화하면 오발동 시 알람이 꺼진 채로 남게 됨
     if (alarmId is String) {
-      try {
-        final repeat = alarmData['repeat'];
-        final isRepeat = (repeat is List && repeat.isNotEmpty);
-        if (!isRepeat) {
-          // 일회성(최초/특정날짜) 알람 → 즉시 비활성화
-          final box = HiveHelper.alarmBox;
-          final current = box.get(alarmId);
-          if (current != null) {
-            final updated = Map<String, dynamic>.from(current);
-            updated['enabled'] = false;
-            await box.put(alarmId, updated);
-          }
-          _log('🔕 일회성 알람 즉시 비활성화: ${alarmData['name']}');
-        } else {
-          _log('🔄 반복 알람 — enabled 유지: ${alarmData['name']}');
-        }
-      } catch (e) {
-        _log('⚠️ 알람 비활성화 실패: $e');
+      final repeat = alarmData['repeat'];
+      final isRepeat = (repeat is List && repeat.isNotEmpty);
+      if (!isRepeat) {
+        _log('📋 일회성 알람 트리거 — 비활성화는 사용자 종료 시에만: ${alarmData['name']}');
+      } else {
+        _log('🔄 반복 알람 — enabled 유지: ${alarmData['name']}');
       }
     }
 
@@ -1448,6 +1583,194 @@ class LocationMonitorService {
   }
 
   // ═══════════════════════════════════════════════════════════
+  //  Wi-Fi 연결 대기 GPS 보조 타이머 (15분)
+  // ═══════════════════════════════════════════════════════════
+
+  /// GPS ENTER 후 Wi-Fi 연결을 15분 대기. 미연결 시 GPS 위치 재확인하여 보조 알람.
+  void _startWifiWaitTimer(String placeId) {
+    _cancelWifiWaitTimer(placeId); // 기존 타이머 취소
+
+    _log('⏱️ [$placeId] Wi-Fi 대기 타이머 시작 (15분)');
+    _wifiWaitTimers[placeId] = Timer(
+      const Duration(minutes: 15),
+      () => _onWifiWaitTimeout(placeId),
+    );
+  }
+
+  void _cancelWifiWaitTimer(String placeId) {
+    final timer = _wifiWaitTimers.remove(placeId);
+    if (timer != null) {
+      timer.cancel();
+      _log('⏱️ [$placeId] Wi-Fi 대기 타이머 취소');
+    }
+  }
+
+  /// 15분 Wi-Fi 대기 타임아웃 → GPS 위치 재확인
+  Future<void> _onWifiWaitTimeout(String placeId) async {
+    _wifiWaitTimers.remove(placeId);
+
+    if (!_isRunning) return;
+    if (!_pendingGpsEntryPlaces.contains(placeId)) {
+      _log('⏱️ [$placeId] Wi-Fi 대기 만료 — 이미 해소됨, 스킵');
+      return;
+    }
+
+    _log('⏱️ [$placeId] Wi-Fi 대기 15분 만료 — GPS 위치 재확인');
+
+    try {
+      final position = await _getPosition(timeout: const Duration(seconds: 10));
+
+      if (!isTestMode && position.accuracy > 100.0) {
+        _log(
+          '⏱️ [$placeId] GPS 정확도 부족 (${position.accuracy.toInt()}m) — 보조 알람 스킵',
+        );
+        _pendingGpsEntryPlaces.remove(placeId);
+        return;
+      }
+
+      // 장소 반경 체크
+      final placeInfo = await _getPlaceInfo(placeId);
+      if (placeInfo == null) {
+        _log('⏱️ [$placeId] 장소 정보 없음 — 보조 알람 스킵');
+        _pendingGpsEntryPlaces.remove(placeId);
+        return;
+      }
+
+      final lat = _toDouble(placeInfo['latitude'] ?? placeInfo['lat']);
+      final lng = _toDouble(placeInfo['longitude'] ?? placeInfo['lng']);
+      final radius = _toDouble(
+        placeInfo['radius'] ?? placeInfo['geofenceRadius'] ?? 100,
+      );
+
+      final distance = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        lat,
+        lng,
+      );
+
+      _pendingGpsEntryPlaces.remove(placeId);
+
+      if (distance <= radius + position.accuracy) {
+        _log(
+          '⏱️ [$placeId] GPS 확인: 반경 내 (${distance.toInt()}m ≤ ${(radius + position.accuracy).toInt()}m) '
+          '→ GPS 보조 진입 알람 발동!',
+        );
+        _processEntryAlarm(placeId);
+      } else {
+        _log(
+          '⏱️ [$placeId] GPS 확인: 반경 밖 (${distance.toInt()}m > ${(radius + position.accuracy).toInt()}m) '
+          '→ 보조 알람 없음',
+        );
+      }
+    } catch (e) {
+      _log('⏱️ [$placeId] Wi-Fi 대기 GPS 확인 실패: $e');
+      _pendingGpsEntryPlaces.remove(placeId);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  GPS 주기적 상태 재판단 (10분마다)
+  // ═══════════════════════════════════════════════════════════
+
+  /// 10분마다 현재 GPS 위치로 모든 장소의 inside/outside 상태를 재판단
+  void _startGpsStateCheckTimer() {
+    _gpsStateCheckTimer?.cancel();
+    _gpsStateCheckTimer = Timer.periodic(
+      const Duration(minutes: 10),
+      (_) => _doGpsStateCheck(),
+    );
+    // 첫 실행은 30초 후 (Init Guard 지나고)
+    Future.delayed(const Duration(seconds: 30), () {
+      if (_isRunning) _doGpsStateCheck();
+    });
+  }
+
+  Future<void> _doGpsStateCheck() async {
+    if (!_isRunning) return;
+
+    try {
+      final position = await _getPosition(timeout: const Duration(seconds: 10));
+      _currentPosition = position;
+      if (!_positionController.isClosed) {
+        _positionController.add(position);
+      }
+
+      if (!isTestMode && position.accuracy > 100.0) {
+        _log('📡 GPS 상태체크: 정확도 부족 (${position.accuracy.toInt()}m) — 스킵');
+        return;
+      }
+
+      _log('📡 GPS 상태체크 시작 (accuracy=${position.accuracy.toInt()}m)');
+
+      final activeAlarms = HiveHelper.getActiveAlarmsForMonitoring();
+      final places = _extractAlarmedPlaces(activeAlarms);
+
+      for (final alarm in activeAlarms) {
+        final alarmId = alarm['id'] as String?;
+        if (alarmId == null) continue;
+
+        final currentState = _placeStates[alarmId];
+        if (currentState == null) continue;
+
+        final placeName = (alarm['place'] ?? alarm['locationName']) as String?;
+        final placeId = alarm['placeId']?.toString();
+
+        final place = places.firstWhere(
+          (p) =>
+              (placeId != null && p['id']?.toString() == placeId) ||
+              p['name'] == placeName,
+          orElse: () => <String, dynamic>{},
+        );
+        if (place.isEmpty) continue;
+
+        final lat = _toDouble(place['latitude'] ?? place['lat']);
+        final lng = _toDouble(place['longitude'] ?? place['lng']);
+        final radius = _toDouble(
+          place['radius'] ?? place['geofenceRadius'] ?? 100,
+        );
+
+        final distance = Geolocator.distanceBetween(
+          position.latitude,
+          position.longitude,
+          lat,
+          lng,
+        );
+
+        final shouldBeInside = distance <= radius;
+        final isCurrentlyInside = currentState != PlaceState.outside;
+
+        if (shouldBeInside && !isCurrentlyInside) {
+          // GPS상 반경 내인데 outside 상태 → insideIdle로 복원
+          _log(
+            '📡 [$placeName] GPS 상태체크: 반경 내(${distance.toInt()}m ≤ ${radius.toInt()}m) '
+            '→ OUTSIDE→INSIDE_IDLE 복원',
+          );
+          _setPlaceState(alarmId, PlaceState.insideIdle);
+        } else if (!shouldBeInside && isCurrentlyInside) {
+          // GPS상 반경 밖인데 inside 상태 → outside로 변경
+          // 단, 버퍼 추가 (exitBuffer + accuracy)
+          final exitThreshold = radius + _exitBufferMeters + position.accuracy;
+          if (distance > exitThreshold) {
+            _log(
+              '📡 [$placeName] GPS 상태체크: 반경 밖(${distance.toInt()}m > ${exitThreshold.toInt()}m) '
+              '→ ${currentState.name}→OUTSIDE',
+            );
+            _setPlaceState(alarmId, PlaceState.outside);
+          }
+        }
+      }
+
+      _evaluateMovingGpsNeed();
+      _log('📡 GPS 상태체크 완료');
+    } on TimeoutException {
+      _log('📡 GPS 상태체크: 타임아웃');
+    } catch (e) {
+      _log('📡 GPS 상태체크 실패: $e');
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
   //  Watchdog Heartbeat
   // ═══════════════════════════════════════════════════════════
 
@@ -1470,6 +1793,8 @@ class LocationMonitorService {
       await _watchdogChannel.invokeMethod('sendHeartbeat', {
         'activeAlarmsCount': activeCount,
       });
+      // ✅ heartbeat 성공 = 서비스 살아있음 → 오탐 알림(7777) 자동 취소
+      await _watchdogChannel.invokeMethod('cancelDeathNotification');
       if (activeCount == 0) {
         await _watchdogChannel.invokeMethod('stopWatchdog');
       } else {

@@ -512,18 +512,19 @@ class AlarmFullscreenActivity : Activity() {
         }
 
         // alarm_disabled 플래그 설정 안 함 — 알람 enabled 유지
-        // native_alarm_active 플래그 클리어 + 당일 트리거 기록/쿨다운 초기화
+        // native_alarm_active 플래그 클리어 + 당일 트리거 기록 초기화
+        // ★ cooldown은 Flutter(_onFalseTrigger)에서 30초로 재설정 — 여기서는 건드리지 않음
         val flutterPrefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
         flutterPrefs.edit().apply {
             remove("flutter.native_alarm_active")
             remove("flutter.native_alarm_title")
             remove("flutter.native_alarm_place_id")
             remove("flutter.native_alarm_id")
-            // ★ 오발동 = 트리거 안 된 것으로 처리 → 당일 트리거 기록 + 쿨다운 초기화
+            // 오발동 = 트리거 안 된 것으로 처리 → 당일 트리거 기록만 초기화
+            // cooldown은 Flutter에서 30초로 재설정하므로 여기서는 제거하지 않음
             if (alarmKey.isNotEmpty()) {
                 remove("flutter.alarm_triggered_date_$alarmKey")
-                remove("flutter.cooldown_until_$alarmKey")
-                Log.d("AlarmFullscreen", "⚡ 당일 트리거 기록 + 쿨다운 초기화: $alarmKey")
+                Log.d("AlarmFullscreen", "⚡ 당일 트리거 기록 초기화 (cooldown은 Flutter에서 30초 유지): $alarmKey")
             }
             apply()
         }
@@ -646,6 +647,14 @@ class AlarmFullscreenActivity : Activity() {
             Log.e("AlarmFullscreen", "❌ 영구 알림 제거 실패: ${e.message}")
         }
 
+        // ✅ alarm_dismissing 플래그 설정 (AppDeathDetectorService 오작동 방지)
+        try {
+            val watchdogPrefs = getSharedPreferences("ringinout_watchdog", Context.MODE_PRIVATE)
+            watchdogPrefs.edit().putBoolean("alarm_dismissing", true).apply()
+        } catch (e: Exception) {
+            Log.e("AlarmFullscreen", "⚠️ alarm_dismissing 플래그 설정 실패: ${e.message}")
+        }
+
         // ✅ 앱 메인화면(MainActivity)으로 복귀
         // ⚠️ startActivity() 호출 시 onUserLeaveHint()가 트리거되므로
         // isAlarmDismissing 플래그로 native_alarm_active 재설정 방지
@@ -653,18 +662,18 @@ class AlarmFullscreenActivity : Activity() {
 
         val mainIntent =
                 Intent(this, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    // ⚠️ FLAG_ACTIVITY_NEW_TASK 필수: AlarmFullscreenActivity는 별도 taskAffinity를 가지므로
+                    //    NEW_TASK 없이 startActivity하면 알람 task 안에 새 MainActivity가 생성됨
+                    //    NEW_TASK + CLEAR_TOP + SINGLE_TOP = 기존 MainActivity task의 기존 인스턴스로 복귀
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                 }
         startActivity(mainIntent)
 
-        // ✅ Activity 종료 — finishAndRemoveTask()로 태스크 잔여도 완전 제거
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            finishAndRemoveTask()
-        } else {
-            finish()
-        }
+        // ✅ Activity 종료 — finish()만 사용 (finishAndRemoveTask는 onTaskRemoved 오발동 유발)
+        // excludeFromRecents="true" 설정이므로 최근 앱 목록에 남지 않음
+        finish()
 
-        Log.d("AlarmFullscreen", "✅ 앱 메인화면으로 복귀 (finishAndRemoveTask)")
+        Log.d("AlarmFullscreen", "✅ 앱 메인화면으로 복귀 (finish)")
     }
 
     @Suppress("DEPRECATION")

@@ -16,6 +16,8 @@ class PermissionManager {
     await ph.Permission.location.request();
     await ph.Permission.locationAlways.request();
     await ph.Permission.activityRecognition.request();
+    // Android 13+ Wi-Fi SSID/BSSID 조회에 필요
+    await ph.Permission.nearbyWifiDevices.request();
   }
 
   /// Request notification permissions

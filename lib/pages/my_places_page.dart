@@ -27,6 +27,12 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
   List<MapEntry<int, Map<String, dynamic>>> items = [];
   SubscriptionPlan _plan = SubscriptionPlan.free;
 
+  /// 장소에 Wi-Fi 네트워크가 등록되어 있는지 확인
+  bool _placeHasWifi(Map<String, dynamic> place) {
+    final wifi = place['wifiNetworks'];
+    return wifi is List && wifi.isNotEmpty;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -382,14 +388,31 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
                                                     fontSize: 12,
                                                   ),
                                                 )
-                                                : Text(
-                                                  l10n.getWithArgs(
-                                                    'radius_display',
-                                                    {
-                                                      'radius':
-                                                          '${location["radius"] ?? "?"}',
-                                                    },
-                                                  ),
+                                                : Row(
+                                                  children: [
+                                                    Text(
+                                                      l10n.getWithArgs(
+                                                        'radius_display',
+                                                        {
+                                                          'radius':
+                                                              '${location["radius"] ?? "?"}',
+                                                        },
+                                                      ),
+                                                    ),
+                                                    if (_placeHasWifi(
+                                                      location,
+                                                    )) ...[
+                                                      const SizedBox(width: 8),
+                                                      Icon(
+                                                        Icons.wifi,
+                                                        size: 14,
+                                                        color: AppColors.primary
+                                                            .withValues(
+                                                              alpha: 0.7,
+                                                            ),
+                                                      ),
+                                                    ],
+                                                  ],
                                                 ),
                                         onTap: () async {
                                           if (isLocked) {

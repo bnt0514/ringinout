@@ -170,6 +170,32 @@ class HiveHelper {
     }
   }
 
+  /// 장소에 Wi-Fi 네트워크가 등록되어 있는지 확인
+  static bool placeHasWifi(Map<String, dynamic> place) {
+    final wifi = place['wifiNetworks'];
+    return wifi is List && wifi.isNotEmpty;
+  }
+
+  /// placeId로 해당 장소의 Wi-Fi 네트워크 목록 가져오기
+  static List<Map<String, dynamic>> getWifiNetworksForPlace(String placeId) {
+    try {
+      final places = getSavedLocations();
+      final place = places.firstWhere(
+        (p) => p['id']?.toString() == placeId,
+        orElse: () => <String, dynamic>{},
+      );
+      if (place.isEmpty) return [];
+      final wifi = place['wifiNetworks'];
+      if (wifi is List) {
+        return wifi.map((w) => Map<String, dynamic>.from(w as Map)).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('❌ getWifiNetworksForPlace 에러: $e');
+      return [];
+    }
+  }
+
   static Future<void> addLocationAlarm(Map<String, dynamic> alarmData) async {
     try {
       final String id = await saveLocationAlarm(alarmData);
@@ -657,6 +683,14 @@ class HiveHelper {
             : ((fallbackId != null && fallbackId.isNotEmpty)
                 ? fallbackId
                 : _uuid.v4());
+    // Wi-Fi 네트워크 데이터 보존 (List<Map> 형태)
+    if (normalized.containsKey('wifiNetworks')) {
+      final wifi = normalized['wifiNetworks'];
+      if (wifi is List) {
+        normalized['wifiNetworks'] =
+            wifi.map((w) => Map<String, dynamic>.from(w as Map)).toList();
+      }
+    }
     return normalized;
   }
 

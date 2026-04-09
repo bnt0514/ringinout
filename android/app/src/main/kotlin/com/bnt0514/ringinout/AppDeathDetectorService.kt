@@ -9,6 +9,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.bnt0514.ringinout.location.SmartLocationManager
 
 /**
  * 앱 강제 종료 감지 서비스
@@ -63,21 +64,39 @@ class AppDeathDetectorService : Service() {
     /** 🎯 핵심! 멀티태스킹에서 앱을 밀어서 종료하면 호출됨 */
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        Log.d("AppDeathDetector", "⚠️ onTaskRemoved - 앱이 강제 종료됨!")
+        Log.d("AppDeathDetector", "⚠️ onTaskRemoved - 태스크 제거 감지!")
+
+        // ✅ Flutter 엔진이 죽었으므로 flutterChannel 무효화
+        //   이후 Wi-Fi/지오펜스 이벤트가 pending 저장 + 네이티브 폴백으로 전환됨
+        SmartLocationManager.flutterChannel = null
+        Log.d("AppDeathDetector", "🔌 flutterChannel = null (Flutter 엔진 무효화)")
+
+        // ✅ 알람 정상 종료(종료/오발동/스누즈) 중이면 알림 생략
+        val watchdogPrefs = getSharedPreferences("ringinout_watchdog", Context.MODE_PRIVATE)
+        val isDismissing = watchdogPrefs.getBoolean("alarm_dismissing", false)
+        if (isDismissing) {
+            watchdogPrefs.edit().remove("alarm_dismissing").apply()
+            Log.d("AppDeathDetector", "✅ 알람 정상 종료 중 — onTaskRemoved 알림 생략")
+            return
+        }
 
         // 활성 알람이 있는지 확인
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val activeAlarms = prefs.getInt(KEY_ACTIVE_ALARMS, 0)
 
-        if (activeAlarms > 0) {
-            Log.d("AppDeathDetector", "🚨 활성 알람 $activeAlarms 개 있음 - 알림 표시!")
-            showDeathNotification(activeAlarms)
-
-            // 앱 재시작 시도
-            tryRestartApp()
-        } else {
+        if (activeAlarms <= 0) {
             Log.d("AppDeathDetector", "✅ 활성 알람 없음 - 알림 생략")
+            return
         }
+
+        // ✅ 알림만 표시 (앱 재시작 시도하지 않음!)
+        // ⚠️ tryRestartApp() 제거 이유:
+        //   - FLAG_ACTIVITY_NEW_TASK로 새 MainActivity를 생성하면 중복 인스턴스 발생
+        //   - 알람 정상 종료 시에도 alarm_dismissing 타이밍 이슈로 tryRestartApp이 호출될 수 있음
+        //   - 진짜 강제 종료 시에는 ServiceWatchdogReceiver가 5분 주기로 복구 담당
+        //   - 사용자는 알림을 탭해서 앱을 직접 열 수 있음
+        Log.d("AppDeathDetector", "🚨 활성 알람 $activeAlarms 개 있음 - 알림 표시!")
+        showDeathNotification(activeAlarms)
     }
 
     override fun onDestroy() {
@@ -179,19 +198,8 @@ class AppDeathDetectorService : Service() {
         }
     }
 
-    private fun tryRestartApp() {
-        try {
-            val intent =
-                    Intent(this, MainActivity::class.java).apply {
-                        action = "RESTART_FROM_DEATH_DETECTOR"
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                    }
-            startActivity(intent)
-            Log.d("AppDeathDetector", "🔄 앱 재시작 시도")
-        } catch (e: Exception) {
-            Log.e("AppDeathDetector", "❌ 앱 재시작 실패: ${e.message}")
-        }
-    }
+    // ✅ tryRestartApp 제거됨 — 알림의 PendingIntent로만 앱 재시작 가능
+    // 자동 재시작은 ServiceWatchdogReceiver가 담당
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

@@ -56,10 +56,11 @@ class _GpsPageState extends State<GpsPage> {
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;
-      final doc = await FirebaseFirestore.instance
-          .collection('admin_config')
-          .doc('special_users')
-          .get();
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('admin_config')
+              .doc('special_users')
+              .get();
       if (doc.exists) {
         final uids = List<String>.from(doc.data()?['uids'] ?? []);
         if (uids.contains(uid) && mounted) {
@@ -305,8 +306,7 @@ class _GpsPageState extends State<GpsPage> {
           padding: const EdgeInsets.all(12),
           children: [
             // 어드민 카드 — Firestore 기반 개발자 계정일 때 표시
-            if (_isDevUser)
-              _buildAdminCard(),
+            if (_isDevUser) _buildAdminCard(),
             _buildGpsCard(),
             const SizedBox(height: 12),
             // LMS v3 상태 — dev only
@@ -511,9 +511,46 @@ class _GpsPageState extends State<GpsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '🗺️ 장소별 상태',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    '🗺️ 장소별 상태',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                ),
+                SizedBox(
+                  height: 28,
+                  width: 28,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    iconSize: 18,
+                    tooltip: 'GPS 기준 상태 새로고침',
+                    icon: const Icon(Icons.refresh, color: Colors.blueGrey),
+                    onPressed: () async {
+                      final lmsInst = LocationMonitorService.instance;
+                      final savedPlaces = HiveHelper.getSavedLocations();
+                      int updated = 0;
+                      for (final p in savedPlaces) {
+                        final pid = p['id']?.toString();
+                        if (pid != null && pid.isNotEmpty) {
+                          await lmsInst.resetPlaceState(pid);
+                          updated++;
+                        }
+                      }
+                      if (mounted) {
+                        setState(() {});
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('$updated개 장소 상태 갱신 완료'),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             if (ps.isEmpty)

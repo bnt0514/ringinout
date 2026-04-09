@@ -17,6 +17,8 @@ import androidx.core.app.NotificationCompat
 import com.bnt0514.ringinout.AlarmFullscreenActivity
 import com.bnt0514.ringinout.location.AlarmPlace
 import com.bnt0514.ringinout.location.AlarmTriggerType
+import com.bnt0514.ringinout.location.WifiNetwork
+import com.bnt0514.ringinout.location.WifiScanHelper
 import com.bnt0514.ringinout.location.SmartLocationManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -66,6 +68,17 @@ class MainActivity : FlutterActivity() {
                 Log.d("MainActivity", "🔧 Watchdog에서 앱 재시작됨")
                 // 서비스 복구 알림 표시
             }
+            "RESTART_FROM_DEATH_DETECTOR" -> {
+                Log.d("MainActivity", "🔧 앱 종료 감지 알림에서 앱 재시작됨")
+                // 종료 감지 알림(7777) 자동 취소
+                try {
+                    val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                    nm.cancel(7777)
+                    Log.d("MainActivity", "✅ 종료 감지 알림 취소 완료")
+                } catch (e: Exception) {
+                    Log.w("MainActivity", "⚠️ 종료 감지 알림 취소 실패: ${e.message}")
+                }
+            }
             "PLAY_SNOOZE_ALARM" -> {
                 Log.d("MainActivity", "⏰ 스누즈 알람 재생 요청")
                 // 벨소리 재생
@@ -78,6 +91,7 @@ class MainActivity : FlutterActivity() {
         super.onNewIntent(intent)
         Log.d("MainActivity", "🔄 onNewIntent 호출됨")
         handleVoiceAlarmIntent(intent)
+        handleWatchdogRestart(intent)
     }
 
     // 🎤 음성 알람 인텐트 처리
@@ -218,6 +232,23 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    /** Flutter 데이터 맵에서 wifiNetworks 파싱 */
+    private fun parseWifiNetworks(data: Map<String, Any>): List<WifiNetwork> {
+        return try {
+            @Suppress("UNCHECKED_CAST")
+            val wifiList = data["wifiNetworks"] as? List<Map<String, Any>> ?: return emptyList()
+            wifiList.map { w ->
+                WifiNetwork(
+                        ssid = w["ssid"] as? String ?: "",
+                        bssid = w["bssid"] as? String ?: ""
+                )
+            }
+        } catch (e: Exception) {
+            Log.w("MainActivity", "⚠️ wifiNetworks 파싱 실패: ${e.message}")
+            emptyList()
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
@@ -238,6 +269,14 @@ class MainActivity : FlutterActivity() {
                         }
                         "stopWatchdog" -> {
                             ServiceWatchdogReceiver.stopWatchdog(this)
+                            result.success(true)
+                        }
+                        "cancelDeathNotification" -> {
+                            // ✅ 서비스 살아있음 → 오탐 알림(7777) 취소
+                            try {
+                                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                                nm.cancel(7777)
+                            } catch (_: Exception) {}
                             result.success(true)
                         }
                         else -> result.notImplemented()
@@ -455,6 +494,7 @@ class MainActivity : FlutterActivity() {
                                                             ?: 0L,
                                             isTimeSpecified = data["isTimeSpecified"] as? Boolean
                                                             ?: false,
+                                            wifiNetworks = parseWifiNetworks(data),
                                     )
                                 }
                         smartManager.startMonitoring(places)
@@ -493,6 +533,7 @@ class MainActivity : FlutterActivity() {
                                                             ?: 0L,
                                             isTimeSpecified = data["isTimeSpecified"] as? Boolean
                                                             ?: false,
+                                            wifiNetworks = parseWifiNetworks(data),
                                     )
                                 }
                         smartManager.updateAlarmPlaces(places)
@@ -541,6 +582,28 @@ class MainActivity : FlutterActivity() {
                 "stopSimulation" -> {
                     // 린 하이브리드: GPS 시뮬레이터 제거됨
                     result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        // ✅ Wi-Fi 스캔/조회 채널
+        val wifiHelper = WifiScanHelper(applicationContext)
+        MethodChannel(
+                flutterEngine.dartExecutor.binaryMessenger,
+                "com.bnt0514.ringinout/wifi"
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getConnectedWifi" -> {
+                    val connected = wifiHelper.getConnectedWifi()
+                    result.success(connected)
+                }
+                "getSimilarNetworks" -> {
+                    val networks = wifiHelper.getSimilarNetworks()
+                    result.success(networks)
+                }
+                "isWifiEnabled" -> {
+                    result.success(wifiHelper.isWifiEnabled())
                 }
                 else -> result.notImplemented()
             }

@@ -11,6 +11,7 @@ import '../services/map_usage_service.dart';
 import '../services/smart_location_service.dart';
 import '../widgets/unified_map_widget.dart';
 import '../widgets/map_toggle_button.dart';
+import '../widgets/wifi_selector_widget.dart';
 
 class EditPlacePage extends StatefulWidget {
   final Map<String, dynamic> initialData;
@@ -32,6 +33,9 @@ class _EditPlacePageState extends State<EditPlacePage> {
   late UnifiedLatLng _selectedLatLng;
   UnifiedMapController? _mapController;
 
+  // Wi-Fi 네트워크 선택
+  List<Map<String, dynamic>> _selectedWifiNetworks = [];
+
   // Google Maps 전용 마커/서클 상태
   Set<gmap.Marker> _googleMarkers = {};
   Set<gmap.Circle> _googleCircles = {};
@@ -51,6 +55,13 @@ class _EditPlacePageState extends State<EditPlacePage> {
       widget.initialData['lat'] ?? 37.5665,
       widget.initialData['lng'] ?? 126.9780,
     );
+
+    // Wi-Fi 네트워크 초기화
+    final wifi = widget.initialData['wifiNetworks'];
+    if (wifi is List) {
+      _selectedWifiNetworks =
+          wifi.map((w) => Map<String, dynamic>.from(w as Map)).toList();
+    }
   }
 
   void _updateMarker() {
@@ -121,6 +132,7 @@ class _EditPlacePageState extends State<EditPlacePage> {
       'lat': _selectedLatLng.latitude,
       'lng': _selectedLatLng.longitude,
       'radius': _radius,
+      'wifiNetworks': _selectedWifiNetworks,
     };
 
     await HiveHelper.updateLocationAt(widget.index, updatedLocation);
@@ -260,6 +272,18 @@ class _EditPlacePageState extends State<EditPlacePage> {
                 ),
               ),
             ),
+          // ── Wi-Fi 네트워크 선택 섹션 ──
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+            child: WifiSelectorWidget(
+              initialNetworks: _selectedWifiNetworks,
+              onChanged: (networks) {
+                setState(() {
+                  _selectedWifiNetworks = networks;
+                });
+              },
+            ),
+          ),
           Expanded(
             child: Stack(
               children: [

@@ -8,6 +8,7 @@ import 'package:ringinout/services/alarm_notification_helper.dart'; // cancelAll
 import 'package:ringinout/features/navigation/main_navigation.dart'; // ✅ 홈 화면 import
 import 'package:ringinout/services/location_monitor_service.dart'; // ✅ Heartbeat 전송용
 import 'package:ringinout/services/active_alarm_state.dart'; // ✅ 활성 알람 상태 추적
+import 'package:ringinout/services/smart_location_service.dart'; // ✅ 오발동 후 장소 상태 복원
 import 'package:ringinout/services/app_localizations.dart';
 
 class FullScreenAlarmPage extends StatefulWidget {
@@ -397,7 +398,8 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
         print('⚡ 트리거 카운트 원복: $current → ${current - 1}');
       }
 
-      // 3. 당일 트리거 기록 + 쿨다운 초기화 (오발동 = 트리거 안 된 것으로 처리)
+      // 3. 당일 트리거 기록 + 쿨다운 모두 초기화 (오발동 = 트리거 안 된 것으로 처리)
+      //    Wi-Fi 일시 끊김 보호는 WifiMonitorManager의 15초 임계값이 처리함
       try {
         final prefs = await SharedPreferences.getInstance();
         await prefs.remove('alarm_triggered_date_$alarmId');
@@ -424,12 +426,28 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
       } catch (e) {
         print('⚠️ 오발동 알람 복원 실패: $e');
       }
+
+      // 5. ★ LMS 장소 상태를 GPS 기반으로 즉시 재판단
+      //    오발동 = "나는 여전히 여기 있는데 잘못 울렸다" → insideIdle로 복원해야 함
+      //    (outside로 굳어지면 Wi-Fi 재연결 시 진입 알람이 또 울릴 수 있음)
+      try {
+        final placeId =
+            widget.alarmData?['placeId']?.toString() ??
+            widget.alarmData?['place']?.toString() ??
+            widget.alarmData?['locationName']?.toString();
+        if (placeId != null && placeId.isNotEmpty) {
+          await SmartLocationService.clearTriggeredAlarm(placeId);
+          print('⚡ 오발동 — LMS 장소 상태 GPS 기반 재판단: $placeId');
+        }
+      } catch (e) {
+        print('⚠️ 오발동 LMS 상태 복원 실패: $e');
+      }
     }
 
-    // 5. 화면 상태 해제 (enabled 필드는 터치 안 함)
+    // 6. 화면 상태 해제 (enabled 필드는 터치 안 함)
     ActiveAlarmState.clear();
 
-    print('✅ 오발동 처리 완료 - 알람 enabled=true 유지');
+    print('✅ 오발동 처리 완료 - 알람 enabled=true 유지, 상태 재판단 완료');
 
     // 4. 이전 화면으로 복귀 (알람 스택 지원)
     if (!mounted) return;

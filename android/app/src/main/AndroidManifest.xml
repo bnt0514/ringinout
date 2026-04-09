@@ -31,6 +31,13 @@
     <!-- ?�동 ?�식 권한 -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
 
+    <!-- Wi-Fi 감지 권한 -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Android 13+ Wi-Fi 스캔에 필요 -->
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" android:usesPermissionFlags="neverForLocation" />
+
     <!-- ??배터�?최적??무시 (강제 종료 방�?) -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
@@ -52,8 +59,9 @@
         <!-- ??Google Maps Flutter Impeller ?�환??(?�이브리??컴포지?? -->
         <meta-data android:name="io.flutter.embedding.android.EnableImpeller" android:value="false" />
 
-        <!-- MainActivity (???�행 메인) -->
-        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:taskAffinity="" android:theme="@style/LaunchTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" android:hardwareAccelerated="true" android:windowSoftInputMode="adjustResize" android:turnScreenOn="true" android:excludeFromRecents="false">
+        <!-- MainActivity (앱 실행 메인) -->
+        <!-- ⚠️ taskAffinity 제거: 기본 패키지명 affinity 사용 → 앱 런처에서 항상 같은 task로 열림 -->
+        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:theme="@style/LaunchTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" android:hardwareAccelerated="true" android:windowSoftInputMode="adjustResize" android:turnScreenOn="true" android:excludeFromRecents="false">
 
             <!-- ?�림 ?�릭 처리 -->
             <intent-filter>
@@ -69,7 +77,9 @@
         </activity>
 
         <!-- AlarmFullscreenActivity (전체화면 알람 페이지) — singleTask로 onNewIntent() 지원 -->
-        <activity android:name=".AlarmFullscreenActivity" android:showWhenLocked="true" android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen" android:launchMode="singleTask" android:excludeFromRecents="true" android:turnScreenOn="true" android:taskAffinity="" android:exported="true" />
+        <!-- ⚠️ taskAffinity를 고유값으로 설정: MainActivity와 다른 task에서 실행되므로
+             알람 종료 시 FLAG_ACTIVITY_NEW_TASK로 기존 MainActivity task로 복귀 가능 -->
+        <activity android:name=".AlarmFullscreenActivity" android:showWhenLocked="true" android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen" android:launchMode="singleTask" android:excludeFromRecents="true" android:turnScreenOn="true" android:taskAffinity="com.bnt0514.ringinout.alarm" android:exported="true" />
 
         <!-- Flutter ?�정 -->
         <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" />

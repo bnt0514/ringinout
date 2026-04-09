@@ -19,6 +19,7 @@ import 'package:ringinout/services/subscription_service.dart';
 import 'package:ringinout/widgets/subscription_limit_dialog.dart';
 import 'package:ringinout/widgets/unified_map_widget.dart';
 import 'package:ringinout/widgets/map_toggle_button.dart';
+import 'package:ringinout/widgets/wifi_selector_widget.dart';
 
 class AddMyPlacesPage extends StatefulWidget {
   final Future<void> Function(double lat, double lng, String name, int radius)
@@ -326,80 +327,104 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
     }
 
     final TextEditingController nameController = TextEditingController();
+    List<Map<String, dynamic>> selectedWifiNetworks = [];
 
     final result = await showDialog(
       context: context,
       builder:
-          (context) => AlertDialog(
-            title: Text(AppLocalizations.of(context).get('save_place_title')),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: InputDecoration(
-                    labelText: AppLocalizations.of(
-                      context,
-                    ).get('place_name_label'),
-                    hintText: AppLocalizations.of(
-                      context,
-                    ).get('place_name_hint'),
-                  ),
+          (context) => StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                title: Text(
+                  AppLocalizations.of(context).get('save_place_title'),
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  AppLocalizations.of(context).getWithArgs('radius_display', {
-                    'radius': '$_selectedRadius',
-                  }),
-                  style: const TextStyle(fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  AppLocalizations.of(context).get('radius_shown_on_map'),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(AppLocalizations.of(context).get('cancel_btn')),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  final name = nameController.text.trim();
-                  if (name.isNotEmpty) {
-                    await SubscriptionService.requestAdIfNeeded(plan);
-                    await HiveHelper.addLocation({
-                      'name': name,
-                      'lat': _selectedLatLng!.latitude,
-                      'lng': _selectedLatLng!.longitude,
-                      'radius': _selectedRadius,
-                    });
-
-                    // 🔄 장소 업데이트 → LocationMonitorService에서 자동 반영
-                    await SmartLocationService.updatePlaces();
-
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            AppLocalizations.of(context).get('place_saved_msg'),
-                          ),
-                          duration: Duration(seconds: 2),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: nameController,
+                        decoration: InputDecoration(
+                          labelText: AppLocalizations.of(
+                            context,
+                          ).get('place_name_label'),
+                          hintText: AppLocalizations.of(
+                            context,
+                          ).get('place_name_hint'),
                         ),
-                      );
-                      Navigator.pop(context, 'location_saved');
-                    }
-                  }
-                },
-                child: Text(AppLocalizations.of(context).get('save_place_btn')),
-              ),
-            ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        AppLocalizations.of(context).getWithArgs(
+                          'radius_display',
+                          {'radius': '$_selectedRadius'},
+                        ),
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        AppLocalizations.of(context).get('radius_shown_on_map'),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // ── Wi-Fi 네트워크 선택 ──
+                      WifiSelectorWidget(
+                        onChanged: (networks) {
+                          setDialogState(() {
+                            selectedWifiNetworks = networks;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(AppLocalizations.of(context).get('cancel_btn')),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final name = nameController.text.trim();
+                      if (name.isNotEmpty) {
+                        await SubscriptionService.requestAdIfNeeded(plan);
+                        await HiveHelper.addLocation({
+                          'name': name,
+                          'lat': _selectedLatLng!.latitude,
+                          'lng': _selectedLatLng!.longitude,
+                          'radius': _selectedRadius,
+                          'wifiNetworks': selectedWifiNetworks,
+                        });
+
+                        // 🔄 장소 업데이트 → LocationMonitorService에서 자동 반영
+                        await SmartLocationService.updatePlaces();
+
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                AppLocalizations.of(
+                                  context,
+                                ).get('place_saved_msg'),
+                              ),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                          Navigator.pop(context, 'location_saved');
+                        }
+                      }
+                    },
+                    child: Text(
+                      AppLocalizations.of(context).get('save_place_btn'),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
     );
 

@@ -287,7 +287,10 @@ class ServiceWatchdogReceiver : BroadcastReceiver() {
             val notificationManager =
                     context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-            // 고우선순위 채널 생성
+            // ✅ 기존 알림 삭제 후 재생성 → 소리+진동이 매번 다시 울림
+            notificationManager.cancel(7777)
+
+            // 고우선순위 채널 생성 (소리+진동 강제)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val channel =
                         NotificationChannel(
@@ -299,6 +302,13 @@ class ServiceWatchdogReceiver : BroadcastReceiver() {
                                     description = "위치 알람 서비스가 중지되었을 때 알림"
                                     enableVibration(true)
                                     vibrationPattern = longArrayOf(0, 500, 200, 500, 200, 500)
+                                    setSound(
+                                            android.provider.Settings.System.DEFAULT_NOTIFICATION_URI,
+                                            android.media.AudioAttributes.Builder()
+                                                    .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+                                                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                                    .build()
+                                    )
                                 }
                 notificationManager.createNotificationChannel(channel)
             }
@@ -317,27 +327,31 @@ class ServiceWatchdogReceiver : BroadcastReceiver() {
                             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                     )
 
+            // ✅ 매번 진동+소리가 울리도록 DEFAULT_ALL + PRIORITY_HIGH
             val notification =
                     NotificationCompat.Builder(context, channelId)
                             .setSmallIcon(android.R.drawable.stat_notify_error)
                             .setContentTitle("⚠️ 위치 알람이 중지되었습니다!")
-                            .setContentText("$activeAlarms 개의 알람이 작동하지 않을 수 있습니다. 터치하여 앱을 복구하세요.")
+                            .setContentText("$activeAlarms 개의 알람이 작동하지 않습니다. 터치하여 복구하세요.")
                             .setStyle(
                                     NotificationCompat.BigTextStyle()
                                             .bigText(
-                                                    "$activeAlarms 개의 위치 알람이 설정되어 있지만, 백그라운드 서비스가 중지되었습니다.\n\n터치하여 앱을 열고 알람을 다시 활성화하세요."
+                                                    "$activeAlarms 개의 위치 알람이 작동하지 않습니다.\n\n" +
+                                                    "앱이 종료되어 알람이 울리지 않습니다.\n" +
+                                                    "터치하여 앱을 열어주세요. (앱을 열기 전까지 반복 알림)"
                                             )
                             )
                             .setPriority(NotificationCompat.PRIORITY_HIGH)
-                            .setCategory(NotificationCompat.CATEGORY_ERROR)
+                            .setCategory(NotificationCompat.CATEGORY_ALARM)
                             .setAutoCancel(true)
                             .setContentIntent(pendingIntent)
                             .setDefaults(NotificationCompat.DEFAULT_ALL)
-                            .setColor(0xFFFF0000.toInt()) // 빨간색
+                            .setColor(0xFFFF0000.toInt())
+                            .setOnlyAlertOnce(false) // ✅ 매번 소리+진동 재발동
                             .build()
 
             notificationManager.notify(7777, notification)
-            Log.d("Watchdog", "🚨 긴급 알림 표시 완료")
+            Log.d("Watchdog", "🚨 긴급 알림 표시 완료 (소리+진동 재알림)")
         } catch (e: Exception) {
             Log.e("Watchdog", "❌ 긴급 알림 실패: ${e.message}")
         }

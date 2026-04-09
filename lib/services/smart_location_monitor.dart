@@ -115,10 +115,27 @@ class SmartLocationMonitor {
           if (_locationService != null) {
             _locationService!.onActivityTransition(isMoving);
           }
+        } else if (type == 'wifi') {
+          final placeId = args['placeId'] as String? ?? '';
+          final isEnter = args['isEnter'] as bool? ?? true;
+
+          print('[SLM] 📶 Wi-Fi: $placeId (${isEnter ? "ENTER" : "EXIT"})');
+
+          if (_locationService != null) {
+            _locationService!.onWifiEvent(placeId, isEnter);
+          }
+        } else if (type == 'wifiHardware') {
+          final isEnabled = args['isEnabled'] as bool? ?? true;
+
+          print('[SLM] 📶 Wi-Fi 하드웨어: ${isEnabled ? "ON" : "OFF"}');
+
+          if (_locationService != null) {
+            _locationService!.onWifiHardwareChanged(isEnabled);
+          }
         }
       }
     });
-    print('[SLM] ✅ v2 네이티브 리스너 설정 완료 (지오펜스 + ActivityTransition)');
+    print('[SLM] ✅ v2 네이티브 리스너 설정 완료 (지오펜스 + ActivityTransition + Wi-Fi)');
   }
 
   /// 서비스 상태 체크 및 복구
@@ -301,6 +318,17 @@ class SmartLocationMonitor {
           'isFirstOnly': alarm['isFirstOnly'] ?? false,
           'startTimeMs': alarm['startTimeMs'] ?? 0,
           'isTimeSpecified': alarm['isTimeSpecified'] ?? false,
+          // Wi-Fi 네트워크 데이터 전달 (장소에 등록된 Wi-Fi 목록)
+          'wifiNetworks':
+              (place['wifiNetworks'] as List?)
+                  ?.map(
+                    (w) => {
+                      'ssid': (w as Map)['ssid'] ?? '',
+                      'bssid': w['bssid'] ?? '',
+                    },
+                  )
+                  .toList() ??
+              [],
         });
       }
       return result;

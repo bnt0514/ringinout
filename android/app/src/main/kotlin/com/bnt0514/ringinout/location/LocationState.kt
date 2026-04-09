@@ -6,6 +6,12 @@ enum class AlarmTriggerType {
     EXIT // 진출
 }
 
+/** Wi-Fi 네트워크 식별 데이터 */
+data class WifiNetwork(
+        val ssid: String,
+        val bssid: String // MAC 주소 (AP 고유 식별)
+)
+
 /** v2 알람 장소 데이터 — 단일 지오펜스 (반경 = radiusMeters 그대로) */
 data class AlarmPlace(
         val id: String,
@@ -18,4 +24,8 @@ data class AlarmPlace(
         val isFirstOnly: Boolean = false,
         val startTimeMs: Long = 0L,
         val isTimeSpecified: Boolean = false,
-)
+        val wifiNetworks: List<WifiNetwork> = emptyList(), // Wi-Fi 기반 장소 감지용
+) {
+    /** 이 장소에 Wi-Fi 네트워크가 등록되어 있는지 */
+    val hasWifi: Boolean get() = wifiNetworks.isNotEmpty()
+}
