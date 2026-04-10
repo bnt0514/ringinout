@@ -116,6 +116,7 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="com.bnt0514.ringinout.ACTION_CHECK_SERVICE" />
                 <action android:name="com.bnt0514.ringinout.ACTION_RESTART_SERVICE" />
+                <action android:name="com.bnt0514.ringinout.ACTION_BOOT_RECOVERY_REMIND" />
             </intent-filter>
         </receiver>
 

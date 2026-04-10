@@ -76,7 +76,7 @@ class MainActivity : FlutterActivity() {
             }
             "RESTART_FROM_BOOT_RECOVERY" -> {
                 Log.d("MainActivity", "🔧 기기 재부팅 후 앱 자동 복구됨")
-                cancelRecoveryNotification()
+                ServiceWatchdogReceiver.stopBootRecoveryFull(this)
                 recoveryReason = "기기 재부팅 후 활성 알람이 있어 자동 복구되었습니다"
             }
             "PLAY_SNOOZE_ALARM" -> {
@@ -113,6 +113,13 @@ class MainActivity : FlutterActivity() {
             startWithVoice = true
             Log.d("MainActivity", "🎤 음성 알람 모드로 시작")
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // 앱이 포그라운드에 진입하면 부팅 복구 리마인더 중지
+        // (알림 터치가 아닌 직접 앱 열기 등 모든 경우 대응)
+        ServiceWatchdogReceiver.stopBootRecoveryFull(this)
     }
 
     override fun onDestroy() {

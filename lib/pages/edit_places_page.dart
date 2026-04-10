@@ -199,91 +199,11 @@ class _EditPlacePageState extends State<EditPlacePage> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(title: Text(l10n.get('edit_place'))),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              controller: _nameController,
-              decoration: InputDecoration(labelText: l10n.get('place_name')),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: Row(
-              children: [
-                Text(
-                  '${l10n.get('radius')}: ',
-                  style: const TextStyle(fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _buildRadiusChip(30),
-                      _buildRadiusChip(50),
-                      _buildRadiusChip(100),
-                      ChoiceChip(
-                        label: Text(
-                          ![30, 50, 100].contains(_radius)
-                              ? '${_radius}m'
-                              : l10n.get('custom'),
-                        ),
-                        selected: ![30, 50, 100].contains(_radius),
-                        onSelected: (_) => _showCustomRadiusDialog(),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (_radius <= 30)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.orange.shade300),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.warning_amber_rounded,
-                      color: Colors.orange,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        AppLocalizations.of(context).get('signal_warning'),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          // ── Wi-Fi 네트워크 선택 섹션 ──
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-            child: WifiSelectorWidget(
-              initialNetworks: _selectedWifiNetworks,
-              onChanged: (networks) {
-                setState(() {
-                  _selectedWifiNetworks = networks;
-                });
-              },
-            ),
-          ),
+          // ── 지도 (최상단, 넓게) ──
           Expanded(
             child: Stack(
               children: [
@@ -297,10 +217,8 @@ class _EditPlacePageState extends State<EditPlacePage> {
                   osmCircles: _osmCircles,
                   onMapReady: (controller) {
                     _mapController = controller;
-                    // 사용량 트래킹
                     MapUsageService.onMapLoaded(controller.provider.name);
                     MapUsageService.incrementFreeUserOpenCount();
-                    // 맵 전환 후 위치 및 마커 복원
                     _mapController?.updateCamera(_selectedLatLng, zoom: 16);
                     _updateMarker();
                   },
@@ -309,7 +227,6 @@ class _EditPlacePageState extends State<EditPlacePage> {
                     _updateMarker();
                   },
                 ),
-                // 오른쪽 상단: 맵 토글 버튼 오버레이
                 Positioned(
                   top: 8,
                   right: 8,
@@ -324,34 +241,223 @@ class _EditPlacePageState extends State<EditPlacePage> {
               ],
             ),
           ),
-        ],
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
-          child: Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _deletePlace,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.danger,
+          // ── 하단 패널 ──
+          Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.55,
+            ),
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 장소명
+                      TextField(
+                        controller: _nameController,
+                        decoration: InputDecoration(
+                          labelText: l10n.get('place_name'),
+                          isDense: true,
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // 반경 선택
+                      Row(
+                        children: [
+                          Text(
+                            '${l10n.get('radius')}: ',
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: [
+                                _buildRadiusChip(30),
+                                _buildRadiusChip(50),
+                                _buildRadiusChip(100),
+                                ChoiceChip(
+                                  label: Text(
+                                    ![30, 50, 100].contains(_radius)
+                                        ? '${_radius}m'
+                                        : l10n.get('custom'),
+                                  ),
+                                  selected: ![30, 50, 100].contains(_radius),
+                                  onSelected: (_) => _showCustomRadiusDialog(),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      // 신호 경고
+                      if (_radius <= 30) ...[
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.orange.shade300),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.warning_amber_rounded,
+                                color: Colors.orange,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  l10n.get('signal_warning'),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      // 반경 안내 버튼
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: GestureDetector(
+                          onTap: _showRadiusGuideDialog,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue.shade300),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  color: Colors.blue.shade700,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  l10n.get('radius_guide_btn'),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.blue.shade700,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.chevron_right,
+                                  color: Colors.blue.shade700,
+                                  size: 16,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Wi-Fi (접기/펼치기)
+                      Theme(
+                        data: Theme.of(
+                          context,
+                        ).copyWith(dividerColor: Colors.transparent),
+                        child: ExpansionTile(
+                          tilePadding: EdgeInsets.zero,
+                          leading: Icon(
+                            Icons.wifi,
+                            color: Theme.of(context).colorScheme.primary,
+                            size: 20,
+                          ),
+                          title: const Text(
+                            'Wi-Fi 네트워크',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          subtitle:
+                              _selectedWifiNetworks.isEmpty
+                                  ? const Text(
+                                    '선택 안 함',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  )
+                                  : Text(
+                                    '${_selectedWifiNetworks.length}개 선택됨',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                    ),
+                                  ),
+                          children: [
+                            WifiSelectorWidget(
+                              initialNetworks: _selectedWifiNetworks,
+                              onChanged: (networks) {
+                                setState(() {
+                                  _selectedWifiNetworks = networks;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // 저장/삭제 버튼
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _deletePlace,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.danger,
+                              ),
+                              icon: const Icon(Icons.delete),
+                              label: Text(l10n.get('delete')),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _saveChanges,
+                              icon: const Icon(Icons.save),
+                              label: Text(l10n.get('save')),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  icon: const Icon(Icons.delete),
-                  label: Text(l10n.get('delete')),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _saveChanges,
-                  icon: const Icon(Icons.save),
-                  label: Text(l10n.get('save')),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -368,6 +474,32 @@ class _EditPlacePageState extends State<EditPlacePage> {
           _updateMarker();
         }
       },
+    );
+  }
+
+  void _showRadiusGuideDialog() {
+    final l10n = AppLocalizations.of(context);
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text(
+              l10n.get('radius_guide_btn'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            content: SingleChildScrollView(
+              child: Text(
+                l10n.get('radius_guide_dialog_body'),
+                style: const TextStyle(fontSize: 14, height: 1.6),
+              ),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(l10n.get('confirm')),
+              ),
+            ],
+          ),
     );
   }
 

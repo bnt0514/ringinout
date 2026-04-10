@@ -28,13 +28,19 @@ class ServiceWatchdogReceiver : BroadcastReceiver() {
         const val ACTION_CHECK_SERVICE = "com.bnt0514.ringinout.ACTION_CHECK_SERVICE"
         const val ACTION_RESTART_SERVICE = "com.bnt0514.ringinout.ACTION_RESTART_SERVICE"
         const val ACTION_DAILY_CHECK = "com.bnt0514.ringinout.ACTION_DAILY_CHECK"
-        private const val WATCHDOG_INTERVAL_MS = 5 * 60 * 1000L // 5분마다 체크 (백업용, 메인은 onTaskRemoved)
+        const val ACTION_BOOT_RECOVERY_REMIND = "com.bnt0514.ringinout.ACTION_BOOT_RECOVERY_REMIND"
+        private const val WATCHDOG_INTERVAL_MS = 60 * 60 * 1000L // 1시간마다 체크
+        private const val BOOT_REMIND_INTERVAL_MS = 60 * 1000L // 부팅 복구 리마인더 1분 간격
+        private const val BOOT_REMIND_MAX_STACK = 3 // 최대 알림 스택 수
         private const val DAILY_CHECK_REQUEST_CODE_BASE = 9990
+        private const val BOOT_REMIND_REQUEST_CODE = 9980
         private val DAILY_CHECK_HOURS = listOf(0, 6, 12, 18)
         private const val PREFS_NAME = "ringinout_watchdog"
         private const val KEY_LAST_HEARTBEAT = "last_heartbeat"
         private const val KEY_ACTIVE_ALARMS = "active_alarms_count"
-        private const val HEARTBEAT_TIMEOUT_MS = 3 * 60 * 1000L // 3분간 heartbeat 없으면 죽은 것으로 판단
+        private const val KEY_BOOT_REMIND_COUNT = "boot_remind_count"
+        private const val KEY_BOOT_FOREGROUND_SEEN = "boot_foreground_seen"
+        private const val HEARTBEAT_TIMEOUT_MS = 65 * 60 * 1000L // 65분간 heartbeat 없으면 죽은 것으로 판단
 
         /** Watchdog 스케줄 시작 */
         fun startWatchdog(context: Context) {
@@ -132,7 +138,41 @@ class ServiceWatchdogReceiver : BroadcastReceiver() {
                 putInt(KEY_ACTIVE_ALARMS, activeAlarmsCount)
                 apply()
             }
+
             Log.d("Watchdog", "💓 Heartbeat 전송 (활성 알람: $activeAlarmsCount)")
+        }
+
+        /**
+         * 부팅 복구 리마인더 완전 중지 (AlarmManager 취소 + 알림 정리 + 플래그 리셋)
+         * MainActivity 등 외부에서 호출 가능
+         */
+        fun stopBootRecoveryFull(context: Context) {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val intent = Intent(context, ServiceWatchdogReceiver::class.java).apply {
+                action = ACTION_BOOT_RECOVERY_REMIND
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    BOOT_REMIND_REQUEST_CODE,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            alarmManager.cancel(pendingIntent)
+
+            // 스택 알림 정리
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.cancel(7777)
+            notificationManager.cancel(7778)
+            notificationManager.cancel(7779)
+
+            // 플래그 리셋
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit()
+                    .putInt(KEY_BOOT_REMIND_COUNT, 0)
+                    .putBoolean(KEY_BOOT_FOREGROUND_SEEN, true)
+                    .apply()
+
+            Log.d("Watchdog", "🛑 부팅 복구 리마인더 완전 중지 + 알림 정리")
         }
     }
 
@@ -143,6 +183,7 @@ class ServiceWatchdogReceiver : BroadcastReceiver() {
             ACTION_CHECK_SERVICE -> checkServiceHealth(context)
             ACTION_RESTART_SERVICE -> restartService(context)
             ACTION_DAILY_CHECK -> handleDailyCheck(context, intent)
+            ACTION_BOOT_RECOVERY_REMIND -> handleBootRecoveryRemind(context)
             Intent.ACTION_BOOT_COMPLETED -> {
                 // 부팅 완료 시 서비스 시작 및 Watchdog 활성화
                 Log.d("Watchdog", "📱 부팅 완료 - 서비스 복구 시작")
@@ -164,21 +205,97 @@ class ServiceWatchdogReceiver : BroadcastReceiver() {
             return
         }
 
-        Log.d("Watchdog", "🚨 활성 알람 ${activeAlarms}개 — Full-screen 알림으로 앱 자동 복구!")
-        showBootRecoveryNotification(context, activeAlarms)
+        // 리마인더 카운트 + 포그라운드 플래그 초기화
+        prefs.edit()
+                .putInt(KEY_BOOT_REMIND_COUNT, 0)
+                .putBoolean(KEY_BOOT_FOREGROUND_SEEN, false)
+                .apply()
+
+        Log.d("Watchdog", "🚨 활성 알람 ${activeAlarms}개 — Full-screen 알림 + 1분 반복 리마인더 시작!")
+        showBootRecoveryNotification(context, activeAlarms, 0)
+        startBootRecoveryReminder(context)
+    }
+
+    /**
+     * 부팅 복구 1분 반복 리마인더 AlarmManager 등록
+     */
+    private fun startBootRecoveryReminder(context: Context) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, ServiceWatchdogReceiver::class.java).apply {
+            action = ACTION_BOOT_RECOVERY_REMIND
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                BOOT_REMIND_REQUEST_CODE,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    System.currentTimeMillis() + BOOT_REMIND_INTERVAL_MS,
+                    pendingIntent
+            )
+        } else {
+            alarmManager.setExact(
+                    AlarmManager.RTC_WAKEUP,
+                    System.currentTimeMillis() + BOOT_REMIND_INTERVAL_MS,
+                    pendingIntent
+            )
+        }
+        Log.d("Watchdog", "⏰ 부팅 복구 리마인더 1분 후 예약")
+    }
+
+    /**
+     * 부팅 복구 리마인더 중지
+     */
+    private fun stopBootRecoveryReminderInternal(context: Context) {
+        stopBootRecoveryFull(context)
+    }
+
+    /**
+     * 1분마다 호출 — 앱이 복구될 때까지 반복 알림
+     */
+    private fun handleBootRecoveryRemind(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val activeAlarms = prefs.getInt(KEY_ACTIVE_ALARMS, 0)
+
+        // 활성 알람이 없으면 리마인더 중지
+        if (activeAlarms <= 0) {
+            Log.d("Watchdog", "✅ 활성 알람 없음 — 부팅 복구 리마인더 중지")
+            stopBootRecoveryReminderInternal(context)
+            return
+        }
+
+        // 앱이 한 번이라도 포그라운드에 진입했으면 (사용자가 앱을 열었으면) 리마인더 중지
+        val foregroundSeen = prefs.getBoolean(KEY_BOOT_FOREGROUND_SEEN, false)
+        if (foregroundSeen) {
+            Log.d("Watchdog", "✅ 앱 포그라운드 진입 이력 확인 — 부팅 복구 리마인더 중지")
+            stopBootRecoveryReminderInternal(context)
+            return
+        }
+
+        val remindCount = prefs.getInt(KEY_BOOT_REMIND_COUNT, 0) + 1
+        prefs.edit().putInt(KEY_BOOT_REMIND_COUNT, remindCount).apply()
+
+        Log.d("Watchdog", "🔔 부팅 복구 리마인더 #$remindCount (활성 알람: $activeAlarms)")
+        showBootRecoveryNotification(context, activeAlarms, remindCount)
+
+        // 다음 1분 후 다시 예약 (setExactAndAllowWhileIdle는 단발성)
+        startBootRecoveryReminder(context)
     }
 
     /**
      * 부팅 후 활성 알람이 있을 때 Full-screen Intent로 앱을 자동 실행하는 알림
+     * remindCount: 0=최초, 1+=리마인더 회차
+     * 스택 3개까지 쌓고, 이후에는 ID 7777만 갱신하며 계속 알림
      */
-    private fun showBootRecoveryNotification(context: Context, activeAlarms: Int) {
+    private fun showBootRecoveryNotification(context: Context, activeAlarms: Int, remindCount: Int) {
         try {
             val channelId = "service_watchdog_critical"
             val notificationManager =
                     context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-            // 기존 알림 취소 후 재생성
-            notificationManager.cancel(7777)
 
             // 고우선순위 채널 생성
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -236,35 +353,52 @@ class ServiceWatchdogReceiver : BroadcastReceiver() {
                             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                     )
 
+            val titleText = if (remindCount == 0)
+                "🔄 기기 재부팅 감지 — 앱을 열어주세요"
+            else
+                "🔔 앱 복구 필요 (#$remindCount)"
+
+            val bodyText = if (remindCount == 0)
+                "기기가 재부팅되었습니다.\n\n" +
+                        "활성 알람 ${activeAlarms}개가 작동하지 않습니다.\n" +
+                        "터치하여 앱을 열어주세요."
+            else
+                "활성 알람 ${activeAlarms}개가 아직 작동하지 않습니다.\n\n" +
+                        "앱을 터치해서 열어주세요.\n" +
+                        "(앱을 열기 전까지 1분마다 반복 알림)"
+
             val notification =
                     NotificationCompat.Builder(context, channelId)
                             .setSmallIcon(android.R.drawable.ic_popup_reminder)
-                            .setContentTitle("🔄 활성 알람이 있어 앱을 복구합니다")
-                            .setContentText("기기 재부팅 감지 — 활성 알람 ${activeAlarms}개를 복구합니다.")
-                            .setStyle(
-                                    NotificationCompat.BigTextStyle()
-                                            .bigText(
-                                                    "기기가 재부팅되었습니다.\n\n" +
-                                                            "활성 알람 ${activeAlarms}개가 있으므로 앱을 자동으로 복구합니다.\n" +
-                                                            "잠시 후 앱이 자동으로 열립니다."
-                                            )
-                            )
+                            .setContentTitle(titleText)
+                            .setContentText("활성 알람 ${activeAlarms}개 — 터치하여 앱을 복구하세요.")
+                            .setStyle(NotificationCompat.BigTextStyle().bigText(bodyText))
                             .setPriority(NotificationCompat.PRIORITY_MAX)
                             .setCategory(NotificationCompat.CATEGORY_ALARM)
                             .setAutoCancel(true)
                             .setContentIntent(clickPendingIntent)
                             .setFullScreenIntent(fullScreenPendingIntent, true)
                             .setDefaults(NotificationCompat.DEFAULT_ALL)
-                            .setOnlyAlertOnce(false)
+                            .setOnlyAlertOnce(false) // 매번 소리+진동
                             .setColor(0xFFFF0000.toInt())
                             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                             .build()
 
-            notificationManager.notify(7777, notification)
-            Log.d("Watchdog", "🚨 부팅 복구 Full-screen 알림 표시 완료")
+            // 스택 3개까지 별도 ID, 이후에는 ID 7777만 갱신
+            val notificationId = when {
+                remindCount < BOOT_REMIND_MAX_STACK -> 7777 + remindCount  // 7777, 7778, 7779
+                else -> 7777  // 이후에는 첫 알림만 계속 갱신
+            }
+
+            // 스택 3개 초과 시, 기존 알림은 그대로 두고 ID 7777만 소리+진동 재발동
+            if (remindCount >= BOOT_REMIND_MAX_STACK) {
+                notificationManager.cancel(7777)
+            }
+
+            notificationManager.notify(notificationId, notification)
+            Log.d("Watchdog", "🚨 부팅 복구 알림 #$remindCount (ID=$notificationId)")
         } catch (e: Exception) {
             Log.e("Watchdog", "❌ 부팅 복구 알림 실패: ${e.message}")
-            // 알림 실패 시에도 백그라운드 서비스 시작 시도
             startBackgroundService(context)
         }
     }
@@ -308,7 +442,7 @@ class ServiceWatchdogReceiver : BroadcastReceiver() {
         }
     }
 
-    // ✅ 앱 프로세스가 실행 중인지 확인
+    // ✅ 앱 프로세스가 실행 중인지 확인 (서비스 포함)
     private fun isAppProcessRunning(context: Context): Boolean {
         val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         val packageName = context.packageName
@@ -328,6 +462,29 @@ class ServiceWatchdogReceiver : BroadcastReceiver() {
         }
 
         Log.d("Watchdog", "📱 앱 프로세스 목록에 없음 - 죽은 것으로 판단")
+        return false
+    }
+
+    /**
+     * 앱이 실제로 포그라운드(사용자가 화면을 보고 있음)인지 확인
+     * IMPORTANCE_FOREGROUND(100)만 포그라운드로 판단
+     * IMPORTANCE_FOREGROUND_SERVICE(125)는 백그라운드 서비스일 뿐이므로 제외
+     */
+    private fun isAppInForeground(context: Context): Boolean {
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val packageName = context.packageName
+        val runningProcesses = activityManager.runningAppProcesses ?: return false
+
+        for (processInfo in runningProcesses) {
+            if (processInfo.processName == packageName) {
+                val importance = processInfo.importance
+                val isForeground = importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+                Log.d("Watchdog", "📱 포그라운드 체크: importance=$importance, isForeground=$isForeground")
+                return isForeground
+            }
+        }
+
+        Log.d("Watchdog", "📱 앱 프로세스 없음 — 포그라운드 아님")
         return false
     }
 
