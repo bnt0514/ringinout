@@ -181,12 +181,19 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
 
     await _speech.listen(
       onResult: (result) {
+        final fullText = result.recognizedWords;
+        // 요일·날짜·시간 표현은 파싱해서 UI에 자동 설정되므로
+        // 텍스트 필드에는 해당 키워드를 제거한 정제 텍스트만 표시
+        final strippedText = VoiceDateTimeParser.stripDateTimeKeywords(
+          fullText,
+          localeId: localeId,
+        );
         setState(() {
-          _alarmNameController.text = result.recognizedWords;
-          alarmName = result.recognizedWords;
+          _alarmNameController.text = strippedText;
+          alarmName = strippedText;
         });
-        // 실시간으로 장소 매칭 시도
-        _checkAlarmConditionFromName(result.recognizedWords);
+        // 파싱은 원문 전체로 수행 (요일/날짜/시간 감지 위해)
+        _checkAlarmConditionFromName(fullText);
       },
       localeId: localeId,
       listenMode: stt.ListenMode.dictation,

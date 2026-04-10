@@ -110,7 +110,8 @@
         <!-- ?�� ?�람 리시�?(?�누�?�??�약 ?�람) -->
 
         <!-- ?�� ?�비??Watchdog (?�비??죽음 감�? �?복구) -->
-        <receiver android:name=".ServiceWatchdogReceiver" android:exported="false">
+        <!-- ⚠️ exported=true: BOOT_COMPLETED는 시스템 브로드캐스트이므로 exported=true 필수 -->
+        <receiver android:name=".ServiceWatchdogReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="com.bnt0514.ringinout.ACTION_CHECK_SERVICE" />

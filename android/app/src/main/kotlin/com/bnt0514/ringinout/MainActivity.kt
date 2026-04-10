@@ -33,6 +33,7 @@ class MainActivity : FlutterActivity() {
         var pendingAlarmId: Int? = null
         var navigateToFullscreen: Boolean = false
         var startWithVoice: Boolean = false // 🎤 음성 알람 모드
+        var recoveryReason: String? = null  // 🔄 앱 복구 사유 (Flutter에서 조회)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,24 +67,34 @@ class MainActivity : FlutterActivity() {
         when (intent.action) {
             "RESTART_FROM_WATCHDOG" -> {
                 Log.d("MainActivity", "🔧 Watchdog에서 앱 재시작됨")
-                // 서비스 복구 알림 표시
+                cancelRecoveryNotification()
             }
             "RESTART_FROM_DEATH_DETECTOR" -> {
-                Log.d("MainActivity", "🔧 앱 종료 감지 알림에서 앱 재시작됨")
-                // 종료 감지 알림(7777) 자동 취소
-                try {
-                    val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-                    nm.cancel(7777)
-                    Log.d("MainActivity", "✅ 종료 감지 알림 취소 완료")
-                } catch (e: Exception) {
-                    Log.w("MainActivity", "⚠️ 종료 감지 알림 취소 실패: ${e.message}")
-                }
+                Log.d("MainActivity", "🔧 앱 종료 감지 알림에서 앱 재시작됨 (멀티태스킹 종료)")
+                cancelRecoveryNotification()
+                recoveryReason = "앱이 멀티태스킹에서 종료되어 자동 복구되었습니다"
+            }
+            "RESTART_FROM_BOOT_RECOVERY" -> {
+                Log.d("MainActivity", "🔧 기기 재부팅 후 앱 자동 복구됨")
+                cancelRecoveryNotification()
+                recoveryReason = "기기 재부팅 후 활성 알람이 있어 자동 복구되었습니다"
             }
             "PLAY_SNOOZE_ALARM" -> {
                 Log.d("MainActivity", "⏰ 스누즈 알람 재생 요청")
                 // 벨소리 재생
                 playDefaultRingtone(this)
             }
+        }
+    }
+
+    /** 복구 알림(7777) 취소 */
+    private fun cancelRecoveryNotification() {
+        try {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            nm.cancel(7777)
+            Log.d("MainActivity", "✅ 복구 알림 취소 완료")
+        } catch (e: Exception) {
+            Log.w("MainActivity", "⚠️ 복구 알림 취소 실패: ${e.message}")
         }
     }
 
@@ -278,6 +289,12 @@ class MainActivity : FlutterActivity() {
                                 nm.cancel(7777)
                             } catch (_: Exception) {}
                             result.success(true)
+                        }
+                        "getRecoveryReason" -> {
+                            // ✅ Flutter에서 복구 사유 조회 (한 번 조회하면 null로 초기화)
+                            val reason = recoveryReason
+                            recoveryReason = null
+                            result.success(reason)
                         }
                         else -> result.notImplemented()
                     }

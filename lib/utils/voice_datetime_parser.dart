@@ -57,15 +57,7 @@ class VoiceDateTimeParser {
       'sat': ['星期六', '周六', '礼拜六'],
       'sun': ['星期日', '星期天', '周日', '周天', '礼拜天'],
     },
-    'vi': {
-      'mon': ['thứ hai', 'thứ 2', 't2'],
-      'tue': ['thứ ba', 'thứ 3', 't3'],
-      'wed': ['thứ tư', 'thứ 4', 't4'],
-      'thu': ['thứ năm', 'thứ 5', 't5'],
-      'fri': ['thứ sáu', 'thứ 6', 't6'],
-      'sat': ['thứ bảy', 'thứ 7', 't7'],
-      'sun': ['chủ nhật', 'cn'],
-    },
+    // 지원 언어: ko, en, ja, zh (베트남어 등 미지원 언어 제외)
   };
 
   /// 음성 텍스트에서 요일을 추출하여 요일 코드 Set 반환
@@ -389,5 +381,128 @@ class VoiceDateTimeParser {
       'dec': 12,
     };
     return map[month.toLowerCase()];
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  날짜/시간/요일 키워드 제거 (텍스트 정제)
+  // ═══════════════════════════════════════════════════════════
+
+  /// 음성인식 텍스트에서 요일·날짜·시간 표현을 제거하여 반환
+  ///
+  /// 예: "월요일 6시 이후 회사 도착하면" → "회사 도착하면"
+  /// 예: "4월 12일 집에서 나갈 때" → "집에서 나갈 때"
+  static String stripDateTimeKeywords(String text, {String? localeId}) {
+    String result = text;
+
+    // 0. 요일 바로 앞에 오는 주기 표현만 제거
+    //    ("every"는 단독 제거 금지 — "every N hours" 같은 표현이 있을 수 있음)
+    //    ko: 매주  |  en: every <요일>  |  ja: 毎週/まいしゅう  |  zh: 每周/每週
+
+    // ko: 매주 + 공백 (뒤에 무엇이 오든 관계없이 — 요일 키워드 제거로 이어짐)
+    result = result.replaceAll(RegExp(r'매주\s*'), '');
+
+    // ja: 毎週/まいしゅう + 공백
+    result = result.replaceAll(RegExp(r'(?:毎週|まいしゅう)\s*'), '');
+
+    // zh: 每周/每週 + 공백
+    result = result.replaceAll(RegExp(r'(?:每周|每週)\s*'), '');
+
+    // en: every 바로 뒤에 요일이 올 때만 제거 (lookahead)
+    //     예: "every monday" → "monday"  /  "every 5 minutes" → 그대로
+    final _enDayPattern =
+        r'(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|'
+        r'mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)';
+    result = result.replaceAll(
+      RegExp(r'\bevery\s+(?=' + _enDayPattern + r'\b)', caseSensitive: false),
+      '',
+    );
+
+    // 1. 요일 키워드 제거
+    final lang = localeId?.split('-').first.split('_').first.toLowerCase();
+    final langKeys =
+        (lang != null && _weekdayKeywords.containsKey(lang))
+            ? [lang]
+            : _weekdayKeywords.keys.toList();
+    for (final l in langKeys) {
+      final dayMap = _weekdayKeywords[l]!;
+      for (final keywords in dayMap.values) {
+        // 긴 키워드부터 제거 (부분 매칭 방지)
+        final sorted = List<String>.from(keywords)
+          ..sort((a, b) => b.length.compareTo(a.length));
+        for (final kw in sorted) {
+          result = result.replaceAll(
+            RegExp(RegExp.escape(kw), caseSensitive: false),
+            ' ',
+          );
+        }
+      }
+    }
+
+    // 2. 날짜 패턴 제거 (한/일: N월M일, 중: N月M号, 슬래시: M/D, 영어월)
+    result = result
+        // 한국어/일본어: 4월 12일
+        .replaceAll(RegExp(r'\d{1,2}\s*[월月]\s*\d{1,2}\s*[일日]'), ' ')
+        // 중국어: 4月12号 / 4月12日
+        .replaceAll(RegExp(r'\d{1,2}\s*[月]\s*\d{1,2}\s*[号日]'), ' ')
+        // 슬래시: 4/12
+        .replaceAll(RegExp(r'\b\d{1,2}\s*/\s*\d{1,2}\b'), ' ')
+        // 영어 월이름 + 숫자: april 12, april 12th
+        .replaceAll(
+          RegExp(
+            r'\b(?:january|february|march|april|may|june|july|august|'
+            r'september|october|november|december|'
+            r'jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)'
+            r'\s*\d{1,2}(?:st|nd|rd|th)?\b',
+            caseSensitive: false,
+          ),
+          ' ',
+        );
+
+    // 3. 시간 패턴 제거
+    result = result
+        // 오전/오후 + 시분: 오전 9시 30분, 오후 3시
+        .replaceAll(RegExp(r'(?:오전|오후)\s*\d{1,2}\s*시\s*(?:\d{1,2}\s*분)?'), ' ')
+        // 시분만: 9시 30분, 6시
+        .replaceAll(RegExp(r'\d{1,2}\s*[시時]\s*(?:\d{1,2}\s*[분分])?'), ' ')
+        // 중국어: 上午/下午 + N点M分
+        .replaceAll(
+          RegExp(r'(?:上午|下午|午前|午後)\s*\d{1,2}\s*[点點時]\s*(?:\d{1,2}\s*[分])?'),
+          ' ',
+        )
+        // 중국어 시간만: 6点30分, 6点
+        .replaceAll(RegExp(r'\d{1,2}\s*[点點]\s*(?:\d{1,2}\s*[分])?'), ' ')
+        // 영어: 5:30 pm, 5:00, 9am, 9 PM
+        .replaceAll(
+          RegExp(
+            r'\b\d{1,2}:\d{2}\s*(?:am|pm|a\.m\.|p\.m\.)?\b',
+            caseSensitive: false,
+          ),
+          ' ',
+        )
+        .replaceAll(
+          RegExp(
+            r"\b\d{1,2}\s*(?:am|pm|a\.m\.|p\.m\.|o'clock|oclock)\b",
+            caseSensitive: false,
+          ),
+          ' ',
+        )
+        // "after N", "at N" 패턴
+        .replaceAll(RegExp(r'\bafter\s+\d{1,2}\b', caseSensitive: false), ' ')
+        .replaceAll(RegExp(r'\bat\s+\d{1,2}\b', caseSensitive: false), ' ');
+
+    // 4. 오전/오후 단독 제거 (시간 뒤에 붙었던 것)
+    result = result
+        .replaceAll(RegExp(r'오전|오후'), ' ')
+        .replaceAll(RegExp(r'上午|下午|午前|午後'), ' ');
+
+    // 5. 이후/later 등 시간 조건 접속어 제거
+    result = result
+        .replaceAll(RegExp(r'\s*이후\s*', caseSensitive: false), ' ')
+        .replaceAll(RegExp(r'\bafter\b', caseSensitive: false), ' ');
+
+    // 6. 연속 공백 정리
+    result = result.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+    return result;
   }
 }

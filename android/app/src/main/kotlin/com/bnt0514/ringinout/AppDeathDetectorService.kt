@@ -72,12 +72,19 @@ class AppDeathDetectorService : Service() {
         Log.d("AppDeathDetector", "🔌 flutterChannel = null (Flutter 엔진 무효화)")
 
         // ✅ 알람 정상 종료(종료/오발동/스누즈) 중이면 알림 생략
+        //   ⚠️ 단, alarm_dismissing 플래그가 5초 이상 지속되면 stale로 간주하여 무시
         val watchdogPrefs = getSharedPreferences("ringinout_watchdog", Context.MODE_PRIVATE)
         val isDismissing = watchdogPrefs.getBoolean("alarm_dismissing", false)
-        if (isDismissing) {
-            watchdogPrefs.edit().remove("alarm_dismissing").apply()
-            Log.d("AppDeathDetector", "✅ 알람 정상 종료 중 — onTaskRemoved 알림 생략")
+        val dismissingTimestamp = watchdogPrefs.getLong("alarm_dismissing_timestamp", 0L)
+        val dismissingAge = System.currentTimeMillis() - dismissingTimestamp
+        if (isDismissing && dismissingAge < 5000L) {
+            watchdogPrefs.edit().remove("alarm_dismissing").remove("alarm_dismissing_timestamp").apply()
+            Log.d("AppDeathDetector", "✅ 알람 정상 종료 중 (${dismissingAge}ms) — onTaskRemoved 알림 생략")
             return
+        } else if (isDismissing) {
+            // stale 플래그 정리
+            watchdogPrefs.edit().remove("alarm_dismissing").remove("alarm_dismissing_timestamp").apply()
+            Log.w("AppDeathDetector", "⚠️ alarm_dismissing 플래그가 stale (${dismissingAge}ms) — 무시하고 복구 진행")
         }
 
         // 활성 알람이 있는지 확인
@@ -89,14 +96,17 @@ class AppDeathDetectorService : Service() {
             return
         }
 
-        // ✅ 알림만 표시 (앱 재시작 시도하지 않음!)
-        // ⚠️ tryRestartApp() 제거 이유:
-        //   - FLAG_ACTIVITY_NEW_TASK로 새 MainActivity를 생성하면 중복 인스턴스 발생
-        //   - 알람 정상 종료 시에도 alarm_dismissing 타이밍 이슈로 tryRestartApp이 호출될 수 있음
-        //   - 진짜 강제 종료 시에는 ServiceWatchdogReceiver가 5분 주기로 복구 담당
-        //   - 사용자는 알림을 탭해서 앱을 직접 열 수 있음
-        Log.d("AppDeathDetector", "🚨 활성 알람 $activeAlarms 개 있음 - 알림 표시!")
+        Log.d("AppDeathDetector", "🚨 활성 알람 $activeAlarms 개 있음 - 앱 자동 복구 시도!")
+
+        // ✅ 전략: 2단계 복구
+        //   1단계: 알림 표시 (Full-screen Intent 포함 — 백업용)
+        //   2단계: 직접 startActivity로 앱 강제 실행 (onTaskRemoved 시점에서는 프로세스 생존)
+        //
+        //   Android 14+에서 USE_FULL_SCREEN_INTENT 권한이 기본 거부되므로
+        //   Full-screen Intent가 헤드업 알림으로 다운그레이드될 수 있음
+        //   → 직접 startActivity가 핵심, 알림은 백업
         showDeathNotification(activeAlarms)
+        tryDirectRestart()
     }
 
     override fun onDestroy() {
@@ -142,7 +152,10 @@ class AppDeathDetectorService : Service() {
             val notificationManager =
                     getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-            // 고우선순위 채널 생성
+            // ✅ 기존 알림 취소 후 재생성 → 소리+진동 매번 재발동
+            notificationManager.cancel(7777)
+
+            // 고우선순위 채널 생성 (소리+진동 강제)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val channel =
                         NotificationChannel(
@@ -154,17 +167,46 @@ class AppDeathDetectorService : Service() {
                                     description = "앱이 강제 종료되었을 때 알림"
                                     enableVibration(true)
                                     vibrationPattern = longArrayOf(0, 500, 200, 500, 200, 500)
+                                    setSound(
+                                            android.provider.Settings.System.DEFAULT_NOTIFICATION_URI,
+                                            android.media.AudioAttributes.Builder()
+                                                    .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                                                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                                    .build()
+                                    )
+                                    lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
                                 }
                 notificationManager.createNotificationChannel(channel)
             }
 
-            // 앱 열기 Intent
+            // ✅ Full-screen Intent: MainActivity 강제 실행
+            //   - 화면이 켜져 있을 때: 전체화면 알림이 화면을 덮어씌움
+            //   - 화면이 꺼져 있을 때: 화면 켜고 앱 시작 (turnScreenOn + showWhenLocked)
+            //   - Android 10+ 백그라운드 Activity 제한을 알림 Full-screen Intent가 합법적으로 우회
+            val fullScreenIntent =
+                    Intent(this, MainActivity::class.java).apply {
+                        action = "RESTART_FROM_DEATH_DETECTOR"
+                        addFlags(
+                                Intent.FLAG_ACTIVITY_NEW_TASK or
+                                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        )
+                    }
+            val fullScreenPendingIntent =
+                    PendingIntent.getActivity(
+                            this,
+                            8888,
+                            fullScreenIntent,
+                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+
+            // 탭 Intent (사용자가 알림을 직접 터치할 때)
             val clickIntent =
                     Intent(this, MainActivity::class.java).apply {
                         action = "RESTART_FROM_DEATH_DETECTOR"
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                     }
-            val pendingIntent =
+            val clickPendingIntent =
                     PendingIntent.getActivity(
                             this,
                             8889,
@@ -174,32 +216,60 @@ class AppDeathDetectorService : Service() {
 
             val notification =
                     NotificationCompat.Builder(this, channelId)
-                            .setSmallIcon(android.R.drawable.stat_notify_error)
-                            .setContentTitle("⚠️ 위치 알람이 중지되었습니다!")
-                            .setContentText("$activeAlarms 개의 알람이 작동하지 않습니다. 터치하여 복구하세요.")
+                            .setSmallIcon(android.R.drawable.ic_popup_reminder)
+                            .setContentTitle("🔄 활성 알람이 있어 앱을 복구합니다")
+                            .setContentText("활성 알람 ${activeAlarms}개 — 앱을 자동으로 복구 중입니다.")
                             .setStyle(
                                     NotificationCompat.BigTextStyle()
                                             .bigText(
-                                                    "앱이 종료되어 $activeAlarms 개의 위치 알람이 작동하지 않습니다.\n\n터치하여 앱을 열고 알람을 다시 활성화하세요."
+                                                    "멀티태스킹에서 앱이 종료되었습니다.\n\n" +
+                                                            "활성 알람 ${activeAlarms}개가 있으므로 앱을 자동으로 복구합니다.\n" +
+                                                            "잠시 후 앱이 자동으로 열립니다."
                                             )
                             )
-                            .setPriority(NotificationCompat.PRIORITY_HIGH)
-                            .setCategory(NotificationCompat.CATEGORY_ERROR)
+                            .setPriority(NotificationCompat.PRIORITY_MAX)  // HIGH → MAX로 상향
+                            .setCategory(NotificationCompat.CATEGORY_ALARM)
                             .setAutoCancel(true)
-                            .setContentIntent(pendingIntent)
+                            .setContentIntent(clickPendingIntent)
+                            .setFullScreenIntent(fullScreenPendingIntent, true)  // ✅ 핵심: 화면 강제 표시
                             .setDefaults(NotificationCompat.DEFAULT_ALL)
+                            .setOnlyAlertOnce(false)
                             .setColor(0xFFFF0000.toInt())
+                            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)  // 잠금화면에도 표시
                             .build()
 
             notificationManager.notify(7777, notification)
-            Log.d("AppDeathDetector", "🚨 종료 알림 표시 완료")
+            Log.d("AppDeathDetector", "🚨 Full-screen 알림 표시 완료 (앱 자동 실행 시도)")
         } catch (e: Exception) {
             Log.e("AppDeathDetector", "❌ 알림 표시 실패: ${e.message}")
         }
     }
 
-    // ✅ tryRestartApp 제거됨 — 알림의 PendingIntent로만 앱 재시작 가능
-    // 자동 재시작은 ServiceWatchdogReceiver가 담당
+    /**
+     * ✅ onTaskRemoved 시점에서 직접 MainActivity를 시작
+     *
+     * onTaskRemoved는 아직 앱 프로세스가 살아있는 시점이므로
+     * Service에서 startActivity()가 가능합니다.
+     *
+     * Android 14+에서 Full-screen Intent가 권한 부족으로 실패할 수 있으므로
+     * 이것이 실질적인 앱 복구 메커니즘입니다.
+     */
+    private fun tryDirectRestart() {
+        try {
+            val restartIntent = Intent(this, MainActivity::class.java).apply {
+                action = "RESTART_FROM_DEATH_DETECTOR"
+                addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+                )
+            }
+            startActivity(restartIntent)
+            Log.d("AppDeathDetector", "✅ 직접 startActivity 성공 — 앱 복구 시작")
+        } catch (e: Exception) {
+            Log.e("AppDeathDetector", "❌ 직접 startActivity 실패: ${e.message} — 알림 터치로 복구 필요")
+        }
+    }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

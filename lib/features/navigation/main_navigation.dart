@@ -49,9 +49,10 @@ class _MainNavigationPageState extends State<MainNavigationPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // 앱 시작 시 음성 알람 모드 체크
+    // 앱 시작 시 음성 알람 모드 체크 + 복구 사유 확인
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkVoiceAlarmMode();
+      _checkRecoveryReason();
     });
   }
 
@@ -171,6 +172,44 @@ class _MainNavigationPageState extends State<MainNavigationPage>
       }
     } catch (e) {
       debugPrint('🎤 음성 알람 모드 체크 실패: $e');
+    }
+  }
+
+  // 🔄 앱 복구 사유 확인 → SnackBar로 사용자에게 안내
+  static const _watchdogChannel = MethodChannel(
+    'com.bnt0514.ringinout/watchdog',
+  );
+
+  Future<void> _checkRecoveryReason() async {
+    try {
+      final String? reason = await _watchdogChannel.invokeMethod(
+        'getRecoveryReason',
+      );
+      if (reason != null && reason.isNotEmpty && mounted) {
+        debugPrint('🔄 앱 복구 사유: $reason');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.refresh, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(reason, style: const TextStyle(fontSize: 13)),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.blueGrey[700],
+            duration: const Duration(seconds: 5),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('🔄 복구 사유 확인 실패: $e');
     }
   }
 

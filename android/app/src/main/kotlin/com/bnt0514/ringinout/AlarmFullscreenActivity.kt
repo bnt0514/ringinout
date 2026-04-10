@@ -648,9 +648,13 @@ class AlarmFullscreenActivity : Activity() {
         }
 
         // ✅ alarm_dismissing 플래그 설정 (AppDeathDetectorService 오작동 방지)
+        //   타임스탬프도 함께 저장하여 stale 플래그 감지 가능
         try {
             val watchdogPrefs = getSharedPreferences("ringinout_watchdog", Context.MODE_PRIVATE)
-            watchdogPrefs.edit().putBoolean("alarm_dismissing", true).apply()
+            watchdogPrefs.edit()
+                .putBoolean("alarm_dismissing", true)
+                .putLong("alarm_dismissing_timestamp", System.currentTimeMillis())
+                .apply()
         } catch (e: Exception) {
             Log.e("AlarmFullscreen", "⚠️ alarm_dismissing 플래그 설정 실패: ${e.message}")
         }

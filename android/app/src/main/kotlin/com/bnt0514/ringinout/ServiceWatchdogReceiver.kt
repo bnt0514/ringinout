@@ -154,13 +154,119 @@ class ServiceWatchdogReceiver : BroadcastReceiver() {
     }
 
     private fun handleBootRecovery(context: Context) {
-        if (isAppProcessRunning(context) || isBackgroundServiceRunning(context)) {
-            Log.d("Watchdog", "✅ 부팅 후 이미 서비스 실행 중 - 복구 스킵")
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val activeAlarms = prefs.getInt(KEY_ACTIVE_ALARMS, 0)
+
+        Log.d("Watchdog", "📱 부팅 복구 - 활성 알람: $activeAlarms")
+
+        if (activeAlarms <= 0) {
+            Log.d("Watchdog", "✅ 활성 알람 없음 — 부팅 복구 스킵")
             return
         }
 
-        Log.d("Watchdog", "🛠️ 부팅 후 서비스 미실행 - 복구 시도")
-        startBackgroundService(context)
+        Log.d("Watchdog", "🚨 활성 알람 ${activeAlarms}개 — Full-screen 알림으로 앱 자동 복구!")
+        showBootRecoveryNotification(context, activeAlarms)
+    }
+
+    /**
+     * 부팅 후 활성 알람이 있을 때 Full-screen Intent로 앱을 자동 실행하는 알림
+     */
+    private fun showBootRecoveryNotification(context: Context, activeAlarms: Int) {
+        try {
+            val channelId = "service_watchdog_critical"
+            val notificationManager =
+                    context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+            // 기존 알림 취소 후 재생성
+            notificationManager.cancel(7777)
+
+            // 고우선순위 채널 생성
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel =
+                        NotificationChannel(
+                                        channelId,
+                                        "⚠️ 앱 복구 알림",
+                                        NotificationManager.IMPORTANCE_HIGH
+                                )
+                                .apply {
+                                    description = "부팅 후 앱 자동 복구 알림"
+                                    enableVibration(true)
+                                    vibrationPattern = longArrayOf(0, 500, 200, 500, 200, 500)
+                                    setSound(
+                                            android.provider.Settings.System.DEFAULT_NOTIFICATION_URI,
+                                            android.media.AudioAttributes.Builder()
+                                                    .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                                                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                                    .build()
+                                    )
+                                    lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                                }
+                notificationManager.createNotificationChannel(channel)
+            }
+
+            // Full-screen Intent: MainActivity 강제 실행
+            val fullScreenIntent =
+                    Intent(context, MainActivity::class.java).apply {
+                        action = "RESTART_FROM_BOOT_RECOVERY"
+                        addFlags(
+                                Intent.FLAG_ACTIVITY_NEW_TASK or
+                                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        )
+                    }
+            val fullScreenPendingIntent =
+                    PendingIntent.getActivity(
+                            context,
+                            8890,
+                            fullScreenIntent,
+                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+
+            // 탭 Intent
+            val clickIntent =
+                    Intent(context, MainActivity::class.java).apply {
+                        action = "RESTART_FROM_BOOT_RECOVERY"
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    }
+            val clickPendingIntent =
+                    PendingIntent.getActivity(
+                            context,
+                            8891,
+                            clickIntent,
+                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+
+            val notification =
+                    NotificationCompat.Builder(context, channelId)
+                            .setSmallIcon(android.R.drawable.ic_popup_reminder)
+                            .setContentTitle("🔄 활성 알람이 있어 앱을 복구합니다")
+                            .setContentText("기기 재부팅 감지 — 활성 알람 ${activeAlarms}개를 복구합니다.")
+                            .setStyle(
+                                    NotificationCompat.BigTextStyle()
+                                            .bigText(
+                                                    "기기가 재부팅되었습니다.\n\n" +
+                                                            "활성 알람 ${activeAlarms}개가 있으므로 앱을 자동으로 복구합니다.\n" +
+                                                            "잠시 후 앱이 자동으로 열립니다."
+                                            )
+                            )
+                            .setPriority(NotificationCompat.PRIORITY_MAX)
+                            .setCategory(NotificationCompat.CATEGORY_ALARM)
+                            .setAutoCancel(true)
+                            .setContentIntent(clickPendingIntent)
+                            .setFullScreenIntent(fullScreenPendingIntent, true)
+                            .setDefaults(NotificationCompat.DEFAULT_ALL)
+                            .setOnlyAlertOnce(false)
+                            .setColor(0xFFFF0000.toInt())
+                            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                            .build()
+
+            notificationManager.notify(7777, notification)
+            Log.d("Watchdog", "🚨 부팅 복구 Full-screen 알림 표시 완료")
+        } catch (e: Exception) {
+            Log.e("Watchdog", "❌ 부팅 복구 알림 실패: ${e.message}")
+            // 알림 실패 시에도 백그라운드 서비스 시작 시도
+            startBackgroundService(context)
+        }
     }
 
     private fun handleDailyCheck(context: Context, intent: Intent) {
@@ -330,15 +436,15 @@ class ServiceWatchdogReceiver : BroadcastReceiver() {
             // ✅ 매번 진동+소리가 울리도록 DEFAULT_ALL + PRIORITY_HIGH
             val notification =
                     NotificationCompat.Builder(context, channelId)
-                            .setSmallIcon(android.R.drawable.stat_notify_error)
-                            .setContentTitle("⚠️ 위치 알람이 중지되었습니다!")
-                            .setContentText("$activeAlarms 개의 알람이 작동하지 않습니다. 터치하여 복구하세요.")
+                            .setSmallIcon(android.R.drawable.ic_popup_reminder)
+                            .setContentTitle("🔄 활성 알람이 있어 앱을 복구합니다")
+                            .setContentText("활성 알람 ${activeAlarms}개 — 터치하여 앱을 복구하세요.")
                             .setStyle(
                                     NotificationCompat.BigTextStyle()
                                             .bigText(
-                                                    "$activeAlarms 개의 위치 알람이 작동하지 않습니다.\n\n" +
-                                                    "앱이 종료되어 알람이 울리지 않습니다.\n" +
-                                                    "터치하여 앱을 열어주세요. (앱을 열기 전까지 반복 알림)"
+                                                    "앱이 종료되어 활성 알람 ${activeAlarms}개가 작동하지 않습니다.\n\n" +
+                                                    "터치하여 앱을 열어주세요.\n" +
+                                                    "(앱을 열기 전까지 반복 알림)"
                                             )
                             )
                             .setPriority(NotificationCompat.PRIORITY_HIGH)
