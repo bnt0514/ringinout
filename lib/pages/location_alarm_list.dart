@@ -482,7 +482,6 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
   static _LocationAlarmListState? _instance;
   final _controller = AlarmListController();
   final _platform = const MethodChannel('ringinout_channel');
-  Offset fabPosition = const Offset(160, 400);
   SubscriptionPlan _plan = SubscriptionPlan.free;
   String _sortOption = 'place_asc'; // 기본: 장소명 오름차순
 
@@ -516,6 +515,34 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
     return false;
   }
 
+  /// ✅ 알람 그룹의 장소가 블루투스 등록되어 있는지 확인
+  bool _placeGroupHasBluetooth(
+    List<MapEntry<int, Map<String, dynamic>>> groupAlarms,
+  ) {
+    if (groupAlarms.isEmpty) return false;
+    final alarm = groupAlarms.first.value;
+
+    // 1) placeId로 먼저 조회
+    final placeId = alarm['placeId']?.toString();
+    if (placeId != null && placeId.isNotEmpty) {
+      if (HiveHelper.getBluetoothDevicesForPlace(placeId).isNotEmpty)
+        return true;
+    }
+
+    // 2) 장소명으로 폴백 조회
+    final placeName =
+        (alarm['place'] ?? alarm['locationName'] ?? '').toString();
+    if (placeName.isEmpty) return false;
+    final places = HiveHelper.getSavedLocations();
+    for (final place in places) {
+      final pName = (place['name'] ?? '').toString();
+      if (pName == placeName) {
+        if (HiveHelper.placeHasBluetooth(place)) return true;
+      }
+    }
+    return false;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -523,7 +550,6 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadCurrentPlan();
       _setupMethodChannel();
-      _loadFabPosition();
     });
   }
 
@@ -531,17 +557,6 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
     final plan = await SubscriptionService.getCurrentPlan();
     if (!mounted) return;
     setState(() => _plan = plan);
-  }
-
-  Future<void> _loadFabPosition() async {
-    try {
-      final position = await HiveHelper.getFabPosition();
-      setState(() {
-        fabPosition = position;
-      });
-    } catch (e) {
-      print('FAB 위치 로드 실패: $e');
-    }
   }
 
   List<MapEntry<int, Map<String, dynamic>>> _sortAlarms(List alarms) {
@@ -690,28 +705,30 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder(
-      valueListenable: _controller.isSelectionMode,
-      builder: (context, isSelectionMode, _) {
-        return PopScope(
-          canPop: !isSelectionMode,
-          onPopInvoked: (didPop) {
-            if (!didPop && isSelectionMode) {
-              _controller.isSelectionMode.value = false;
-              _controller.selectedIndexes.value = {};
-            }
-          },
-          child: Stack(
-            children: [
-              Column(
+      valueListenable: HiveHelper.alarmBox.listenable(),
+      builder: (context, Box alarmBox, _) {
+        return ValueListenableBuilder(
+          valueListenable: _controller.isSelectionMode,
+          builder: (context, isSelectionMode, _) {
+            return PopScope(
+              canPop: !isSelectionMode,
+              onPopInvoked: (didPop) {
+                if (!didPop && isSelectionMode) {
+                  _controller.isSelectionMode.value = false;
+                  _controller.selectedIndexes.value = {};
+                }
+              },
+              child: Column(
                 children: [
                   if (isSelectionMode) _buildSelectionHeader(),
                   Expanded(child: _buildAlarmList()),
+                  if (!isSelectionMode && alarmBox.isNotEmpty)
+                    _buildFixedAddBar(),
+                  if (isSelectionMode) _buildDeleteBar(),
                 ],
               ),
-              if (isSelectionMode) _buildDeleteButton(),
-              if (!isSelectionMode) _buildDraggableFAB(fabPosition),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -728,7 +745,49 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
               final alarms = box.values.toList();
               if (alarms.isEmpty) {
                 final l10n = AppLocalizations.of(context);
-                return Center(child: Text(l10n.get('no_saved_alarms')));
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.alarm_off,
+                        size: 64,
+                        color: AppColors.textSecondary.withValues(alpha: 0.5),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        l10n.get('no_saved_alarms'),
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.get('no_saved_alarms_desc'),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary.withValues(alpha: 0.7),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed:
+                            () => Navigator.pushNamed(
+                              context,
+                              '/add_location_alarm',
+                            ),
+                        icon: const Icon(Icons.add),
+                        label: Text(l10n.get('add_alarm_btn')),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
               }
 
               // ✅ 활성 알람 개수 확인
@@ -783,6 +842,9 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
                                   _controller.isSelectionMode.value,
                               alarmLimit: alarmLimit,
                               hasWifi: _placeGroupHasWifi(groupAlarms),
+                              hasBluetooth: _placeGroupHasBluetooth(
+                                groupAlarms,
+                              ),
                               onSelect: _controller.toggleSelection,
                               onTap: _handleAlarmTap,
                             );
@@ -939,50 +1001,66 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
     );
   }
 
-  Widget _buildDeleteButton() {
-    return Positioned(
-      bottom: 20,
-      right: 20,
-      child: FloatingActionButton(
-        heroTag: 'delete_button',
-        backgroundColor: AppColors.danger,
-        foregroundColor: AppColors.textOnPrimary,
-        onPressed: _controller.deleteSelected,
-        child: const Icon(Icons.delete),
+  Widget _buildDeleteBar() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        border: Border(
+          top: BorderSide(color: AppColors.divider.withValues(alpha: 0.5)),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton.icon(
+            onPressed: _controller.deleteSelected,
+            icon: const Icon(Icons.delete, size: 20),
+            label: Text(AppLocalizations.of(context).get('delete')),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildDraggableFAB(Offset position) {
-    return Positioned(
-      left: position.dx,
-      top: position.dy,
-      child: GestureDetector(
-        onPanUpdate: (details) {
-          setState(() {
-            fabPosition += details.delta;
-          });
-        },
-        onPanEnd: (_) async {
-          await HiveHelper.saveFabPosition(fabPosition.dx, fabPosition.dy);
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: AppColors.primaryGradient,
-            boxShadow: AppStyle.fabShadow,
-          ),
-          child: FloatingActionButton(
-            heroTag: 'location_alarm',
-            shape: const CircleBorder(),
-            elevation: 0,
-            mini: true,
-            backgroundColor: Colors.transparent,
-            foregroundColor: AppColors.textOnPrimary,
+  Widget _buildFixedAddBar() {
+    final l10n = AppLocalizations.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        border: Border(
+          top: BorderSide(color: AppColors.divider.withValues(alpha: 0.5)),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton.icon(
             onPressed:
                 () => Navigator.pushNamed(context, '/add_location_alarm'),
-            tooltip: AppLocalizations.of(context).get('add_alarm_tooltip'),
-            child: const Icon(Icons.alarm_add),
+            icon: const Icon(Icons.alarm_add, size: 20),
+            label: Text(l10n.get('add_alarm_btn')),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
           ),
         ),
       ),
@@ -1000,6 +1078,7 @@ class _PlaceGroupCard extends StatefulWidget {
   final bool isSelectionMode;
   final int? alarmLimit;
   final bool hasWifi;
+  final bool hasBluetooth;
   final Function(int) onSelect;
   final Function(int) onTap;
 
@@ -1010,6 +1089,7 @@ class _PlaceGroupCard extends StatefulWidget {
     required this.isSelectionMode,
     required this.alarmLimit,
     this.hasWifi = false,
+    this.hasBluetooth = false,
     required this.onSelect,
     required this.onTap,
   });
@@ -1062,6 +1142,15 @@ class _PlaceGroupCardState extends State<_PlaceGroupCard> {
                       padding: const EdgeInsets.only(left: 4),
                       child: Icon(
                         Icons.wifi,
+                        color: AppColors.primary.withValues(alpha: 0.7),
+                        size: 16,
+                      ),
+                    ),
+                  if (widget.hasBluetooth)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Icon(
+                        Icons.bluetooth,
                         color: AppColors.primary.withValues(alpha: 0.7),
                         size: 16,
                       ),

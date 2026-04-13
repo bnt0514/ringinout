@@ -8,7 +8,7 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../services/wifi_service.dart';
-import '../config/app_theme.dart';
+import '../services/app_localizations.dart';
 
 class WifiSelectorWidget extends StatefulWidget {
   /// 기존 선택된 Wi-Fi 네트워크 목록 (편집 시)
@@ -82,7 +82,7 @@ class _WifiSelectorWidgetState extends State<WifiSelectorWidget> {
       if (!_wifiEnabled) {
         setState(() {
           _isLoading = false;
-          _errorMessage = 'Wi-Fi가 꺼져 있습니다';
+          _errorMessage = 'wifi_disabled';
         });
         return;
       }
@@ -112,7 +112,7 @@ class _WifiSelectorWidgetState extends State<WifiSelectorWidget> {
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Wi-Fi 스캔 실패';
+        _errorMessage = 'wifi_scan_failed';
       });
     }
   }
@@ -140,6 +140,7 @@ class _WifiSelectorWidgetState extends State<WifiSelectorWidget> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -150,7 +151,7 @@ class _WifiSelectorWidgetState extends State<WifiSelectorWidget> {
             Icon(Icons.wifi, size: 20, color: theme.colorScheme.primary),
             const SizedBox(width: 8),
             Text(
-              'Wi-Fi 네트워크',
+              l10n.get('wifi_networks_label'),
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -160,7 +161,7 @@ class _WifiSelectorWidgetState extends State<WifiSelectorWidget> {
               IconButton(
                 icon: const Icon(Icons.refresh, size: 20),
                 onPressed: _scanNetworks,
-                tooltip: '다시 스캔',
+                tooltip: l10n.get('wifi_rescan_tooltip'),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
@@ -168,7 +169,7 @@ class _WifiSelectorWidgetState extends State<WifiSelectorWidget> {
         ),
         const SizedBox(height: 4),
         Text(
-          'Wi-Fi 연결로 더 정확한 위치 감지를 할 수 있습니다',
+          l10n.get('wifi_description'),
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
           ),
@@ -188,11 +189,11 @@ class _WifiSelectorWidgetState extends State<WifiSelectorWidget> {
             ),
           )
         else if (!_wifiEnabled)
-          _buildWarningCard('Wi-Fi가 꺼져 있습니다. Wi-Fi를 켜고 다시 시도해주세요.')
+          _buildWarningCard(l10n.get('wifi_disabled_detail'))
         else if (_errorMessage != null)
-          _buildWarningCard(_errorMessage!)
+          _buildWarningCard(l10n.get(_errorMessage!))
         else if (_availableNetworks.isEmpty)
-          _buildWarningCard('감지된 Wi-Fi 네트워크가 없습니다.')
+          _buildWarningCard(l10n.get('wifi_no_networks'))
         else
           _buildNetworkList(),
 
@@ -214,7 +215,9 @@ class _WifiSelectorWidgetState extends State<WifiSelectorWidget> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '${_selectedBssids.length}개 네트워크 선택됨',
+                  l10n.getWithArgs('wifi_networks_selected', {
+                    'count': _selectedBssids.length.toString(),
+                  }),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.primary,
                     fontWeight: FontWeight.w500,
@@ -309,7 +312,11 @@ class _WifiSelectorWidgetState extends State<WifiSelectorWidget> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    ssid.isEmpty ? '(숨겨진 네트워크)' : ssid,
+                    ssid.isEmpty
+                        ? AppLocalizations.of(
+                          context,
+                        ).get('wifi_hidden_network')
+                        : ssid,
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight:
@@ -318,16 +325,18 @@ class _WifiSelectorWidgetState extends State<WifiSelectorWidget> {
                   ),
                   if (isConnected)
                     Text(
-                      '현재 연결됨',
+                      AppLocalizations.of(
+                        context,
+                      ).get('wifi_currently_connected'),
                       style: TextStyle(
                         fontSize: 11,
                         color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
                   if (isRetained)
-                    const Text(
-                      '이전에 저장됨 (현재 감지 안 됨)',
-                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                    Text(
+                      AppLocalizations.of(context).get('wifi_previously_saved'),
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
                     ),
                 ],
               ),

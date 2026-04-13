@@ -1,23 +1,25 @@
+// lib/pages/my_places_tab_page.dart
+//
+// 내 장소 / 내 기기 탭 전환 페이지
+// - GPS 탭 구조(ServerSubscriptionPage)와 동일한 패턴
+// - 좌측: 내 장소 (MyPlacesPage), 우측: 내 기기 (MyDevicesPage)
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
-// Project imports
 import 'package:ringinout/config/app_theme.dart';
-import 'package:ringinout/pages/location_alarm_list.dart';
-import 'package:ringinout/pages/device_alarm_list.dart';
+import 'package:ringinout/pages/my_places_page.dart';
+import 'package:ringinout/pages/my_devices_page.dart';
 import 'package:ringinout/pages/settings_page.dart';
-import 'package:ringinout/services/permissions.dart';
-import 'package:ringinout/features/common/keep_alive_wrapper.dart';
 import 'package:ringinout/services/app_localizations.dart';
 
-class AlarmPage extends StatefulWidget {
-  const AlarmPage({super.key});
+class MyPlacesTabPage extends StatefulWidget {
+  const MyPlacesTabPage({super.key});
 
   @override
-  State<AlarmPage> createState() => _AlarmPageState();
+  State<MyPlacesTabPage> createState() => _MyPlacesTabPageState();
 }
 
-class _AlarmPageState extends State<AlarmPage>
+class _MyPlacesTabPageState extends State<MyPlacesTabPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
@@ -30,14 +32,6 @@ class _AlarmPageState extends State<AlarmPage>
         setState(() {}); // AppBar actions 갱신
       }
     });
-    _checkPermissions();
-  }
-
-  Future<void> _checkPermissions() async {
-    final hasPermissions = await PermissionManager.hasAllRequiredPermissions();
-    if (!hasPermissions) {
-      await PermissionManager.requestAllPermissions();
-    }
   }
 
   @override
@@ -51,7 +45,7 @@ class _AlarmPageState extends State<AlarmPage>
     final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.get('page_title_alarm')),
+        title: Text(l10n.get('page_title_places')),
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.textOnPrimary,
         elevation: 0,
@@ -60,12 +54,14 @@ class _AlarmPageState extends State<AlarmPage>
         ),
         systemOverlayStyle: SystemUiOverlayStyle.light,
         actions: [
-          // sort 버튼은 위치 알람 탭에서만 표시
+          // sort 버튼은 내 장소 탭에서만
           if (_tabController.index == 0)
             IconButton(
               icon: const Icon(Icons.sort),
               onPressed: () {
-                LocationAlarmList.showSortDialog();
+                // MyPlacesPage 내부의 sort 다이얼로그는
+                // MyPlacesPage가 자체 관리하므로, GlobalKey 사용
+                _myPlacesKey.currentState?.showSortOptionsFromParent();
               },
             ),
           IconButton(
@@ -91,8 +87,8 @@ class _AlarmPageState extends State<AlarmPage>
               indicatorColor: AppColors.primary,
               indicatorWeight: 2.5,
               tabs: [
-                Tab(text: l10n.get('tab_location_alarm')),
-                Tab(text: l10n.get('tab_device_alarm')),
+                Tab(text: l10n.get('tab_my_places')),
+                Tab(text: l10n.get('tab_my_devices')),
               ],
             ),
           ),
@@ -101,9 +97,9 @@ class _AlarmPageState extends State<AlarmPage>
             child: TabBarView(
               controller: _tabController,
               physics: const NeverScrollableScrollPhysics(),
-              children: const [
-                KeepAliveWidget(child: LocationAlarmList()),
-                DeviceAlarmList(),
+              children: [
+                MyPlacesPage(key: _myPlacesKey, showAppBar: false),
+                const MyDevicesPage(),
               ],
             ),
           ),
@@ -111,4 +107,7 @@ class _AlarmPageState extends State<AlarmPage>
       ),
     );
   }
+
+  final GlobalKey<MyPlacesPageState> _myPlacesKey =
+      GlobalKey<MyPlacesPageState>();
 }

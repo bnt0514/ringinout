@@ -13,14 +13,14 @@ import 'package:ringinout/services/subscription_service.dart';
 import 'package:ringinout/widgets/subscription_limit_dialog.dart';
 
 class MyPlacesPage extends StatefulWidget {
-  const MyPlacesPage({super.key});
+  const MyPlacesPage({super.key, this.showAppBar = true});
+  final bool showAppBar;
 
   @override
-  State<MyPlacesPage> createState() => _MyPlacesPageState();
+  State<MyPlacesPage> createState() => MyPlacesPageState();
 }
 
-class _MyPlacesPageState extends State<MyPlacesPage> {
-  Offset fabPosition = const Offset(160, 400);
+class MyPlacesPageState extends State<MyPlacesPage> {
   String _sortOption = 'name_asc'; // 기본: 장소명 오름차순
   bool isSelectionMode = false;
   Set<int> selectedIndexes = {};
@@ -33,13 +33,15 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
     return wifi is List && wifi.isNotEmpty;
   }
 
+  /// 장소에 블루투스 기기가 등록되어 있는지 확인
+  bool _placeHasBluetooth(Map<String, dynamic> place) {
+    final bt = place['bluetoothDevices'];
+    return bt is List && bt.isNotEmpty;
+  }
+
   @override
   void initState() {
     super.initState();
-    HiveHelper.init().then((_) async {
-      final pos = await HiveHelper.getFabPosition();
-      setState(() => fabPosition = pos);
-    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadCurrentPlan();
     });
@@ -50,6 +52,9 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
     if (!mounted) return;
     setState(() => _plan = plan);
   }
+
+  /// 외부(래퍼 페이지)에서 sort 다이얼로그를 호출할 수 있는 public 메서드
+  void showSortOptionsFromParent() => _showSortOptions(context);
 
   void _showSortOptions(BuildContext context) async {
     final l10n = AppLocalizations.of(context);
@@ -198,538 +203,557 @@ class _MyPlacesPageState extends State<MyPlacesPage> {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: Text(l10n.get('page_title_places')),
-        backgroundColor: AppColors.primary,
-        foregroundColor: AppColors.textOnPrimary,
-        elevation: 0,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(gradient: AppColors.primaryGradient),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.sort),
-            onPressed: () => _showSortOptions(context),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsPage()),
-              );
-            },
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: Column(
-              children: [
-                if (isSelectionMode)
-                  Container(
-                    alignment: Alignment.centerLeft,
-                    padding: const EdgeInsets.fromLTRB(16, 10, 0, 4),
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          if (selectedIndexes.length == items.length) {
-                            selectedIndexes.clear();
-                            isSelectionMode = false;
-                          } else {
-                            selectedIndexes = Set.from(
-                              List.generate(items.length, (i) => i),
-                            );
-                          }
-                        });
-                      },
-                      child: Text(
-                        '☑ ${l10n.get('select_all')}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
+      appBar:
+          widget.showAppBar
+              ? AppBar(
+                title: Text(l10n.get('page_title_places')),
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.textOnPrimary,
+                elevation: 0,
+                flexibleSpace: Container(
+                  decoration: BoxDecoration(
+                    gradient: AppColors.primaryGradient,
                   ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: ValueListenableBuilder(
-                    valueListenable: HiveHelper.placeBox.listenable(),
-                    builder: (context, Box box, _) {
-                      final rawItems = List.generate(box.length, (index) {
-                        final value = box.getAt(index);
-                        return MapEntry(
-                          index,
-                          Map<String, dynamic>.from(value as Map),
-                        );
-                      });
-
-                      items = _sortItems(rawItems, _sortOption);
-                      final placeLimit = SubscriptionService.placeLimit(_plan);
-
-                      if (items.isEmpty) {
-                        return Column(
-                          children: [
-                            Expanded(
-                              child: Center(child: Text(l10n.get('no_places'))),
-                            ),
-                          ],
-                        );
-                      }
-
-                      return Column(
-                        children: [
-                          Expanded(
-                            child: ListView.separated(
-                              padding: const EdgeInsets.only(
-                                left: 12,
-                                right: 12,
-                                top: 4,
-                                bottom: 100,
-                              ),
-                              itemCount: items.length,
-                              itemBuilder: (context, index) {
-                                final item = items[index];
-                                final actualIndex = item.key;
-                                final location = item.value;
-                                final isLocked =
-                                    SubscriptionService.isIndexLocked(
-                                      index,
-                                      placeLimit,
-                                    );
-                                return AnimatedPadding(
-                                  duration: const Duration(milliseconds: 200),
-                                  padding: EdgeInsets.only(
-                                    left: isSelectionMode ? 8.0 : 0.0,
-                                    top: isSelectionMode ? 4.0 : 0.0,
-                                  ),
-                                  child: Opacity(
-                                    opacity: isLocked ? 0.5 : 1.0,
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color:
-                                            isLocked
-                                                ? AppColors.shimmer
-                                                : AppColors.card,
-                                        borderRadius: BorderRadius.circular(16),
-                                        border: Border.all(
-                                          color:
-                                              isLocked
-                                                  ? AppColors.divider
-                                                  : selectedIndexes.contains(
-                                                    actualIndex,
-                                                  )
-                                                  ? AppColors.primary
-                                                      .withValues(alpha: 0.5)
-                                                  : AppColors.divider,
-                                          width:
-                                              selectedIndexes.contains(
-                                                    actualIndex,
-                                                  )
-                                                  ? 1.5
-                                                  : 1,
-                                        ),
-                                        boxShadow: AppStyle.softShadow,
-                                      ),
-                                      child: ListTile(
-                                        leading:
-                                            isLocked
-                                                ? const Icon(
-                                                  Icons.lock,
-                                                  color: AppColors.divider,
-                                                )
-                                                : isSelectionMode
-                                                ? Checkbox(
-                                                  value: selectedIndexes
-                                                      .contains(actualIndex),
-                                                  onChanged: (_) {
-                                                    setState(() {
-                                                      if (selectedIndexes
-                                                          .contains(
-                                                            actualIndex,
-                                                          )) {
-                                                        selectedIndexes.remove(
-                                                          actualIndex,
-                                                        );
-                                                        if (selectedIndexes
-                                                            .isEmpty) {
-                                                          isSelectionMode =
-                                                              false;
-                                                        }
-                                                      } else {
-                                                        selectedIndexes.add(
-                                                          actualIndex,
-                                                        );
-                                                      }
-                                                    });
-                                                  },
-                                                )
-                                                : const Icon(
-                                                  Icons.place,
-                                                  color: AppColors.primary,
-                                                ),
-                                        title: Text(
-                                          location['name'] ??
-                                              l10n.get('no_name_label'),
-                                          style: TextStyle(
-                                            color:
-                                                isLocked
-                                                    ? AppColors.divider
-                                                    : null,
-                                          ),
-                                        ),
-                                        subtitle:
-                                            isLocked
-                                                ? Text(
-                                                  l10n.get(
-                                                    'plan_upgrade_needed',
-                                                  ),
-                                                  style: TextStyle(
-                                                    color: AppColors.warning,
-                                                    fontSize: 12,
-                                                  ),
-                                                )
-                                                : Row(
-                                                  children: [
-                                                    Text(
-                                                      l10n.getWithArgs(
-                                                        'radius_display',
-                                                        {
-                                                          'radius':
-                                                              '${location["radius"] ?? "?"}',
-                                                        },
-                                                      ),
-                                                    ),
-                                                    if (_placeHasWifi(
-                                                      location,
-                                                    )) ...[
-                                                      const SizedBox(width: 8),
-                                                      Icon(
-                                                        Icons.wifi,
-                                                        size: 14,
-                                                        color: AppColors.primary
-                                                            .withValues(
-                                                              alpha: 0.7,
-                                                            ),
-                                                      ),
-                                                    ],
-                                                  ],
-                                                ),
-                                        onTap: () async {
-                                          if (isLocked) {
-                                            await SubscriptionLimitDialog.showPlaceLimit(
-                                              context,
-                                              plan: _plan,
-                                              limit: placeLimit!,
-                                            );
-                                            return;
-                                          }
-                                          if (isSelectionMode) {
-                                            setState(() {
-                                              if (selectedIndexes.contains(
-                                                actualIndex,
-                                              )) {
-                                                selectedIndexes.remove(
-                                                  actualIndex,
-                                                );
-                                                if (selectedIndexes.isEmpty) {
-                                                  isSelectionMode = false;
-                                                }
-                                              } else {
-                                                selectedIndexes.add(
-                                                  actualIndex,
-                                                );
-                                              }
-                                            });
-                                          } else {
-                                            final updated =
-                                                await Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder:
-                                                        (_) => EditPlacePage(
-                                                          initialData: location,
-                                                          index: actualIndex,
-                                                        ),
-                                                  ),
-                                                );
-                                            if (updated == true) {
-                                              setState(() {});
-                                            }
-                                          }
-                                        },
-                                        onLongPress: () {
-                                          setState(() {
-                                            isSelectionMode = true;
-                                            selectedIndexes.add(actualIndex);
-                                          });
-                                        },
-                                        trailing:
-                                            isLocked
-                                                ? PopupMenuButton<String>(
-                                                  onSelected: (value) async {
-                                                    if (value == 'delete') {
-                                                      final linkedCount =
-                                                          HiveHelper.getLinkedAlarmCount(
-                                                            actualIndex,
-                                                          );
-                                                      final msg =
-                                                          linkedCount > 0
-                                                              ? '${l10n.get('delete_locked_msg')}\n\n${l10n.get('linked_alarm_delete_warning').replaceAll('{count}', '$linkedCount')}'
-                                                              : l10n.get(
-                                                                'delete_locked_msg',
-                                                              );
-                                                      final confirm = await showDialog<
-                                                        bool
-                                                      >(
-                                                        context: context,
-                                                        builder:
-                                                            (_) => AlertDialog(
-                                                              title: Text(
-                                                                l10n.get(
-                                                                  'delete_confirm_title',
-                                                                ),
-                                                              ),
-                                                              content: Text(
-                                                                msg,
-                                                              ),
-                                                              actions: [
-                                                                TextButton(
-                                                                  onPressed:
-                                                                      () => Navigator.pop(
-                                                                        context,
-                                                                        false,
-                                                                      ),
-                                                                  child: Text(
-                                                                    l10n.get(
-                                                                      'cancel',
-                                                                    ),
-                                                                  ),
-                                                                ),
-                                                                TextButton(
-                                                                  onPressed:
-                                                                      () => Navigator.pop(
-                                                                        context,
-                                                                        true,
-                                                                      ),
-                                                                  child: Text(
-                                                                    l10n.get(
-                                                                      'delete',
-                                                                    ),
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                      );
-                                                      if (confirm == true) {
-                                                        await HiveHelper.deleteLocationWithLinkedAlarms(
-                                                          actualIndex,
-                                                        );
-                                                        await SmartLocationService.updatePlaces();
-                                                        setState(() {});
-                                                      }
-                                                    }
-                                                  },
-                                                  itemBuilder:
-                                                      (context) => [
-                                                        PopupMenuItem(
-                                                          value: 'delete',
-                                                          child: Text(
-                                                            l10n.get('delete'),
-                                                            style: TextStyle(
-                                                              color:
-                                                                  AppColors
-                                                                      .danger,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                )
-                                                : PopupMenuButton<String>(
-                                                  onSelected: (value) async {
-                                                    if (value ==
-                                                        'edit_places') {
-                                                      // 무료 유저 지도 오픈 제한 체크
-                                                      if (!await _checkMapOpenAllowed())
-                                                        return;
-                                                      final updated =
-                                                          await Navigator.push(
-                                                            context,
-                                                            MaterialPageRoute(
-                                                              builder:
-                                                                  (
-                                                                    _,
-                                                                  ) => EditPlacePage(
-                                                                    initialData:
-                                                                        location,
-                                                                    index:
-                                                                        actualIndex,
-                                                                  ),
-                                                            ),
-                                                          );
-                                                      if (updated == true)
-                                                        setState(() {});
-                                                    } else if (value ==
-                                                        'add_alarm') {
-                                                      Navigator.push(
-                                                        context,
-                                                        MaterialPageRoute(
-                                                          builder:
-                                                              (
-                                                                _,
-                                                              ) => AddLocationAlarmPage(
-                                                                preSelectedPlace:
-                                                                    location,
-                                                              ),
-                                                        ),
-                                                      );
-                                                    } else if (value ==
-                                                        'delete') {
-                                                      final linkedCount =
-                                                          HiveHelper.getLinkedAlarmCount(
-                                                            actualIndex,
-                                                          );
-                                                      final msg =
-                                                          linkedCount > 0
-                                                              ? '${l10n.get('delete_place_msg')}\n\n${l10n.get('linked_alarm_delete_warning').replaceAll('{count}', '$linkedCount')}'
-                                                              : l10n.get(
-                                                                'delete_place_msg',
-                                                              );
-                                                      final confirm = await showDialog<
-                                                        bool
-                                                      >(
-                                                        context: context,
-                                                        builder:
-                                                            (_) => AlertDialog(
-                                                              title: Text(
-                                                                l10n.get(
-                                                                  'delete_confirm_title',
-                                                                ),
-                                                              ),
-                                                              content: Text(
-                                                                msg,
-                                                              ),
-                                                              actions: [
-                                                                TextButton(
-                                                                  onPressed:
-                                                                      () => Navigator.pop(
-                                                                        context,
-                                                                        false,
-                                                                      ),
-                                                                  child: Text(
-                                                                    l10n.get(
-                                                                      'cancel',
-                                                                    ),
-                                                                  ),
-                                                                ),
-                                                                TextButton(
-                                                                  onPressed:
-                                                                      () => Navigator.pop(
-                                                                        context,
-                                                                        true,
-                                                                      ),
-                                                                  child: Text(
-                                                                    l10n.get(
-                                                                      'delete',
-                                                                    ),
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                      );
-                                                      if (confirm == true) {
-                                                        await HiveHelper.deleteLocationWithLinkedAlarms(
-                                                          actualIndex,
-                                                        );
-                                                        await SmartLocationService.updatePlaces();
-                                                        setState(() {});
-                                                      }
-                                                    }
-                                                  },
-                                                  itemBuilder:
-                                                      (context) => [
-                                                        PopupMenuItem(
-                                                          value: 'edit_places',
-                                                          child: Text(
-                                                            l10n.get(
-                                                              'edit_places_menu',
-                                                            ),
-                                                          ),
-                                                        ),
-                                                        PopupMenuItem(
-                                                          value: 'add_alarm',
-                                                          child: Text(
-                                                            l10n.get(
-                                                              'add_alarm_menu',
-                                                            ),
-                                                          ),
-                                                        ),
-                                                        PopupMenuItem(
-                                                          value: 'delete',
-                                                          child: Text(
-                                                            l10n.get('delete'),
-                                                            style: TextStyle(
-                                                              color:
-                                                                  AppColors
-                                                                      .danger,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                ),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                              separatorBuilder:
-                                  (context, index) =>
-                                      const Divider(height: 1, thickness: 1),
-                            ),
-                          ),
-                        ],
+                ),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.sort),
+                    onPressed: () => _showSortOptions(context),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.settings),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SettingsPage(),
+                        ),
                       );
                     },
                   ),
-                ),
-              ],
-            ),
-          ),
-          Positioned(
-            left: fabPosition.dx,
-            top: fabPosition.dy,
-            child: GestureDetector(
-              onPanUpdate: (details) {
-                setState(() {
-                  fabPosition += details.delta;
-                });
-              },
-              onPanEnd: (_) async {
-                await HiveHelper.saveFabPosition(
-                  fabPosition.dx,
-                  fabPosition.dy,
-                );
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: AppColors.primaryGradient,
-                  boxShadow: AppStyle.fabShadow,
-                ),
-                child: FloatingActionButton(
-                  heroTag: 'my_places',
-                  shape: const CircleBorder(),
-                  elevation: 0,
-                  mini: true,
-                  backgroundColor: Colors.transparent,
-                  foregroundColor: AppColors.textOnPrimary,
-                  onPressed: _navigateToLocationPicker,
-                  tooltip: l10n.get('add_place_tooltip'),
-                  child: const Icon(Icons.add_location_alt),
+                ],
+              )
+              : null,
+      body: Column(
+        children: [
+          if (isSelectionMode)
+            Container(
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.fromLTRB(16, 10, 0, 4),
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    if (selectedIndexes.length == items.length) {
+                      selectedIndexes.clear();
+                      isSelectionMode = false;
+                    } else {
+                      selectedIndexes = Set.from(
+                        List.generate(items.length, (i) => i),
+                      );
+                    }
+                  });
+                },
+                child: Text(
+                  '☑ ${l10n.get('select_all')}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
             ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: ValueListenableBuilder(
+              valueListenable: HiveHelper.placeBox.listenable(),
+              builder: (context, Box box, _) {
+                final rawItems = List.generate(box.length, (index) {
+                  final value = box.getAt(index);
+                  return MapEntry(
+                    index,
+                    Map<String, dynamic>.from(value as Map),
+                  );
+                });
+
+                items = _sortItems(rawItems, _sortOption);
+                final placeLimit = SubscriptionService.placeLimit(_plan);
+
+                if (items.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.location_off,
+                          size: 64,
+                          color: AppColors.textSecondary.withValues(alpha: 0.5),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          l10n.get('no_places'),
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          l10n.get('no_places_desc'),
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary.withValues(
+                              alpha: 0.7,
+                            ),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 24),
+                        ElevatedButton.icon(
+                          onPressed: _navigateToLocationPicker,
+                          icon: const Icon(Icons.add_location_alt),
+                          label: Text(l10n.get('add_place_btn')),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return Column(
+                  children: [
+                    Expanded(
+                      child: ListView.separated(
+                        padding: const EdgeInsets.only(
+                          left: 12,
+                          right: 12,
+                          top: 4,
+                          bottom: 12,
+                        ),
+                        itemCount: items.length,
+                        itemBuilder: (context, index) {
+                          final item = items[index];
+                          final actualIndex = item.key;
+                          final location = item.value;
+                          final isLocked = SubscriptionService.isIndexLocked(
+                            index,
+                            placeLimit,
+                          );
+                          return AnimatedPadding(
+                            duration: const Duration(milliseconds: 200),
+                            padding: EdgeInsets.only(
+                              left: isSelectionMode ? 8.0 : 0.0,
+                              top: isSelectionMode ? 4.0 : 0.0,
+                            ),
+                            child: Opacity(
+                              opacity: isLocked ? 0.5 : 1.0,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color:
+                                      isLocked
+                                          ? AppColors.shimmer
+                                          : AppColors.card,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color:
+                                        isLocked
+                                            ? AppColors.divider
+                                            : selectedIndexes.contains(
+                                              actualIndex,
+                                            )
+                                            ? AppColors.primary.withValues(
+                                              alpha: 0.5,
+                                            )
+                                            : AppColors.divider,
+                                    width:
+                                        selectedIndexes.contains(actualIndex)
+                                            ? 1.5
+                                            : 1,
+                                  ),
+                                  boxShadow: AppStyle.softShadow,
+                                ),
+                                child: ListTile(
+                                  leading:
+                                      isLocked
+                                          ? const Icon(
+                                            Icons.lock,
+                                            color: AppColors.divider,
+                                          )
+                                          : isSelectionMode
+                                          ? Checkbox(
+                                            value: selectedIndexes.contains(
+                                              actualIndex,
+                                            ),
+                                            onChanged: (_) {
+                                              setState(() {
+                                                if (selectedIndexes.contains(
+                                                  actualIndex,
+                                                )) {
+                                                  selectedIndexes.remove(
+                                                    actualIndex,
+                                                  );
+                                                  if (selectedIndexes.isEmpty) {
+                                                    isSelectionMode = false;
+                                                  }
+                                                } else {
+                                                  selectedIndexes.add(
+                                                    actualIndex,
+                                                  );
+                                                }
+                                              });
+                                            },
+                                          )
+                                          : const Icon(
+                                            Icons.place,
+                                            color: AppColors.primary,
+                                          ),
+                                  title: Text(
+                                    location['name'] ??
+                                        l10n.get('no_name_label'),
+                                    style: TextStyle(
+                                      color:
+                                          isLocked ? AppColors.divider : null,
+                                    ),
+                                  ),
+                                  subtitle:
+                                      isLocked
+                                          ? Text(
+                                            l10n.get('plan_upgrade_needed'),
+                                            style: TextStyle(
+                                              color: AppColors.warning,
+                                              fontSize: 12,
+                                            ),
+                                          )
+                                          : Row(
+                                            children: [
+                                              Text(
+                                                l10n.getWithArgs(
+                                                  'radius_display',
+                                                  {
+                                                    'radius':
+                                                        '${location["radius"] ?? "?"}',
+                                                  },
+                                                ),
+                                              ),
+                                              if (_placeHasWifi(location)) ...[
+                                                const SizedBox(width: 8),
+                                                Icon(
+                                                  Icons.wifi,
+                                                  size: 14,
+                                                  color: AppColors.primary
+                                                      .withValues(alpha: 0.7),
+                                                ),
+                                              ],
+                                              if (_placeHasBluetooth(
+                                                location,
+                                              )) ...[
+                                                const SizedBox(width: 8),
+                                                Icon(
+                                                  Icons.bluetooth,
+                                                  size: 14,
+                                                  color: AppColors.primary
+                                                      .withValues(alpha: 0.7),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                  onTap: () async {
+                                    if (isLocked) {
+                                      await SubscriptionLimitDialog.showPlaceLimit(
+                                        context,
+                                        plan: _plan,
+                                        limit: placeLimit!,
+                                      );
+                                      return;
+                                    }
+                                    if (isSelectionMode) {
+                                      setState(() {
+                                        if (selectedIndexes.contains(
+                                          actualIndex,
+                                        )) {
+                                          selectedIndexes.remove(actualIndex);
+                                          if (selectedIndexes.isEmpty) {
+                                            isSelectionMode = false;
+                                          }
+                                        } else {
+                                          selectedIndexes.add(actualIndex);
+                                        }
+                                      });
+                                    } else {
+                                      final updated = await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (_) => EditPlacePage(
+                                                initialData: location,
+                                                index: actualIndex,
+                                              ),
+                                        ),
+                                      );
+                                      if (updated == true) {
+                                        setState(() {});
+                                      }
+                                    }
+                                  },
+                                  onLongPress: () {
+                                    setState(() {
+                                      isSelectionMode = true;
+                                      selectedIndexes.add(actualIndex);
+                                    });
+                                  },
+                                  trailing:
+                                      isLocked
+                                          ? PopupMenuButton<String>(
+                                            onSelected: (value) async {
+                                              if (value == 'delete') {
+                                                final linkedCount =
+                                                    HiveHelper.getLinkedAlarmCount(
+                                                      actualIndex,
+                                                    );
+                                                final msg =
+                                                    linkedCount > 0
+                                                        ? '${l10n.get('delete_locked_msg')}\n\n${l10n.get('linked_alarm_delete_warning').replaceAll('{count}', '$linkedCount')}'
+                                                        : l10n.get(
+                                                          'delete_locked_msg',
+                                                        );
+                                                final confirm = await showDialog<
+                                                  bool
+                                                >(
+                                                  context: context,
+                                                  builder:
+                                                      (_) => AlertDialog(
+                                                        title: Text(
+                                                          l10n.get(
+                                                            'delete_confirm_title',
+                                                          ),
+                                                        ),
+                                                        content: Text(msg),
+                                                        actions: [
+                                                          TextButton(
+                                                            onPressed:
+                                                                () =>
+                                                                    Navigator.pop(
+                                                                      context,
+                                                                      false,
+                                                                    ),
+                                                            child: Text(
+                                                              l10n.get(
+                                                                'cancel',
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          TextButton(
+                                                            onPressed:
+                                                                () =>
+                                                                    Navigator.pop(
+                                                                      context,
+                                                                      true,
+                                                                    ),
+                                                            child: Text(
+                                                              l10n.get(
+                                                                'delete',
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                );
+                                                if (confirm == true) {
+                                                  await HiveHelper.deleteLocationWithLinkedAlarms(
+                                                    actualIndex,
+                                                  );
+                                                  await SmartLocationService.updatePlaces();
+                                                  setState(() {});
+                                                }
+                                              }
+                                            },
+                                            itemBuilder:
+                                                (context) => [
+                                                  PopupMenuItem(
+                                                    value: 'delete',
+                                                    child: Text(
+                                                      l10n.get('delete'),
+                                                      style: TextStyle(
+                                                        color: AppColors.danger,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                          )
+                                          : PopupMenuButton<String>(
+                                            onSelected: (value) async {
+                                              if (value == 'edit_places') {
+                                                // 무료 유저 지도 오픈 제한 체크
+                                                if (!await _checkMapOpenAllowed())
+                                                  return;
+                                                final updated =
+                                                    await Navigator.push(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder:
+                                                            (
+                                                              _,
+                                                            ) => EditPlacePage(
+                                                              initialData:
+                                                                  location,
+                                                              index:
+                                                                  actualIndex,
+                                                            ),
+                                                      ),
+                                                    );
+                                                if (updated == true)
+                                                  setState(() {});
+                                              } else if (value == 'add_alarm') {
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder:
+                                                        (_) =>
+                                                            AddLocationAlarmPage(
+                                                              preSelectedPlace:
+                                                                  location,
+                                                            ),
+                                                  ),
+                                                );
+                                              } else if (value == 'delete') {
+                                                final linkedCount =
+                                                    HiveHelper.getLinkedAlarmCount(
+                                                      actualIndex,
+                                                    );
+                                                final msg =
+                                                    linkedCount > 0
+                                                        ? '${l10n.get('delete_place_msg')}\n\n${l10n.get('linked_alarm_delete_warning').replaceAll('{count}', '$linkedCount')}'
+                                                        : l10n.get(
+                                                          'delete_place_msg',
+                                                        );
+                                                final confirm = await showDialog<
+                                                  bool
+                                                >(
+                                                  context: context,
+                                                  builder:
+                                                      (_) => AlertDialog(
+                                                        title: Text(
+                                                          l10n.get(
+                                                            'delete_confirm_title',
+                                                          ),
+                                                        ),
+                                                        content: Text(msg),
+                                                        actions: [
+                                                          TextButton(
+                                                            onPressed:
+                                                                () =>
+                                                                    Navigator.pop(
+                                                                      context,
+                                                                      false,
+                                                                    ),
+                                                            child: Text(
+                                                              l10n.get(
+                                                                'cancel',
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          TextButton(
+                                                            onPressed:
+                                                                () =>
+                                                                    Navigator.pop(
+                                                                      context,
+                                                                      true,
+                                                                    ),
+                                                            child: Text(
+                                                              l10n.get(
+                                                                'delete',
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                );
+                                                if (confirm == true) {
+                                                  await HiveHelper.deleteLocationWithLinkedAlarms(
+                                                    actualIndex,
+                                                  );
+                                                  await SmartLocationService.updatePlaces();
+                                                  setState(() {});
+                                                }
+                                              }
+                                            },
+                                            itemBuilder:
+                                                (context) => [
+                                                  PopupMenuItem(
+                                                    value: 'edit_places',
+                                                    child: Text(
+                                                      l10n.get(
+                                                        'edit_places_menu',
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  PopupMenuItem(
+                                                    value: 'add_alarm',
+                                                    child: Text(
+                                                      l10n.get(
+                                                        'add_alarm_menu',
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  PopupMenuItem(
+                                                    value: 'delete',
+                                                    child: Text(
+                                                      l10n.get('delete'),
+                                                      style: TextStyle(
+                                                        color: AppColors.danger,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                          ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                        separatorBuilder:
+                            (context, index) =>
+                                const Divider(height: 1, thickness: 1),
+                      ),
+                    ),
+                    if (!isSelectionMode) _buildFixedAddBar(l10n),
+                  ],
+                );
+              },
+            ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFixedAddBar(AppLocalizations l10n) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        border: Border(
+          top: BorderSide(color: AppColors.divider.withValues(alpha: 0.5)),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton.icon(
+            onPressed: _navigateToLocationPicker,
+            icon: const Icon(Icons.add_location_alt, size: 20),
+            label: Text(l10n.get('add_place_btn')),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

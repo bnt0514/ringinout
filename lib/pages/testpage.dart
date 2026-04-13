@@ -5,6 +5,7 @@ import 'package:ringinout/config/app_theme.dart';
 import 'package:ringinout/services/app_localizations.dart';
 import 'package:ringinout/pages/settings_page.dart';
 import 'add_location_alarm_page.dart';
+import 'add_device_alarm_page.dart';
 
 class TestPage extends StatefulWidget {
   const TestPage({Key? key}) : super(key: key);
@@ -18,6 +19,7 @@ class _TestPageState extends State<TestPage>
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
   bool _showWidgetGuide = false;
+  int _selectedVoiceTab = 0; // 0 = 위치 음성, 1 = 기기 음성
 
   @override
   void initState() {
@@ -56,12 +58,24 @@ class _TestPageState extends State<TestPage>
 
   void _startVoiceAlarm() {
     HapticFeedback.mediumImpact();
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const AddLocationAlarmPage(startWithVoice: true),
-      ),
-    );
+    if (_selectedVoiceTab == 0) {
+      // 위치 음성 → 위치 알람 추가 페이지
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (context) => const AddLocationAlarmPage(startWithVoice: true),
+        ),
+      );
+    } else {
+      // 기기 음성 → 기기 알람 추가 페이지
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const AddDeviceAlarmPage(startWithVoice: true),
+        ),
+      );
+    }
   }
 
   void _showWidgetGuideDialog() {
@@ -291,15 +305,120 @@ class _TestPageState extends State<TestPage>
           SingleChildScrollView(
             child: Column(
               children: [
-                const SizedBox(height: 40),
+                const SizedBox(height: 20),
+
+                // ── 위치 음성 / 기기 음성 탭 스위처 ──
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.shimmer,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.divider),
+                    ),
+                    padding: const EdgeInsets.all(4),
+                    child: Row(
+                      children: [
+                        // 좌측: 위치 음성
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => _selectedVoiceTab = 0),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color:
+                                    _selectedVoiceTab == 0
+                                        ? AppColors.primary
+                                        : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.location_on,
+                                    size: 18,
+                                    color:
+                                        _selectedVoiceTab == 0
+                                            ? AppColors.textOnPrimary
+                                            : AppColors.textSecondary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    l10n.get('voice_tab_location'),
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color:
+                                          _selectedVoiceTab == 0
+                                              ? AppColors.textOnPrimary
+                                              : AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        // 우측: 기기 음성
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => _selectedVoiceTab = 1),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color:
+                                    _selectedVoiceTab == 1
+                                        ? AppColors.primary
+                                        : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.bluetooth,
+                                    size: 18,
+                                    color:
+                                        _selectedVoiceTab == 1
+                                            ? AppColors.textOnPrimary
+                                            : AppColors.textSecondary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    l10n.get('voice_tab_device'),
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color:
+                                          _selectedVoiceTab == 1
+                                              ? AppColors.textOnPrimary
+                                              : AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 30),
 
                 // 메인 마이크 버튼
                 Center(
                   child: Column(
                     children: [
-                      // 설명 텍스트
+                      // 설명 텍스트 (탭에 따라 다른 텍스트)
                       Text(
-                        l10n.get('voice_main_title'),
+                        _selectedVoiceTab == 0
+                            ? l10n.get('voice_main_title')
+                            : l10n.get('voice_device_main_title'),
                         style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -308,7 +427,9 @@ class _TestPageState extends State<TestPage>
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        l10n.get('voice_example_phrase'),
+                        _selectedVoiceTab == 0
+                            ? l10n.get('voice_example_phrase')
+                            : l10n.get('voice_device_example_phrase'),
                         style: TextStyle(
                           fontSize: 16,
                           color: AppColors.textSecondary,
@@ -455,7 +576,9 @@ class _TestPageState extends State<TestPage>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                l10n.get('voice_tip_title'),
+                                _selectedVoiceTab == 0
+                                    ? l10n.get('voice_tip_title')
+                                    : l10n.get('voice_device_tip_title'),
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
@@ -464,7 +587,9 @@ class _TestPageState extends State<TestPage>
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                l10n.get('voice_tip_examples'),
+                                _selectedVoiceTab == 0
+                                    ? l10n.get('voice_tip_examples')
+                                    : l10n.get('voice_device_tip_examples'),
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: AppColors.textSecondary,
@@ -473,7 +598,9 @@ class _TestPageState extends State<TestPage>
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                l10n.get('voice_tip_note'),
+                                _selectedVoiceTab == 0
+                                    ? l10n.get('voice_tip_note')
+                                    : l10n.get('voice_device_tip_note'),
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: AppColors.primary,

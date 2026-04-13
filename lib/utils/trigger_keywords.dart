@@ -320,4 +320,40 @@ class TriggerKeywords {
   static List<String> getExitKeywordsForLocale(String locale) {
     return exitKeywords[locale] ?? exitKeywords['en'] ?? [];
   }
+
+  /// 텍스트에서 진입/진출 트리거 키워드를 제거한 정제 텍스트 반환
+  static String stripTriggerKeywords(String text, {String? locale}) {
+    String result = text;
+
+    // 제거 대상 언어 결정
+    final langKeys =
+        (locale != null && entryKeywords.containsKey(locale))
+            ? [locale]
+            : entryKeywords.keys.toList();
+
+    for (final lang in langKeys) {
+      // 진입 키워드 제거 (긴 것부터)
+      final eKeywords = List<String>.from(entryKeywords[lang] ?? [])
+        ..sort((a, b) => b.length.compareTo(a.length));
+      for (final kw in eKeywords) {
+        result = result.replaceAll(
+          RegExp(RegExp.escape(kw), caseSensitive: false),
+          ' ',
+        );
+      }
+      // 진출 키워드 제거 (긴 것부터)
+      final xKeywords = List<String>.from(exitKeywords[lang] ?? [])
+        ..sort((a, b) => b.length.compareTo(a.length));
+      for (final kw in xKeywords) {
+        result = result.replaceAll(
+          RegExp(RegExp.escape(kw), caseSensitive: false),
+          ' ',
+        );
+      }
+    }
+
+    // 연속 공백 정리
+    result = result.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return result;
+  }
 }

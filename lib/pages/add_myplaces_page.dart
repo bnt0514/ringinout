@@ -20,6 +20,7 @@ import 'package:ringinout/widgets/subscription_limit_dialog.dart';
 import 'package:ringinout/widgets/unified_map_widget.dart';
 import 'package:ringinout/widgets/map_toggle_button.dart';
 import 'package:ringinout/widgets/wifi_selector_widget.dart';
+import 'package:ringinout/widgets/bluetooth_selector_widget.dart';
 
 class AddMyPlacesPage extends StatefulWidget {
   final Future<void> Function(double lat, double lng, String name, int radius)
@@ -328,6 +329,7 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
 
     final TextEditingController nameController = TextEditingController();
     List<Map<String, dynamic>> selectedWifiNetworks = [];
+    List<Map<String, dynamic>> selectedBluetoothDevices = [];
 
     final result = await showDialog(
       context: context,
@@ -379,6 +381,15 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                           });
                         },
                       ),
+                      const SizedBox(height: 8),
+                      // ── ✅ 블루투스 기기 선택 ──
+                      BluetoothSelectorWidget(
+                        onChanged: (devices) {
+                          setDialogState(() {
+                            selectedBluetoothDevices = devices;
+                          });
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -398,6 +409,7 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                           'lng': _selectedLatLng!.longitude,
                           'radius': _selectedRadius,
                           'wifiNetworks': selectedWifiNetworks,
+                          'bluetoothDevices': selectedBluetoothDevices,
                         });
 
                         // 🔄 장소 업데이트 → LocationMonitorService에서 자동 반영

@@ -1,8 +1,11 @@
 ﻿package com.bnt0514.ringinout
 
 import android.app.*
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.Ringtone
 import android.media.RingtoneManager
@@ -17,6 +20,7 @@ import androidx.core.app.NotificationCompat
 import com.bnt0514.ringinout.AlarmFullscreenActivity
 import com.bnt0514.ringinout.location.AlarmPlace
 import com.bnt0514.ringinout.location.AlarmTriggerType
+import com.bnt0514.ringinout.location.BluetoothDeviceInfo
 import com.bnt0514.ringinout.location.WifiNetwork
 import com.bnt0514.ringinout.location.WifiScanHelper
 import com.bnt0514.ringinout.location.SmartLocationManager
@@ -267,6 +271,25 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    /** ✅ Flutter 데이터 맵에서 bluetoothDevices 파싱 */
+    private fun parseBluetoothDevices(data: Map<String, Any>): List<BluetoothDeviceInfo> {
+        return try {
+            @Suppress("UNCHECKED_CAST")
+            val btList = data["bluetoothDevices"] as? List<Map<String, Any>> ?: return emptyList()
+            btList.map { b ->
+                BluetoothDeviceInfo(
+                        name = b["name"] as? String ?: "",
+                        macAddress = b["macAddress"] as? String ?: "",
+                        deviceType = (b["deviceType"] as? Number)?.toInt() ?: 0,
+                        alias = b["alias"] as? String ?: ""
+                )
+            }
+        } catch (e: Exception) {
+            Log.w("MainActivity", "⚠️ bluetoothDevices 파싱 실패: ${e.message}")
+            emptyList()
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
@@ -474,6 +497,23 @@ class MainActivity : FlutterActivity() {
             }
         }
 
+        // ✅ ringinout_channel: Flutter → Native 요청 처리 (블루투스 등)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "ringinout_channel")
+                .setMethodCallHandler { call, result ->
+                    when (call.method) {
+                        "getBondedBluetoothDevices" -> {
+                            try {
+                                val devices = getBondedBluetoothDevices()
+                                result.success(devices)
+                            } catch (e: Exception) {
+                                Log.e("MainActivity", "❌ getBondedBluetoothDevices 실패: ${e.message}")
+                                result.error("BT_ERROR", e.message, null)
+                            }
+                        }
+                        else -> result.notImplemented()
+                    }
+                }
+
         // 상태 보고 채널
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.bnt0514.ringinout/status")
                 .invokeMethod("engineReady", null)
@@ -519,6 +559,7 @@ class MainActivity : FlutterActivity() {
                                             isTimeSpecified = data["isTimeSpecified"] as? Boolean
                                                             ?: false,
                                             wifiNetworks = parseWifiNetworks(data),
+                                            bluetoothDevices = parseBluetoothDevices(data),
                                     )
                                 }
                         smartManager.startMonitoring(places)
@@ -558,6 +599,7 @@ class MainActivity : FlutterActivity() {
                                             isTimeSpecified = data["isTimeSpecified"] as? Boolean
                                                             ?: false,
                                             wifiNetworks = parseWifiNetworks(data),
+                                            bluetoothDevices = parseBluetoothDevices(data),
                                     )
                                 }
                         smartManager.updateAlarmPlaces(places)
@@ -854,6 +896,50 @@ class MainActivity : FlutterActivity() {
         } catch (e: Exception) {
             Log.e("MainActivity", "⚠️ 벨소리 정지 실패: ${e.message}")
             flutterRingtone = null // 강제 초기화
+        }
+    }
+
+    /** ✅ 페어링된(본딩된) 블루투스 기기 목록 반환 */
+    @Suppress("MissingPermission")
+    private fun getBondedBluetoothDevices(): List<Map<String, Any>> {
+        // Android 12+ 에서는 BLUETOOTH_CONNECT 권한 필요
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
+                    != PackageManager.PERMISSION_GRANTED) {
+                Log.w("MainActivity", "⚠️ BLUETOOTH_CONNECT 권한 없음")
+                return emptyList()
+            }
+        }
+
+        val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+        val adapter = bluetoothManager?.adapter ?: BluetoothAdapter.getDefaultAdapter()
+
+        if (adapter == null) {
+            Log.w("MainActivity", "⚠️ BluetoothAdapter 없음 (BT 미지원 기기)")
+            return emptyList()
+        }
+
+        if (!adapter.isEnabled) {
+            Log.w("MainActivity", "⚠️ 블루투스 꺼져 있음")
+            return emptyList()
+        }
+
+        val bondedDevices = adapter.bondedDevices ?: emptySet()
+        Log.d("MainActivity", "🔵 페어링된 기기 ${bondedDevices.size}개 발견")
+
+        return bondedDevices.map { device ->
+            val deviceMap = mutableMapOf<String, Any>(
+                    "name" to (device.name ?: "Unknown"),
+                    "macAddress" to (device.address ?: ""),
+                    "deviceType" to device.type  // 1=Classic, 2=LE, 3=Dual
+            )
+            // alias는 Android 12+ 에서만 사용 가능
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                deviceMap["alias"] = device.alias ?: ""
+            } else {
+                deviceMap["alias"] = ""
+            }
+            deviceMap.toMap()
         }
     }
 } // ✅ 이 괄호는 그대로 유지 (MainActivity 클래스의 끝)

@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // Project imports
 import 'package:ringinout/features/alarm/alarm_page.dart';
-import 'package:ringinout/pages/my_places_page.dart';
+import 'package:ringinout/pages/my_places_tab_page.dart';
 import 'package:ringinout/features/common/keep_alive_wrapper.dart';
 import 'package:ringinout/pages/testpage.dart';
 import 'package:ringinout/pages/server_subscription_page.dart';
@@ -40,7 +40,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
 
   final List<Widget> _pages = [
     const KeepAliveWidget(child: AlarmPage()),
-    const KeepAliveWidget(child: MyPlacesPage()),
+    const KeepAliveWidget(child: MyPlacesTabPage()),
     const KeepAliveWidget(child: TestPage()),
     const KeepAliveWidget(child: ServerSubscriptionPage()),
   ];

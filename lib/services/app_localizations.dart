@@ -33,7 +33,7 @@ class AppLocalizations {
       'loading': 'Loading...',
 
       // 메인 네비게이션
-      'nav_alarm': 'Alarm',
+      'nav_alarm': 'Loc. Alarm',
       'nav_my_places': 'My Places',
       'nav_voice': 'Voice',
       'nav_gps': 'GPS',
@@ -44,6 +44,14 @@ class AppLocalizations {
       'page_title_places': 'My Places',
       'page_title_voice': 'Voice Recognition',
       'page_title_subscription': 'Subscription',
+
+      // 탭 레이블
+      'tab_location_alarm': 'Location Alarm',
+      'tab_device_alarm': 'Device Alarm',
+      'tab_my_places': 'My Places',
+      'tab_my_devices': 'My Devices',
+      'page_title_my_devices': 'My Devices',
+      'page_title_device_alarm': 'Device Alarm',
 
       // 선택 모드
       'select_all': 'Select All',
@@ -73,6 +81,8 @@ class AppLocalizations {
       'place_updated': '✅ Place updated',
       'place_deleted': '🗑 Place deleted',
       'no_places': 'No saved places',
+      'no_places_desc': 'Tap the button below to add your first location.',
+      'add_place_btn': 'Add Place',
       'add_place_hint': 'Add your favorite places!',
       'search_address': 'Search address',
       'current_location': 'Current location',
@@ -268,6 +278,7 @@ class AppLocalizations {
       'battery_info_text_suffix': '.',
       'battery_opt_exclude': 'Exclude from battery optimization',
       'no_saved_alarms': 'No saved alarms.',
+      'no_saved_alarms_desc': 'Tap the button below to add your first alarm.',
 
       // 웰컴/로그인
       'get_started': 'Get Started',
@@ -299,6 +310,23 @@ class AppLocalizations {
           '  → March 13, after 9:00, on exit',
       'voice_tip_note':
           'Weekdays, dates & times are set automatically\n(GPS geofence may fire within ±seconds of boundary)',
+      // 음성 탭
+      'voice_tab_location': 'Location Voice',
+      'voice_tab_device': 'Device Voice',
+      'voice_device_main_title': 'Register device alarms by voice',
+      'voice_device_example_phrase': '"Notify me when Galaxy Buds connect"',
+      'voice_device_tip_title': '💡 Device Voice Examples',
+      'voice_device_tip_examples':
+          '• "Notify me when Galaxy Buds connect on Monday"\n'
+          '  → Every Monday, on connect\n'
+          '• "Alert me when earbuds disconnect on April 12"\n'
+          '  → April 12 only, on disconnect\n'
+          '• "Ring when Buds connect after 6 on Monday"\n'
+          '  → Every Monday, after 6:00, on connect\n'
+          '• "Tell me when watch disconnects at 9 on March 13"\n'
+          '  → March 13, after 9:00, on disconnect',
+      'voice_device_tip_note':
+          'Weekdays, dates & times are set automatically\n(Bluetooth state changes are detected in real time)',
       'voice_first_visit_title': '💡 Pro Tip!',
       'voice_first_visit_desc':
           'Add a widget to your home screen\nto start voice alarms\nwithout opening the app!',
@@ -583,6 +611,87 @@ class AppLocalizations {
           '("Standby" mode — under consideration if requested: auto-reactivate after a set duration)',
 
       'false_trigger_dialog_ok': 'Got it',
+
+      // 블루투스
+      'bt_bonded_devices_title': 'Paired Bluetooth Devices',
+      'bt_refresh_tooltip': 'Refresh device list',
+      'bt_selector_description':
+          'Select paired Bluetooth devices to detect for this place.',
+      'bt_permission_needed':
+          'Bluetooth permission is required.\nPlease allow Bluetooth access in Settings.',
+      'bt_no_bonded_devices': 'No paired Bluetooth devices found.',
+      'bt_selected_count': '{count} device(s) selected',
+      'bt_device_retained': 'Previously saved (not currently paired)',
+      'bt_devices_label': 'Bluetooth Devices',
+      'bt_none_selected': 'None selected',
+      'bt_count_selected': '{count} selected',
+
+      // Device Alarm (independent BT device alarms)
+      'device_alarm_empty': 'No device alarms',
+      'device_alarm_empty_desc':
+          'Add a Bluetooth device alarm to get notified\nwhen a device connects or disconnects.',
+      'device_alarm_add': 'Add Device Alarm',
+      'device_alarm_delete_confirm': 'Delete this device alarm?',
+      'device_alarm_select_device': 'Select Device',
+      'device_alarm_name_label': 'Alarm Name',
+      'device_alarm_name_hint': 'Enter alarm name',
+      'device_alarm_trigger_label': 'Trigger When',
+      'device_trigger_connect': 'Connected',
+      'device_trigger_disconnect': 'Disconnected',
+
+      // My Devices
+      'my_devices_empty': 'No registered devices',
+      'my_devices_empty_desc':
+          'Bluetooth devices registered to places or\ndevice alarms will appear here.',
+      'my_devices_source_place': 'Place',
+      'my_devices_source_alarm': 'Alarm',
+      'my_devices_add': 'Add Device',
+      'my_devices_add_title': 'Add Bluetooth Device',
+      'my_devices_custom_name_label': 'Custom Name',
+      'my_devices_custom_name_hint': 'Enter a name you can easily remember',
+      'my_devices_original_name': 'Bluetooth Name',
+      'my_devices_edit_name': 'Edit Name',
+      'edit_device_menu': 'Edit Device',
+      'add_device_alarm_menu': 'Add New Alarm',
+      'my_devices_delete_confirm': 'Remove this device?',
+      'my_devices_source_manual': 'Manual',
+
+      // Add alarm (fixed bottom bar)
+      'add_alarm_btn': 'Add Alarm',
+      'add_device_alarm_btn': 'Add Alarm',
+
+      // Device alarm page
+      'device_alarm_page_title': 'Add Device Alarm',
+      'device_alarm_edit_title': 'Edit Device Alarm',
+      'add_new_device_alarm': 'Add New Device Alarm',
+      'select_device_label': 'Select Device',
+      'alarm_on_connect_label': 'Alarm on Connect',
+      'alarm_on_disconnect_label': 'Alarm on Disconnect',
+      'device_condition_hint':
+          'Without conditions, the alarm fires on the first connect/disconnect.',
+      'device_alarm_voice_section': 'Voice Recognition',
+      'device_alarm_voice_msg_label': 'Voice Message',
+      'device_alarm_voice_msg_hint': 'Message to announce when alarm triggers',
+      'device_alarm_voice_enabled': 'Enable voice notification',
+      'device_alarm_sound_section': 'Alarm Sound',
+      'device_alarm_save_success': 'Device alarm saved',
+
+      // Wi-Fi
+      'wifi_networks_label': 'Wi-Fi Networks',
+      'wifi_none_selected': 'None selected',
+      'wifi_count_selected': '{count} selected',
+      'wifi_rescan_tooltip': 'Rescan',
+      'wifi_description':
+          'Use Wi-Fi connection for more accurate location detection.',
+      'wifi_disabled': 'Wi-Fi is turned off',
+      'wifi_disabled_detail':
+          'Wi-Fi is turned off. Please enable Wi-Fi and try again.',
+      'wifi_scan_failed': 'Wi-Fi scan failed',
+      'wifi_no_networks': 'No Wi-Fi networks detected.',
+      'wifi_networks_selected': '{count} network(s) selected',
+      'wifi_hidden_network': '(Hidden network)',
+      'wifi_currently_connected': 'Currently connected',
+      'wifi_previously_saved': 'Previously saved (not detected now)',
     },
 
     'ko': {
@@ -602,7 +711,7 @@ class AppLocalizations {
       'loading': '로딩 중...',
 
       // 메인 네비게이션
-      'nav_alarm': '알람',
+      'nav_alarm': '위치알람',
       'nav_my_places': '내 장소',
       'nav_voice': '음성',
       'nav_gps': 'GPS',
@@ -613,6 +722,14 @@ class AppLocalizations {
       'page_title_voice': '음성 인식',
       'page_title_gps': 'GPS',
       'page_title_subscription': '구독 관리',
+
+      // 탭 레이블
+      'tab_location_alarm': '위치 알람',
+      'tab_device_alarm': '기기 알람',
+      'tab_my_places': '내 장소',
+      'tab_my_devices': '내 기기',
+      'page_title_my_devices': '내 기기',
+      'page_title_device_alarm': '기기 알람',
 
       // 선택 모드
       'select_all': '전체 선택',
@@ -642,6 +759,8 @@ class AppLocalizations {
       'place_updated': '✅ 장소가 수정되었습니다',
       'place_deleted': '🗑 장소가 삭제되었습니다',
       'no_places': '저장된 장소가 없습니다',
+      'no_places_desc': '아래 버튼을 눌러 첫 번째 장소를 추가하세요.',
+      'add_place_btn': '장소 추가',
       'add_place_hint': '자주 가는 장소를 추가해보세요!',
       'search_address': '주소 검색',
       'current_location': '현재 위치',
@@ -831,6 +950,7 @@ class AppLocalizations {
       'battery_info_text_suffix': '를 권장합니다.',
       'battery_opt_exclude': '배터리 최적화 제외',
       'no_saved_alarms': '저장된 알람이 없습니다.',
+      'no_saved_alarms_desc': '아래 버튼을 눌러 첫 번째 알람을 추가하세요.',
 
       // 웰컴/로그인
       'get_started': '시작하기',
@@ -860,6 +980,23 @@ class AppLocalizations {
           '• "3월 13일 9시에 집에서 나가면 알려줘"\n'
           '  → 3/13, 오전 9시 이후 집 진출 시',
       'voice_tip_note': '요일·날짜·시간이 자동으로 설정됩니다\n(GPS 특성상 경계 인식은 ±수십 초 오차 있음)',
+      // 음성 탭
+      'voice_tab_location': '위치 음성',
+      'voice_tab_device': '기기 음성',
+      'voice_device_main_title': '말로 기기 알람을 등록하세요',
+      'voice_device_example_phrase': '"갤럭시 버즈 연결되면 알려줘"',
+      'voice_device_tip_title': '💡 기기 음성 인식 예시',
+      'voice_device_tip_examples':
+          '• "월요일에 갤럭시 버즈 연결되면 알려줘"\n'
+          '  → 매주 월요일, 연결 시\n'
+          '• "4월 12일에 이어폰 연결 해제되면 알려줘"\n'
+          '  → 4/12 하루, 연결 해제 시\n'
+          '• "월요일 6시 이후 버즈 연결되면 알려줘"\n'
+          '  → 매주 월요일, 오후 6시 이후 연결 시\n'
+          '• "3월 13일 9시에 시계 연결 끊기면 알려줘"\n'
+          '  → 3/13, 오전 9시 이후 연결 해제 시',
+      'voice_device_tip_note':
+          '요일·날짜·시간이 자동으로 설정됩니다\n(블루투스 상태 변화를 실시간으로 감지합니다)',
       'voice_first_visit_title': '💡 꿀팁!',
       'voice_first_visit_desc':
           '홈 화면에 위젯을 추가하면\n앱을 열지 않고도 바로\n음성 알람을 시작할 수 있어요!',
@@ -1138,6 +1275,80 @@ class AppLocalizations {
           ' 일단 알람을 종료하고 필요할 때 다시 활성화하세요.\n'
           '("대기" 모드 — 요청이 많을 시 도입 고려: 설정한 시간 이후 자동 재활성화)',
       'false_trigger_dialog_ok': '확인',
+
+      // 블루투스
+      'bt_bonded_devices_title': '페어링된 블루투스 기기',
+      'bt_refresh_tooltip': '기기 목록 새로고침',
+      'bt_selector_description': '이 장소에서 감지할 페어링된 블루투스 기기를 선택하세요.',
+      'bt_permission_needed': '블루투스 권한이 필요합니다.\n설정에서 블루투스 접근을 허용해주세요.',
+      'bt_no_bonded_devices': '페어링된 블루투스 기기가 없습니다.',
+      'bt_selected_count': '{count}개 기기 선택됨',
+      'bt_device_retained': '이전에 저장됨 (현재 미페어링)',
+      'bt_devices_label': '블루투스 기기',
+      'bt_none_selected': '선택 안 함',
+      'bt_count_selected': '{count}개 선택됨',
+
+      // Device Alarm (독립형 BT 기기 알람)
+      'device_alarm_empty': '기기 알람 없음',
+      'device_alarm_empty_desc': '블루투스 기기 알람을 추가하면\n기기 연결/해제 시 알림을 받을 수 있습니다.',
+      'device_alarm_add': '기기 알람 추가',
+      'device_alarm_delete_confirm': '이 기기 알람을 삭제하시겠습니까?',
+      'device_alarm_select_device': '기기 선택',
+      'device_alarm_name_label': '알람 이름',
+      'device_alarm_name_hint': '알람 이름을 입력하세요',
+      'device_alarm_trigger_label': '알람 조건',
+      'device_trigger_connect': '연결 시',
+      'device_trigger_disconnect': '해제 시',
+
+      // 내 기기
+      'my_devices_empty': '등록된 기기 없음',
+      'my_devices_empty_desc': '장소나 기기 알람에 등록된\n블루투스 기기가 여기에 표시됩니다.',
+      'my_devices_source_place': '장소',
+      'my_devices_source_alarm': '알람',
+      'my_devices_add': '기기 추가',
+      'my_devices_add_title': '블루투스 기기 추가',
+      'my_devices_custom_name_label': '사용자 이름',
+      'my_devices_custom_name_hint': '기억하기 쉬운 이름을 입력하세요',
+      'my_devices_original_name': '블루투스 이름',
+      'my_devices_edit_name': '이름 수정',
+      'edit_device_menu': '내 기기 수정',
+      'add_device_alarm_menu': '새 알람 추가',
+      'my_devices_delete_confirm': '이 기기를 삭제하시겠습니까?',
+      'my_devices_source_manual': '직접 추가',
+
+      // 알람 추가 (고정 하단 바)
+      'add_alarm_btn': '알람 추가',
+      'add_device_alarm_btn': '알람 추가',
+
+      // 기기 알람 페이지
+      'device_alarm_page_title': '기기 알람 추가',
+      'device_alarm_edit_title': '기기 알람 수정',
+      'add_new_device_alarm': '새 기기알람 추가',
+      'select_device_label': '기기 선택',
+      'alarm_on_connect_label': '연결 시 알람',
+      'alarm_on_disconnect_label': '해제 시 알람',
+      'device_condition_hint': '조건 없이 저장하면 최초 연결/해제 시 알람이 울립니다.',
+      'device_alarm_voice_section': '음성 인식',
+      'device_alarm_voice_msg_label': '음성 메시지',
+      'device_alarm_voice_msg_hint': '알람 발동 시 안내할 메시지',
+      'device_alarm_voice_enabled': '음성 알림 사용',
+      'device_alarm_sound_section': '알람 소리',
+      'device_alarm_save_success': '기기 알람이 저장되었습니다',
+
+      // Wi-Fi
+      'wifi_networks_label': 'Wi-Fi 네트워크',
+      'wifi_none_selected': '선택 안 함',
+      'wifi_count_selected': '{count}개 선택됨',
+      'wifi_rescan_tooltip': '다시 스캔',
+      'wifi_description': 'Wi-Fi 연결로 더 정확한 위치 감지를 할 수 있습니다.',
+      'wifi_disabled': 'Wi-Fi가 꺼져 있습니다',
+      'wifi_disabled_detail': 'Wi-Fi가 꺼져 있습니다. Wi-Fi를 켜고 다시 시도해주세요.',
+      'wifi_scan_failed': 'Wi-Fi 스캔 실패',
+      'wifi_no_networks': '감지된 Wi-Fi 네트워크가 없습니다.',
+      'wifi_networks_selected': '{count}개 네트워크 선택됨',
+      'wifi_hidden_network': '(숨겨진 네트워크)',
+      'wifi_currently_connected': '현재 연결됨',
+      'wifi_previously_saved': '이전에 저장됨 (현재 감지 안 됨)',
     },
 
     'ja': {
@@ -1157,7 +1368,7 @@ class AppLocalizations {
       'loading': '読み込み中...',
 
       // 메인 네비게이션
-      'nav_alarm': 'アラーム',
+      'nav_alarm': '位置アラーム',
       'nav_my_places': 'マイプレイス',
       'nav_voice': '音声',
       'nav_gps': 'GPS',
@@ -1168,6 +1379,14 @@ class AppLocalizations {
       'page_title_voice': '音声認識',
       'page_title_gps': 'GPS',
       'page_title_subscription': 'サブスクリプション',
+
+      // タブラベル
+      'tab_location_alarm': '位置アラーム',
+      'tab_device_alarm': 'デバイスアラーム',
+      'tab_my_places': 'マイプレイス',
+      'tab_my_devices': 'マイデバイス',
+      'page_title_my_devices': 'マイデバイス',
+      'page_title_device_alarm': 'デバイスアラーム',
 
       // 선택 모드
       'select_all': 'すべて選択',
@@ -1197,6 +1416,8 @@ class AppLocalizations {
       'place_updated': '✅ 場所を更新しました',
       'place_deleted': '🗑 場所を削除しました',
       'no_places': '保存された場所がありません',
+      'no_places_desc': '下のボタンをタップして最初の場所を追加してください。',
+      'add_place_btn': '場所を追加',
       'add_place_hint': 'お気に入りの場所を追加しましょう！',
       'search_address': '住所検索',
       'current_location': '現在地',
@@ -1386,6 +1607,7 @@ class AppLocalizations {
       'battery_info_text_suffix': 'を推奨します。',
       'battery_opt_exclude': 'バッテリー最適化を除外',
       'no_saved_alarms': '保存されたアラームがありません。',
+      'no_saved_alarms_desc': '下のボタンをタップして最初のアラームを追加してください。',
 
       // ウェルカム/ログイン
       'get_started': '始める',
@@ -1415,6 +1637,23 @@ class AppLocalizations {
           '• 「3月13日の9時に家を出たら知らせて」\n'
           '  → 3/13、9時以降、退場時',
       'voice_tip_note': '曜日・日付・時間が自動設定されます\n(GPS特性上、境界検知に数十秒の誤差あり)',
+      // 音声タブ
+      'voice_tab_location': '位置音声',
+      'voice_tab_device': 'デバイス音声',
+      'voice_device_main_title': '音声でデバイスアラームを登録',
+      'voice_device_example_phrase': '「Galaxy Budsが接続したら知らせて」',
+      'voice_device_tip_title': '💡 デバイス音声認識の例',
+      'voice_device_tip_examples':
+          '• 「月曜日にGalaxy Budsが接続したら知らせて」\n'
+          '  → 毎週月曜日、接続時\n'
+          '• 「4月12日にイヤホンが切断されたら知らせて」\n'
+          '  → 4/12のみ、切断時\n'
+          '• 「月曜日の6時以降にBudsが接続したら知らせて」\n'
+          '  → 毎週月曜日、18時以降、接続時\n'
+          '• 「3月13日の9時に時計の接続が切れたら知らせて」\n'
+          '  → 3/13、9時以降、切断時',
+      'voice_device_tip_note':
+          '曜日・日付・時間が自動設定されます\n(Bluetooth状態変化をリアルタイムで検知します)',
       'voice_first_visit_title': '💡 おすすめ！',
       'voice_first_visit_desc':
           'ホーム画面にウィジェットを追加すると\nアプリを開かなくても\n音声アラームを開始できます！',
@@ -1690,6 +1929,81 @@ class AppLocalizations {
           'その場合はアラームを無効にして、必要なときに再度有効にしてください。\n'
           '(「Standby」モード — 要望が多ければ導入検討: 設定した時間後に自動再有効化)',
       'false_trigger_dialog_ok': 'OK',
+
+      // ブルートゥース
+      'bt_bonded_devices_title': 'ペアリング済みBluetoothデバイス',
+      'bt_refresh_tooltip': 'デバイスリストを更新',
+      'bt_selector_description': 'この場所で検出するペアリング済みBluetoothデバイスを選択してください。',
+      'bt_permission_needed': 'Bluetooth権限が必要です。\n設定からBluetoothアクセスを許可してください。',
+      'bt_no_bonded_devices': 'ペアリング済みBluetoothデバイスが見つかりません。',
+      'bt_selected_count': '{count}台選択済み',
+      'bt_device_retained': '以前に保存（現在未ペアリング）',
+      'bt_devices_label': 'Bluetoothデバイス',
+      'bt_none_selected': '未選択',
+      'bt_count_selected': '{count}台選択済み',
+
+      // デバイスアラーム（独立型BTデバイスアラーム）
+      'device_alarm_empty': 'デバイスアラームなし',
+      'device_alarm_empty_desc':
+          'Bluetoothデバイスアラームを追加すると\nデバイスの接続・切断時に通知を受け取れます。',
+      'device_alarm_add': 'デバイスアラーム追加',
+      'device_alarm_delete_confirm': 'このデバイスアラームを削除しますか？',
+      'device_alarm_select_device': 'デバイスを選択',
+      'device_alarm_name_label': 'アラーム名',
+      'device_alarm_name_hint': 'アラーム名を入力',
+      'device_alarm_trigger_label': 'トリガー条件',
+      'device_trigger_connect': '接続時',
+      'device_trigger_disconnect': '切断時',
+
+      // マイデバイス
+      'my_devices_empty': '登録済みデバイスなし',
+      'my_devices_empty_desc': '場所やデバイスアラームに登録された\nBluetoothデバイスがここに表示されます。',
+      'my_devices_source_place': '場所',
+      'my_devices_source_alarm': 'アラーム',
+      'my_devices_add': 'デバイス追加',
+      'my_devices_add_title': 'Bluetoothデバイス追加',
+      'my_devices_custom_name_label': 'カスタム名',
+      'my_devices_custom_name_hint': '覚えやすい名前を入力してください',
+      'my_devices_original_name': 'Bluetooth名',
+      'my_devices_edit_name': '名前を編集',
+      'edit_device_menu': 'デバイスを編集',
+      'add_device_alarm_menu': '新しいアラームを追加',
+      'my_devices_delete_confirm': 'このデバイスを削除しますか？',
+      'my_devices_source_manual': '手動追加',
+
+      // アラーム追加（固定ボトムバー）
+      'add_alarm_btn': 'アラーム追加',
+      'add_device_alarm_btn': 'アラーム追加',
+
+      // デバイスアラームページ
+      'device_alarm_page_title': 'デバイスアラーム追加',
+      'device_alarm_edit_title': 'デバイスアラーム編集',
+      'add_new_device_alarm': '新しいデバイスアラームを追加',
+      'select_device_label': 'デバイスを選択',
+      'alarm_on_connect_label': '接続時アラーム',
+      'alarm_on_disconnect_label': '切断時アラーム',
+      'device_condition_hint': '条件なしで保存すると、最初の接続/切断時にアラームが鳴ります。',
+      'device_alarm_voice_section': '音声認識',
+      'device_alarm_voice_msg_label': '音声メッセージ',
+      'device_alarm_voice_msg_hint': 'アラーム発動時にアナウンスするメッセージ',
+      'device_alarm_voice_enabled': '音声通知を有効にする',
+      'device_alarm_sound_section': 'アラーム音',
+      'device_alarm_save_success': 'デバイスアラームが保存されました',
+
+      // Wi-Fi
+      'wifi_networks_label': 'Wi-Fiネットワーク',
+      'wifi_none_selected': '未選択',
+      'wifi_count_selected': '{count}件選択済み',
+      'wifi_rescan_tooltip': '再スキャン',
+      'wifi_description': 'Wi-Fi接続でより正確な位置検出ができます。',
+      'wifi_disabled': 'Wi-Fiがオフです',
+      'wifi_disabled_detail': 'Wi-Fiがオフです。Wi-Fiをオンにしてもう一度お試しください。',
+      'wifi_scan_failed': 'Wi-Fiスキャン失敗',
+      'wifi_no_networks': 'Wi-Fiネットワークが検出されませんでした。',
+      'wifi_networks_selected': '{count}件ネットワーク選択済み',
+      'wifi_hidden_network': '（非公開ネットワーク）',
+      'wifi_currently_connected': '接続中',
+      'wifi_previously_saved': '以前に保存（現在未検出）',
     },
 
     'zh': {
@@ -1709,7 +2023,7 @@ class AppLocalizations {
       'loading': '加载中...',
 
       // 메인 네비게이션
-      'nav_alarm': '闹钟',
+      'nav_alarm': '位置闹钟',
       'nav_my_places': '我的位置',
       'nav_voice': '语音',
       'nav_gps': 'GPS',
@@ -1720,6 +2034,14 @@ class AppLocalizations {
       'page_title_voice': '语音识别',
       'page_title_gps': 'GPS',
       'page_title_subscription': '订阅管理',
+
+      // 标签页
+      'tab_location_alarm': '位置闹钟',
+      'tab_device_alarm': '设备闹钟',
+      'tab_my_places': '我的位置',
+      'tab_my_devices': '我的设备',
+      'page_title_my_devices': '我的设备',
+      'page_title_device_alarm': '设备闹钟',
 
       // 선택 모드
       'select_all': '全选',
@@ -1749,6 +2071,8 @@ class AppLocalizations {
       'place_updated': '✅ 位置已更新',
       'place_deleted': '🗑 位置已删除',
       'no_places': '暂无保存的位置',
+      'no_places_desc': '点击下方按钮添加您的第一个位置。',
+      'add_place_btn': '添加位置',
       'add_place_hint': '添加您常去的位置吧！',
       'search_address': '搜索地址',
       'radius': '半径',
@@ -1934,6 +2258,7 @@ class AppLocalizations {
       'battery_info_text': '有活动闹钟时，应用关闭后会自动重启。\n为了稳定的闹钟运行，建议排除电池优化。',
       'battery_opt_exclude': '排除电池优化',
       'no_saved_alarms': '没有保存的闹钟。',
+      'no_saved_alarms_desc': '点击下方按钮添加您的第一个闹钟。',
 
       // 欢迎/登录
       'get_started': '开始使用',
@@ -1963,6 +2288,22 @@ class AppLocalizations {
           '• "3月13日9点离家时提醒我"\n'
           '  → 3/13，9点后，离开时',
       'voice_tip_note': '星期、日期和时间会自动设置\n(GPS特性，边界识别可能有数十秒误差)',
+      // 语音标签
+      'voice_tab_location': '位置语音',
+      'voice_tab_device': '设备语音',
+      'voice_device_main_title': '用语音注册设备闹钟',
+      'voice_device_example_phrase': '"Galaxy Buds连接时提醒我"',
+      'voice_device_tip_title': '💡 设备语音识别示例',
+      'voice_device_tip_examples':
+          '• "周一Galaxy Buds连接时提醒我"\n'
+          '  → 每周一，连接时\n'
+          '• "4月12日耳机断开时提醒我"\n'
+          '  → 仅4/12，断开时\n'
+          '• "周一6点后Buds连接时提醒我"\n'
+          '  → 每周一，18点后，连接时\n'
+          '• "3月13日9点手表断开时提醒我"\n'
+          '  → 3/13，9点后，断开时',
+      'voice_device_tip_note': '星期、日期和时间会自动设置\n(蓝牙状态变化实时检测)',
       'voice_first_visit_title': '💡 小贴士！',
       'voice_first_visit_desc': '在主屏幕添加小组件\n无需打开应用\n即可开始语音闹钟！',
       'voice_first_visit_btn': '查看添加方法',
@@ -2234,6 +2575,80 @@ class AppLocalizations {
           '此时请禁用该闹钟，需要时再重新启用。\n'
           '("Standby"模式 — 如需求较多将考虑引入: 设定时间后自动重新启用)',
       'false_trigger_dialog_ok': '确定',
+
+      // 蓝牙
+      'bt_bonded_devices_title': '已配对蓝牙设备',
+      'bt_refresh_tooltip': '刷新设备列表',
+      'bt_selector_description': '选择要在此位置检测的已配对蓝牙设备。',
+      'bt_permission_needed': '需要蓝牙权限。\n请在设置中允许蓝牙访问。',
+      'bt_no_bonded_devices': '未找到已配对蓝牙设备。',
+      'bt_selected_count': '已选择{count}台设备',
+      'bt_device_retained': '之前保存（当前未配对）',
+      'bt_devices_label': '蓝牙设备',
+      'bt_none_selected': '未选择',
+      'bt_count_selected': '已选择{count}个',
+
+      // 设备闹钟（独立型BT设备闹钟）
+      'device_alarm_empty': '无设备闹钟',
+      'device_alarm_empty_desc': '添加蓝牙设备闹钟后\n可在设备连接或断开时收到通知。',
+      'device_alarm_add': '添加设备闹钟',
+      'device_alarm_delete_confirm': '确定删除此设备闹钟？',
+      'device_alarm_select_device': '选择设备',
+      'device_alarm_name_label': '闹钟名称',
+      'device_alarm_name_hint': '请输入闹钟名称',
+      'device_alarm_trigger_label': '触发条件',
+      'device_trigger_connect': '连接时',
+      'device_trigger_disconnect': '断开时',
+
+      // 我的设备
+      'my_devices_empty': '无已注册设备',
+      'my_devices_empty_desc': '注册到位置或设备闹钟的\n蓝牙设备将显示在此处。',
+      'my_devices_source_place': '位置',
+      'my_devices_source_alarm': '闹钟',
+      'my_devices_add': '添加设备',
+      'my_devices_add_title': '添加蓝牙设备',
+      'my_devices_custom_name_label': '自定义名称',
+      'my_devices_custom_name_hint': '输入一个容易记住的名称',
+      'my_devices_original_name': '蓝牙名称',
+      'my_devices_edit_name': '编辑名称',
+      'edit_device_menu': '编辑设备',
+      'add_device_alarm_menu': '添加新闹钟',
+      'my_devices_delete_confirm': '确定删除此设备？',
+      'my_devices_source_manual': '手动添加',
+
+      // 添加闹钟（固定底部栏）
+      'add_alarm_btn': '添加闹钟',
+      'add_device_alarm_btn': '添加闹钟',
+
+      // 设备闹钟页面
+      'device_alarm_page_title': '添加设备闹钟',
+      'device_alarm_edit_title': '编辑设备闹钟',
+      'add_new_device_alarm': '添加新设备闹钟',
+      'select_device_label': '选择设备',
+      'alarm_on_connect_label': '连接时闹钟',
+      'alarm_on_disconnect_label': '断开时闹钟',
+      'device_condition_hint': '不设条件保存时，首次连接/断开时闹钟响起。',
+      'device_alarm_voice_section': '语音识别',
+      'device_alarm_voice_msg_label': '语音消息',
+      'device_alarm_voice_msg_hint': '闹钟触发时播报的消息',
+      'device_alarm_voice_enabled': '启用语音通知',
+      'device_alarm_sound_section': '闹钟铃声',
+      'device_alarm_save_success': '设备闹钟已保存',
+
+      // Wi-Fi
+      'wifi_networks_label': 'Wi-Fi网络',
+      'wifi_none_selected': '未选择',
+      'wifi_count_selected': '已选择{count}个',
+      'wifi_rescan_tooltip': '重新扫描',
+      'wifi_description': '通过Wi-Fi连接实现更精确的位置检测。',
+      'wifi_disabled': 'Wi-Fi已关闭',
+      'wifi_disabled_detail': 'Wi-Fi已关闭。请开启Wi-Fi后重试。',
+      'wifi_scan_failed': 'Wi-Fi扫描失败',
+      'wifi_no_networks': '未检测到Wi-Fi网络。',
+      'wifi_networks_selected': '已选择{count}个网络',
+      'wifi_hidden_network': '（隐藏网络）',
+      'wifi_currently_connected': '当前已连接',
+      'wifi_previously_saved': '之前保存（当前未检测到）',
     },
   };
 

@@ -18,6 +18,7 @@ import 'package:ringinout/services/subscription_service.dart';
 import 'package:ringinout/widgets/subscription_limit_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:ringinout/services/locale_provider.dart';
+import 'package:ringinout/utils/phonetic_matcher.dart';
 import 'package:ringinout/utils/trigger_keywords.dart';
 import 'package:ringinout/utils/voice_datetime_parser.dart';
 
@@ -209,29 +210,21 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
     _autoMatchPlace();
   }
 
-  // ✅ 띄어쓰기 제거 함수
-  String _removeSpaces(String text) {
-    return text.replaceAll(' ', '').replaceAll('\u00A0', '');
-  }
-
-  // ✅ 음성인식 완료 후 장소 자동 매칭
+  // ✅ 음성인식 완료 후 장소 자동 매칭 (음성학적 유사도 포함)
   void _autoMatchPlace() {
     if (_lockSelectedPlaceFromAutoMatch && selectedPlace != null) {
       return;
     }
+    if (alarmName.trim().isEmpty) return;
 
-    final text = alarmName.toLowerCase();
-    final textNoSpace = _removeSpaces(text);
+    final placeNames = places.map((p) => p['name']?.toString() ?? '').toList();
 
-    for (final place in places) {
-      final placeName = place['name']?.toString().toLowerCase() ?? '';
-      final placeNameNoSpace = _removeSpaces(placeName);
-
-      if (placeNameNoSpace.isNotEmpty &&
-          textNoSpace.contains(placeNameNoSpace)) {
-        setState(() => selectedPlace = place);
-        break;
-      }
+    final idx = PhoneticMatcher.findBestMatch(
+      input: alarmName,
+      candidates: placeNames,
+    );
+    if (idx >= 0) {
+      setState(() => selectedPlace = places[idx]);
     }
   }
 

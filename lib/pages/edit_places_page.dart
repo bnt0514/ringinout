@@ -12,6 +12,7 @@ import '../services/smart_location_service.dart';
 import '../widgets/unified_map_widget.dart';
 import '../widgets/map_toggle_button.dart';
 import '../widgets/wifi_selector_widget.dart';
+import '../widgets/bluetooth_selector_widget.dart';
 
 class EditPlacePage extends StatefulWidget {
   final Map<String, dynamic> initialData;
@@ -35,6 +36,9 @@ class _EditPlacePageState extends State<EditPlacePage> {
 
   // Wi-Fi 네트워크 선택
   List<Map<String, dynamic>> _selectedWifiNetworks = [];
+
+  // ✅ 블루투스 기기 선택
+  List<Map<String, dynamic>> _selectedBluetoothDevices = [];
 
   // Google Maps 전용 마커/서클 상태
   Set<gmap.Marker> _googleMarkers = {};
@@ -61,6 +65,13 @@ class _EditPlacePageState extends State<EditPlacePage> {
     if (wifi is List) {
       _selectedWifiNetworks =
           wifi.map((w) => Map<String, dynamic>.from(w as Map)).toList();
+    }
+
+    // ✅ 블루투스 기기 초기화
+    final bt = widget.initialData['bluetoothDevices'];
+    if (bt is List) {
+      _selectedBluetoothDevices =
+          bt.map((b) => Map<String, dynamic>.from(b as Map)).toList();
     }
   }
 
@@ -133,6 +144,7 @@ class _EditPlacePageState extends State<EditPlacePage> {
       'lng': _selectedLatLng.longitude,
       'radius': _radius,
       'wifiNetworks': _selectedWifiNetworks,
+      'bluetoothDevices': _selectedBluetoothDevices,
     };
 
     await HiveHelper.updateLocationAt(widget.index, updatedLocation);
@@ -360,24 +372,28 @@ class _EditPlacePageState extends State<EditPlacePage> {
                             color: Theme.of(context).colorScheme.primary,
                             size: 20,
                           ),
-                          title: const Text(
-                            'Wi-Fi 네트워크',
-                            style: TextStyle(
+                          title: Text(
+                            l10n.get('wifi_networks_label'),
+                            style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
                           subtitle:
                               _selectedWifiNetworks.isEmpty
-                                  ? const Text(
-                                    '선택 안 함',
-                                    style: TextStyle(
+                                  ? Text(
+                                    l10n.get('wifi_none_selected'),
+                                    style: const TextStyle(
                                       fontSize: 12,
                                       color: Colors.grey,
                                     ),
                                   )
                                   : Text(
-                                    '${_selectedWifiNetworks.length}개 선택됨',
+                                    l10n.getWithArgs('wifi_count_selected', {
+                                      'count':
+                                          _selectedWifiNetworks.length
+                                              .toString(),
+                                    }),
                                     style: TextStyle(
                                       fontSize: 12,
                                       color:
@@ -390,6 +406,58 @@ class _EditPlacePageState extends State<EditPlacePage> {
                               onChanged: (networks) {
                                 setState(() {
                                   _selectedWifiNetworks = networks;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      // ✅ 블루투스 (접기/펼치기)
+                      Theme(
+                        data: Theme.of(
+                          context,
+                        ).copyWith(dividerColor: Colors.transparent),
+                        child: ExpansionTile(
+                          tilePadding: EdgeInsets.zero,
+                          leading: Icon(
+                            Icons.bluetooth,
+                            color: Theme.of(context).colorScheme.primary,
+                            size: 20,
+                          ),
+                          title: Text(
+                            l10n.get('bt_devices_label'),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          subtitle:
+                              _selectedBluetoothDevices.isEmpty
+                                  ? Text(
+                                    l10n.get('bt_none_selected'),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  )
+                                  : Text(
+                                    l10n.getWithArgs('bt_count_selected', {
+                                      'count':
+                                          _selectedBluetoothDevices.length
+                                              .toString(),
+                                    }),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                    ),
+                                  ),
+                          children: [
+                            BluetoothSelectorWidget(
+                              initialDevices: _selectedBluetoothDevices,
+                              onChanged: (devices) {
+                                setState(() {
+                                  _selectedBluetoothDevices = devices;
                                 });
                               },
                             ),

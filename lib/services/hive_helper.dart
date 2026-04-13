@@ -10,6 +10,7 @@ class HiveHelper {
   static late Box _alarmBox;
   static late Box _settingsBox;
   static late Box _deviceAlarmBox; // ✅ 독립형 블루투스 기기 알람 박스
+  static late Box _myDevicesBox; // ✅ 내 기기 박스
   static bool _isInitialized = false; // ✅ 초기화 상태 추가
   static const Uuid _uuid = Uuid();
 
@@ -52,6 +53,13 @@ class HiveHelper {
         _deviceAlarmBox = await Hive.openBox('bluetoothDeviceAlarms_v1');
       } else {
         _deviceAlarmBox = Hive.box('bluetoothDeviceAlarms_v1');
+      }
+
+      // ✅ 내 기기 박스
+      if (!Hive.isBoxOpen('myDevices_v1')) {
+        _myDevicesBox = await Hive.openBox('myDevices_v1');
+      } else {
+        _myDevicesBox = Hive.box('myDevices_v1');
       }
 
       await _runPlaceAlarmMigrations();
@@ -105,6 +113,13 @@ class HiveHelper {
         _deviceAlarmBox = await Hive.openBox('bluetoothDeviceAlarms_v1');
       } else {
         _deviceAlarmBox = Hive.box('bluetoothDeviceAlarms_v1');
+      }
+
+      // ✅ 내 기기 박스 (백그라운드)
+      if (!Hive.isBoxOpen('myDevices_v1')) {
+        _myDevicesBox = await Hive.openBox('myDevices_v1');
+      } else {
+        _myDevicesBox = Hive.box('myDevices_v1');
       }
 
       await _runPlaceAlarmMigrations();
@@ -986,5 +1001,73 @@ class HiveHelper {
       debugPrint('❌ getDeviceAlarmsByMac 에러: $e');
       return [];
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  내 기기 (My Devices) CRUD
+  // ═══════════════════════════════════════════════════════════
+
+  static Box get myDevicesBox => _myDevicesBox;
+
+  /// 내 기기 저장 (macAddress 기반 ID)
+  static Future<String> saveMyDevice(Map<String, dynamic> deviceData) async {
+    try {
+      final mac = (deviceData['macAddress'] ?? '').toString().toUpperCase();
+      if (mac.isEmpty) throw Exception('MAC 주소가 비어있습니다');
+      final normalized = Map<String, dynamic>.from(deviceData);
+      normalized['macAddress'] = mac;
+      normalized['createdAt'] ??= DateTime.now().toIso8601String();
+      await _myDevicesBox.put(mac, normalized);
+      debugPrint('✅ 내 기기 저장 완료 (MAC: $mac)');
+      return mac;
+    } catch (e) {
+      debugPrint('❌ saveMyDevice 에러: $e');
+      rethrow;
+    }
+  }
+
+  /// 모든 내 기기 조회
+  static List<Map<String, dynamic>> getMyDevices() {
+    try {
+      return _myDevicesBox.values
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+    } catch (e) {
+      debugPrint('❌ getMyDevices 에러: $e');
+      return [];
+    }
+  }
+
+  /// 내 기기 업데이트 (MAC 기반)
+  static Future<void> updateMyDevice(
+    String mac,
+    Map<String, dynamic> updatedDevice,
+  ) async {
+    try {
+      final key = mac.toUpperCase();
+      final normalized = Map<String, dynamic>.from(updatedDevice);
+      normalized['macAddress'] = key;
+      await _myDevicesBox.put(key, normalized);
+      debugPrint('✅ 내 기기 업데이트 완료 (MAC: $key)');
+    } catch (e) {
+      debugPrint('❌ updateMyDevice 에러: $e');
+      rethrow;
+    }
+  }
+
+  /// 내 기기 삭제
+  static Future<void> deleteMyDevice(String mac) async {
+    try {
+      await _myDevicesBox.delete(mac.toUpperCase());
+      debugPrint('✅ 내 기기 삭제 완료 (MAC: $mac)');
+    } catch (e) {
+      debugPrint('❌ deleteMyDevice 에러: $e');
+      rethrow;
+    }
+  }
+
+  /// 내 기기 존재 확인
+  static bool hasMyDevice(String mac) {
+    return _myDevicesBox.containsKey(mac.toUpperCase());
   }
 }

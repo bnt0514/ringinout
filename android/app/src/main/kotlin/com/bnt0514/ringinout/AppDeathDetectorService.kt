@@ -26,9 +26,14 @@ class AppDeathDetectorService : Service() {
         private const val ALIVE_LOG_INTERVAL_MS = 30_000L
 
         fun start(context: Context) {
-            val intent = Intent(context, AppDeathDetectorService::class.java)
-            context.startService(intent)
-            Log.d("AppDeathDetector", "🛡️ 앱 종료 감지 서비스 시작")
+            try {
+                val intent = Intent(context, AppDeathDetectorService::class.java)
+                context.startService(intent)
+                Log.d("AppDeathDetector", "🛡️ 앱 종료 감지 서비스 시작")
+            } catch (e: Exception) {
+                // Android 12+: 백그라운드에서 시작 불가 예외 — 무시하고 계속 진행
+                Log.w("AppDeathDetector", "⚠️ 서비스 시작 실패 (백그라운드 제한): ${e.message}")
+            }
         }
 
         fun stop(context: Context) {

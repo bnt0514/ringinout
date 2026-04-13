@@ -2,6 +2,7 @@
 import 'package:flutter/services.dart';
 
 // Project imports
+import 'package:ringinout/pages/add_device_alarm_page.dart';
 import 'package:ringinout/pages/add_location_alarm_page.dart';
 import 'package:ringinout/pages/edit_location_alarm_page.dart';
 import 'package:ringinout/pages/full_screen_alarm_page.dart';
@@ -26,6 +27,13 @@ class AppRoutes {
     '/home': (context) => const MainNavigationPage(),
     '/permission_guide': (context) => const PermissionGuidePage(),
     '/add_location_alarm': (context) => const AddLocationAlarmPage(),
+    '/add_device_alarm': (context) {
+      final args = ModalRoute.of(context)?.settings.arguments as Map?;
+      return AddDeviceAlarmPage(
+        existingAlarm: args?['existingAlarm'],
+        preSelectedDevice: args?['preSelectedDevice'],
+      );
+    },
     '/fullScreenAlarm': (context) {
       final args =
           ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
