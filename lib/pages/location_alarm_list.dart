@@ -718,172 +718,191 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
   }
 
   Widget _buildAlarmList() {
+    // ★ placeBox도 함께 감시 — 장소 Wi-Fi 변경 시 알람 목록도 즉시 갱신
     return ValueListenableBuilder(
-      valueListenable: HiveHelper.alarmBox.listenable(),
-      builder: (context, Box box, _) {
-        final alarms = box.values.toList();
-        if (alarms.isEmpty) {
-          final l10n = AppLocalizations.of(context);
-          return Center(child: Text(l10n.get('no_saved_alarms')));
-        }
+      valueListenable: HiveHelper.placeBox.listenable(),
+      builder:
+          (context, _, __) => ValueListenableBuilder(
+            valueListenable: HiveHelper.alarmBox.listenable(),
+            builder: (context, Box box, _) {
+              final alarms = box.values.toList();
+              if (alarms.isEmpty) {
+                final l10n = AppLocalizations.of(context);
+                return Center(child: Text(l10n.get('no_saved_alarms')));
+              }
 
-        // ✅ 활성 알람 개수 확인
-        final activeCount = alarms.where((a) => a['enabled'] == true).length;
-        final sorted = _sortAlarms(alarms);
+              // ✅ 활성 알람 개수 확인
+              final activeCount =
+                  alarms.where((a) => a['enabled'] == true).length;
+              final sorted = _sortAlarms(alarms);
 
-        // ✅ 장소별 그룹핑 (정렬된 순서 유지)
-        final groups = <String, List<MapEntry<int, Map<String, dynamic>>>>{};
-        for (final entry in sorted) {
-          final placeName =
-              (entry.value['place'] ?? entry.value['locationName'] ?? '')
-                  .toString();
-          final groupKey = placeName.isEmpty ? '__other__' : placeName;
-          groups.putIfAbsent(groupKey, () => []).add(entry);
-        }
+              // ✅ 장소별 그룹핑 (정렬된 순서 유지)
+              final groups =
+                  <String, List<MapEntry<int, Map<String, dynamic>>>>{};
+              for (final entry in sorted) {
+                final placeName =
+                    (entry.value['place'] ?? entry.value['locationName'] ?? '')
+                        .toString();
+                final groupKey = placeName.isEmpty ? '__other__' : placeName;
+                groups.putIfAbsent(groupKey, () => []).add(entry);
+              }
 
-        return ValueListenableBuilder(
-          valueListenable: _controller.selectedIndexes,
-          builder: (context, selectedIndexes, _) {
-            final groupKeys = groups.keys.toList();
-            // '__other__'를 항상 맨 뒤로
-            if (groupKeys.remove('__other__')) {
-              groupKeys.add('__other__');
-            }
+              return ValueListenableBuilder(
+                valueListenable: _controller.selectedIndexes,
+                builder: (context, selectedIndexes, _) {
+                  final groupKeys = groups.keys.toList();
+                  // '__other__'를 항상 맨 뒤로
+                  if (groupKeys.remove('__other__')) {
+                    groupKeys.add('__other__');
+                  }
 
-            return Column(
-              children: [
-                Expanded(
-                  child: ListView.builder(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.only(top: 8, bottom: 12),
-                    itemCount: groupKeys.length,
-                    itemBuilder: (context, groupIndex) {
-                      final groupKey = groupKeys[groupIndex];
-                      final groupAlarms = groups[groupKey]!;
-                      final l10n = AppLocalizations.of(context);
-                      final displayName =
-                          groupKey == '__other__'
-                              ? l10n.get('other_places')
-                              : groupKey;
-                      final alarmLimit = SubscriptionService.alarmLimit(_plan);
+                  return Column(
+                    children: [
+                      Expanded(
+                        child: ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.only(top: 8, bottom: 12),
+                          itemCount: groupKeys.length,
+                          itemBuilder: (context, groupIndex) {
+                            final groupKey = groupKeys[groupIndex];
+                            final groupAlarms = groups[groupKey]!;
+                            final l10n = AppLocalizations.of(context);
+                            final displayName =
+                                groupKey == '__other__'
+                                    ? l10n.get('other_places')
+                                    : groupKey;
+                            final alarmLimit = SubscriptionService.alarmLimit(
+                              _plan,
+                            );
 
-                      return _PlaceGroupCard(
-                        placeName: displayName,
-                        alarms: groupAlarms,
-                        selectedIndexes: selectedIndexes,
-                        isSelectionMode: _controller.isSelectionMode.value,
-                        alarmLimit: alarmLimit,
-                        hasWifi: _placeGroupHasWifi(groupAlarms),
-                        onSelect: _controller.toggleSelection,
-                        onTap: _handleAlarmTap,
-                      );
-                    },
-                  ),
-                ),
-                // ✅ 활성 알람이 있을 때만 안내 문구 표시
-                if (activeCount > 0)
-                  Builder(
-                    builder: (context) {
-                      final l10n = AppLocalizations.of(context);
-                      return Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppStyle.spacingBase,
-                          vertical: AppStyle.spacingMd,
+                            return _PlaceGroupCard(
+                              placeName: displayName,
+                              alarms: groupAlarms,
+                              selectedIndexes: selectedIndexes,
+                              isSelectionMode:
+                                  _controller.isSelectionMode.value,
+                              alarmLimit: alarmLimit,
+                              hasWifi: _placeGroupHasWifi(groupAlarms),
+                              onSelect: _controller.toggleSelection,
+                              onTap: _handleAlarmTap,
+                            );
+                          },
                         ),
-                        color: AppColors.shimmer,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.only(top: 2),
-                              child: Icon(
-                                Icons.info_outline,
-                                size: 16,
-                                color: AppColors.textSecondary,
+                      ),
+                      // ✅ 활성 알람이 있을 때만 안내 문구 표시
+                      if (activeCount > 0)
+                        Builder(
+                          builder: (context) {
+                            final l10n = AppLocalizations.of(context);
+                            return Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppStyle.spacingBase,
+                                vertical: AppStyle.spacingMd,
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: RichText(
-                                text: TextSpan(
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.textSecondary,
-                                    height: 1.4,
-                                  ),
-                                  children: [
-                                    TextSpan(
-                                      text: l10n.get(
-                                        'battery_info_text_prefix',
-                                      ),
+                              color: AppColors.shimmer,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Padding(
+                                    padding: EdgeInsets.only(top: 2),
+                                    child: Icon(
+                                      Icons.info_outline,
+                                      size: 16,
+                                      color: AppColors.textSecondary,
                                     ),
-                                    WidgetSpan(
-                                      alignment: PlaceholderAlignment.middle,
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 2,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: RichText(
+                                      text: TextSpan(
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.textSecondary,
+                                          height: 1.4,
                                         ),
-                                        child: Material(
-                                          color: Colors.transparent,
-                                          child: InkWell(
-                                            borderRadius: BorderRadius.circular(
-                                              6,
+                                        children: [
+                                          TextSpan(
+                                            text: l10n.get(
+                                              'battery_info_text_prefix',
                                             ),
-                                            onTap: () async {
-                                              await PermissionManager.openBatteryOptimizationSettings();
-                                            },
-                                            child: Ink(
+                                          ),
+                                          WidgetSpan(
+                                            alignment:
+                                                PlaceholderAlignment.middle,
+                                            child: Padding(
                                               padding:
                                                   const EdgeInsets.symmetric(
-                                                    horizontal: 6,
-                                                    vertical: 2,
+                                                    horizontal: 2,
                                                   ),
-                                              decoration: BoxDecoration(
-                                                color: AppColors.primary
-                                                    .withValues(alpha: 0.10),
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                                border: Border.all(
-                                                  color: AppColors.primary
-                                                      .withValues(alpha: 0.22),
-                                                ),
-                                              ),
-                                              child: Text(
-                                                l10n.get(
-                                                  'battery_info_text_action',
-                                                ),
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: AppColors.primary,
-                                                  height: 1.2,
+                                              child: Material(
+                                                color: Colors.transparent,
+                                                child: InkWell(
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
+                                                  onTap: () async {
+                                                    await PermissionManager.openBatteryOptimizationSettings();
+                                                  },
+                                                  child: Ink(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 6,
+                                                          vertical: 2,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: AppColors.primary
+                                                          .withValues(
+                                                            alpha: 0.10,
+                                                          ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            6,
+                                                          ),
+                                                      border: Border.all(
+                                                        color: AppColors.primary
+                                                            .withValues(
+                                                              alpha: 0.22,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                    child: Text(
+                                                      l10n.get(
+                                                        'battery_info_text_action',
+                                                      ),
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color:
+                                                            AppColors.primary,
+                                                        height: 1.2,
+                                                      ),
+                                                    ),
+                                                  ),
                                                 ),
                                               ),
                                             ),
                                           ),
-                                        ),
+                                          TextSpan(
+                                            text: l10n.get(
+                                              'battery_info_text_suffix',
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    TextSpan(
-                                      text: l10n.get(
-                                        'battery_info_text_suffix',
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
-              ],
-            );
-          },
-        );
-      },
+                    ],
+                  );
+                },
+              );
+            },
+          ),
     );
   }
 
