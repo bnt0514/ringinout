@@ -462,6 +462,97 @@ class LocationMonitorService {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════
+  //  ✅ 블루투스 이벤트 핸들러 (장소 종속형 + 독립형)
+  // ═══════════════════════════════════════════════════════════
+
+  /// 블루투스 장소 진입/진출 이벤트 (장소 종속형 — Wi-Fi와 동일 구조)
+  /// 네이티브 BluetoothMonitorManager → SmartLocationManager → MethodChannel → SLM → 여기
+  void onBluetoothEvent(String placeId, bool isEnter) {
+    if (!_isRunning) return;
+
+    _log('🔵 BT ${isEnter ? "ENTER" : "EXIT"}: $placeId');
+
+    final activeAlarms = HiveHelper.getActiveAlarmsForMonitoring();
+    final alarmIds = _getAlarmIdsForPlace(placeId, activeAlarms);
+    if (alarmIds.isEmpty) {
+      _log('⏭️ [$placeId] BT 이벤트 — 연결된 알람 없음');
+      return;
+    }
+
+    if (isEnter) {
+      _handleBluetoothEnter(placeId, alarmIds);
+    } else {
+      _handleBluetoothExit(placeId, alarmIds);
+    }
+  }
+
+  /// 독립형 기기 알람 BT 연결/해제 이벤트
+  /// 장소 무관하게 특정 BT 기기 연결/해제 시 알람 발동
+  void onBluetoothDeviceEvent(
+    String macAddress,
+    String deviceName,
+    bool isConnected,
+  ) {
+    if (!_isRunning) return;
+
+    _log(
+      '🔵 BT Device: $deviceName ($macAddress) ${isConnected ? "CONNECTED" : "DISCONNECTED"}',
+    );
+
+    // TODO: Step 7에서 구현 — 독립형 기기 알람 트리거 로직
+    // HiveHelper.getActiveDeviceAlarms() 조회 → macAddress 매칭 → trigger 방향 확인 → 알람 발동
+  }
+
+  // ─── 블루투스 ENTER 처리 (Wi-Fi ENTER와 동일 로직) ───
+
+  void _handleBluetoothEnter(String placeId, List<String> alarmIds) {
+    // Init Guard 체크
+    if (_initGuardUntil != null && DateTime.now().isBefore(_initGuardUntil!)) {
+      _log('🛡️ Init Guard — BT ENTER 무시, INSIDE_IDLE 설정: $placeId');
+      _setStatesForAlarms(alarmIds, PlaceState.insideIdle);
+      return;
+    }
+
+    final currentState = _getAggregatePlaceState(alarmIds);
+
+    // GPS ENTER가 먼저 발생한 경우: BT ENTER로 pending 해소
+    if (currentState != PlaceState.outside) {
+      if (_pendingGpsEntryPlaces.contains(placeId)) {
+        _log(
+          '🔵 [$placeId] BT ENTER — GPS 대기 해소! (${currentState.name}) → 진입 알람 발동',
+        );
+        _processEntryAlarm(placeId);
+        return;
+      }
+      _log('⏭️ [$placeId] BT ENTER — 이미 INSIDE (${currentState.name}), 상태 유지');
+      return;
+    }
+
+    // OUTSIDE → BT ENTER
+    _log('🔵 [$placeId] BT ENTER (OUTSIDE→INSIDE_IDLE) — 진입 알람 gate 체크 위임');
+    _setStatesForAlarms(alarmIds, PlaceState.insideIdle);
+    _processEntryAlarm(placeId);
+  }
+
+  // ─── 블루투스 EXIT 처리 (Wi-Fi EXIT와 동일 로직) ───
+
+  void _handleBluetoothExit(String placeId, List<String> alarmIds) {
+    final currentState = _getAggregatePlaceState(alarmIds);
+
+    if (currentState == PlaceState.outside) {
+      _log('⏭️ [$placeId] BT EXIT — 이미 OUTSIDE, 무시');
+      return;
+    }
+
+    // BT EXIT 시 즉시 OUTSIDE로 전환 + EXIT 알람 처리
+    _log(
+      '🔵 [$placeId] BT EXIT (${currentState.name}→OUTSIDE) — 진출 알람 gate 체크 위임',
+    );
+    _setStatesForAlarms(alarmIds, PlaceState.outside);
+    _processExitAlarm(placeId);
+  }
+
   // ─── Wi-Fi ENTER 처리 ───
 
   void _handleWifiEnter(String placeId, List<String> alarmIds) {

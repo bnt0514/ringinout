@@ -132,10 +132,39 @@ class SmartLocationMonitor {
           if (_locationService != null) {
             _locationService!.onWifiHardwareChanged(isEnabled);
           }
+        } else if (type == 'bluetooth') {
+          // ✅ 블루투스 장소 진입/진출 이벤트
+          final placeId = args['placeId'] as String? ?? '';
+          final isEnter = args['isEnter'] as bool? ?? true;
+
+          print('[SLM] 🔵 Bluetooth: $placeId (${isEnter ? "ENTER" : "EXIT"})');
+
+          if (_locationService != null) {
+            _locationService!.onBluetoothEvent(placeId, isEnter);
+          }
+        } else if (type == 'bluetoothDevice') {
+          // ✅ 독립형 기기 알람 BT 연결/해제 이벤트
+          final macAddress = args['macAddress'] as String? ?? '';
+          final deviceName = args['deviceName'] as String? ?? '';
+          final isConnected = args['isConnected'] as bool? ?? true;
+
+          print(
+            '[SLM] 🔵 BT Device: $deviceName ($macAddress) ${isConnected ? "CONNECTED" : "DISCONNECTED"}',
+          );
+
+          if (_locationService != null) {
+            _locationService!.onBluetoothDeviceEvent(
+              macAddress,
+              deviceName,
+              isConnected,
+            );
+          }
         }
       }
     });
-    print('[SLM] ✅ v2 네이티브 리스너 설정 완료 (지오펜스 + ActivityTransition + Wi-Fi)');
+    print(
+      '[SLM] ✅ v2 네이티브 리스너 설정 완료 (지오펜스 + ActivityTransition + Wi-Fi + Bluetooth)',
+    );
   }
 
   /// 서비스 상태 체크 및 복구
@@ -325,6 +354,19 @@ class SmartLocationMonitor {
                     (w) => {
                       'ssid': (w as Map)['ssid'] ?? '',
                       'bssid': w['bssid'] ?? '',
+                    },
+                  )
+                  .toList() ??
+              [],
+          // ✅ 블루투스 기기 데이터 전달 (장소에 등록된 BT 기기 목록)
+          'bluetoothDevices':
+              (place['bluetoothDevices'] as List?)
+                  ?.map(
+                    (d) => {
+                      'name': (d as Map)['name'] ?? '',
+                      'macAddress': d['macAddress'] ?? '',
+                      'deviceType': d['deviceType'] ?? 0,
+                      'alias': d['alias'] ?? '',
                     },
                   )
                   .toList() ??

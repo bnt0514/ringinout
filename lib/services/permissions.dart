@@ -9,6 +9,7 @@ class PermissionManager {
     await _requestNotificationPermissions();
     await _requestSystemPermissions();
     await _requestBatteryOptimization(); // ✅ 배터리 최적화 해제 추가
+    await _requestBluetoothPermissions(); // ✅ 블루투스 권한 추가
   }
 
   /// Request location permissions
@@ -18,6 +19,16 @@ class PermissionManager {
     await ph.Permission.activityRecognition.request();
     // Android 13+ Wi-Fi SSID/BSSID 조회에 필요
     await ph.Permission.nearbyWifiDevices.request();
+  }
+
+  /// ✅ 블루투스 권한 요청 (Android 12+)
+  static Future<void> _requestBluetoothPermissions() async {
+    await ph.Permission.bluetoothConnect.request();
+  }
+
+  /// ✅ 블루투스 권한 확인
+  static Future<bool> hasBluetoothPermissions() async {
+    return await ph.Permission.bluetoothConnect.status.isGranted;
   }
 
   /// Request notification permissions

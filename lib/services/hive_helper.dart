@@ -9,6 +9,7 @@ class HiveHelper {
   static late Box _placeBox;
   static late Box _alarmBox;
   static late Box _settingsBox;
+  static late Box _deviceAlarmBox; // ✅ 독립형 블루투스 기기 알람 박스
   static bool _isInitialized = false; // ✅ 초기화 상태 추가
   static const Uuid _uuid = Uuid();
 
@@ -44,6 +45,13 @@ class HiveHelper {
         _settingsBox = await Hive.openBox('settings_v2');
       } else {
         _settingsBox = Hive.box('settings_v2');
+      }
+
+      // ✅ 독립형 블루투스 기기 알람 박스
+      if (!Hive.isBoxOpen('bluetoothDeviceAlarms_v1')) {
+        _deviceAlarmBox = await Hive.openBox('bluetoothDeviceAlarms_v1');
+      } else {
+        _deviceAlarmBox = Hive.box('bluetoothDeviceAlarms_v1');
       }
 
       await _runPlaceAlarmMigrations();
@@ -92,6 +100,13 @@ class HiveHelper {
         _settingsBox = Hive.box('settings_v2');
       }
 
+      // ✅ 독립형 블루투스 기기 알람 박스 (백그라운드)
+      if (!Hive.isBoxOpen('bluetoothDeviceAlarms_v1')) {
+        _deviceAlarmBox = await Hive.openBox('bluetoothDeviceAlarms_v1');
+      } else {
+        _deviceAlarmBox = Hive.box('bluetoothDeviceAlarms_v1');
+      }
+
       await _runPlaceAlarmMigrations();
 
       _isInitialized = true;
@@ -121,6 +136,7 @@ class HiveHelper {
       _placeBox = await Hive.openBox('savedLocations_v2');
       _alarmBox = await Hive.openBox('locationAlarms_v2');
       _settingsBox = await Hive.openBox('settings_v2');
+      _deviceAlarmBox = await Hive.openBox('bluetoothDeviceAlarms_v1');
 
       _isInitialized = true;
       print('✅ 폴백 초기화 성공 (기존 데이터 유지)');
@@ -152,6 +168,14 @@ class HiveHelper {
     return _settingsBox;
   }
 
+  /// ✅ 독립형 블루투스 기기 알람 박스
+  static Box get deviceAlarmBox {
+    if (!_isInitialized) {
+      throw StateError('HiveHelper가 초기화되지 않았습니다. init()을 먼저 호출하세요.');
+    }
+    return _deviceAlarmBox;
+  }
+
   // ✅ 초기화 상태 확인
   static bool get isInitialized => _isInitialized;
 
@@ -174,6 +198,34 @@ class HiveHelper {
   static bool placeHasWifi(Map<String, dynamic> place) {
     final wifi = place['wifiNetworks'];
     return wifi is List && wifi.isNotEmpty;
+  }
+
+  /// 장소에 블루투스 기기가 등록되어 있는지 확인
+  static bool placeHasBluetooth(Map<String, dynamic> place) {
+    final bt = place['bluetoothDevices'];
+    return bt is List && bt.isNotEmpty;
+  }
+
+  /// placeId로 해당 장소의 블루투스 기기 목록 가져오기
+  static List<Map<String, dynamic>> getBluetoothDevicesForPlace(
+    String placeId,
+  ) {
+    try {
+      final places = getSavedLocations();
+      final place = places.firstWhere(
+        (p) => p['id']?.toString() == placeId,
+        orElse: () => <String, dynamic>{},
+      );
+      if (place.isEmpty) return [];
+      final bt = place['bluetoothDevices'];
+      if (bt is List) {
+        return bt.map((d) => Map<String, dynamic>.from(d as Map)).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('❌ getBluetoothDevicesForPlace 에러: $e');
+      return [];
+    }
   }
 
   /// placeId로 해당 장소의 Wi-Fi 네트워크 목록 가져오기
@@ -691,6 +743,14 @@ class HiveHelper {
             wifi.map((w) => Map<String, dynamic>.from(w as Map)).toList();
       }
     }
+    // ✅ 블루투스 기기 데이터 보존 (List<Map> 형태)
+    if (normalized.containsKey('bluetoothDevices')) {
+      final bt = normalized['bluetoothDevices'];
+      if (bt is List) {
+        normalized['bluetoothDevices'] =
+            bt.map((d) => Map<String, dynamic>.from(d as Map)).toList();
+      }
+    }
     return normalized;
   }
 
@@ -824,5 +884,107 @@ class HiveHelper {
       }
     }
     return true;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  독립형 블루투스 기기 알람 (Device Alarm) CRUD
+  // ═══════════════════════════════════════════════════════════
+
+  /// 독립형 기기 알람 저장 (장소 무관, BT 연결/해제 시 알람)
+  /// alarmData 필수 필드:
+  ///   - name: String (알람 이름)
+  ///   - macAddress: String (BT MAC 주소)
+  ///   - deviceName: String (BT 기기 이름)
+  ///   - trigger: 'connect' | 'disconnect' (연결/해제 시 알람)
+  ///   - enabled: bool
+  static Future<String> saveDeviceAlarm(Map<String, dynamic> alarmData) async {
+    try {
+      final id =
+          alarmData['id']?.toString().trim().isNotEmpty == true
+              ? alarmData['id'].toString()
+              : _uuid.v4();
+      final normalized = Map<String, dynamic>.from(alarmData);
+      normalized['id'] = id;
+      normalized['enabled'] ??= true;
+      normalized['trigger'] ??= 'connect';
+      normalized['createdAt'] ??= DateTime.now().toIso8601String();
+
+      await _deviceAlarmBox.put(id, normalized);
+      debugPrint('✅ 기기 알람 저장 완료 (ID: $id)');
+      return id;
+    } catch (e) {
+      debugPrint('❌ saveDeviceAlarm 에러: $e');
+      rethrow;
+    }
+  }
+
+  /// 모든 독립형 기기 알람 조회
+  static List<Map<String, dynamic>> getDeviceAlarms() {
+    try {
+      return _deviceAlarmBox.values
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+    } catch (e) {
+      debugPrint('❌ getDeviceAlarms 에러: $e');
+      return [];
+    }
+  }
+
+  /// 활성화된 독립형 기기 알람만 조회
+  static List<Map<String, dynamic>> getActiveDeviceAlarms() {
+    try {
+      return getDeviceAlarms()
+          .where((alarm) => alarm['enabled'] == true)
+          .toList();
+    } catch (e) {
+      debugPrint('❌ getActiveDeviceAlarms 에러: $e');
+      return [];
+    }
+  }
+
+  /// 독립형 기기 알람 업데이트 (ID 기반)
+  static Future<void> updateDeviceAlarm(
+    String id,
+    Map<String, dynamic> updatedAlarm,
+  ) async {
+    try {
+      if (!_deviceAlarmBox.containsKey(id)) {
+        throw Exception('기기 알람 ID를 찾을 수 없습니다: $id');
+      }
+      final normalized = Map<String, dynamic>.from(updatedAlarm);
+      normalized['id'] = id;
+      await _deviceAlarmBox.put(id, normalized);
+      debugPrint('✅ 기기 알람 업데이트 완료 (ID: $id)');
+    } catch (e) {
+      debugPrint('❌ updateDeviceAlarm 에러: $e');
+      rethrow;
+    }
+  }
+
+  /// 독립형 기기 알람 삭제 (ID 기반)
+  static Future<void> deleteDeviceAlarm(String id) async {
+    try {
+      await _deviceAlarmBox.delete(id);
+      debugPrint('✅ 기기 알람 삭제 완료 (ID: $id)');
+    } catch (e) {
+      debugPrint('❌ deleteDeviceAlarm 에러: $e');
+      rethrow;
+    }
+  }
+
+  /// 특정 MAC 주소에 매칭되는 독립형 기기 알람 조회
+  static List<Map<String, dynamic>> getDeviceAlarmsByMac(String macAddress) {
+    try {
+      return getDeviceAlarms()
+          .where(
+            (alarm) =>
+                alarm['macAddress']?.toString().toUpperCase() ==
+                macAddress.toUpperCase(),
+          )
+          .toList();
+    } catch (e) {
+      debugPrint('❌ getDeviceAlarmsByMac 에러: $e');
+      return [];
+    }
   }
 }

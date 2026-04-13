@@ -27,6 +27,7 @@ class SmartLocationManager private constructor(private val context: Context) {
         private const val KEY_ALARM_PLACES = "alarm_places"
         private const val KEY_PENDING_EVENTS = "pending_geofence_events"
         private const val KEY_PENDING_WIFI_EVENTS = "pending_wifi_events"
+        private const val KEY_PENDING_BT_EVENTS = "pending_bluetooth_events"
         private const val KEY_PENDING_TRANSITIONS = "pending_activity_transitions"
 
         @Volatile private var instance: SmartLocationManager? = null
@@ -54,6 +55,7 @@ class SmartLocationManager private constructor(private val context: Context) {
     private val nativeGeofenceManager = NativeGeofenceManager(context)
     private val activityTransitionManager = ActivityTransitionManager(context)
     private val wifiMonitorManager = WifiMonitorManager(context)
+    private val bluetoothMonitorManager = BluetoothMonitorManager(context)
 
     // 알람 장소
     val alarmPlaces = mutableMapOf<String, AlarmPlace>()
@@ -86,8 +88,11 @@ class SmartLocationManager private constructor(private val context: Context) {
         // Wi-Fi 모니터링 시작
         startWifiMonitoring(places)
 
+        // ✅ 블루투스 모니터링 시작
+        startBluetoothMonitoring(places)
+
         isMonitoring = true
-        Log.d(TAG, "✅ v2 지오펜스 + ActivityTransition + Wi-Fi 가동 완료")
+        Log.d(TAG, "✅ v2 지오펜스 + ActivityTransition + Wi-Fi + Bluetooth 가동 완료")
     }
 
     /** 모니터링 중지 */
@@ -96,6 +101,7 @@ class SmartLocationManager private constructor(private val context: Context) {
         nativeGeofenceManager.removeAllGeofences()
         activityTransitionManager.stopMonitoring()
         wifiMonitorManager.stopMonitoring()
+        bluetoothMonitorManager.stopMonitoring()
         isMonitoring = false
     }
 
@@ -109,6 +115,9 @@ class SmartLocationManager private constructor(private val context: Context) {
 
         // Wi-Fi 장소 업데이트
         wifiMonitorManager.updatePlaces(places)
+
+        // ✅ 블루투스 장소 업데이트
+        bluetoothMonitorManager.updatePlaces(places)
 
         // 지오펜스 재등록
         nativeGeofenceManager.registerGeofences(places)
@@ -214,6 +223,86 @@ class SmartLocationManager private constructor(private val context: Context) {
         }
     }
 
+    // ========== ✅ 블루투스 모니터링 ==========
+
+    /** 블루투스 감시 시작 — 장소에 등록된 BT 기기 감지 */
+    private fun startBluetoothMonitoring(places: List<AlarmPlace>) {
+        bluetoothMonitorManager.onBluetoothPlaceEvent = { placeId, isEnter ->
+            onBluetoothEvent(placeId, isEnter)
+        }
+        bluetoothMonitorManager.onBluetoothDeviceEvent = { macAddress, deviceName, isConnected ->
+            onBluetoothDeviceEvent(macAddress, deviceName, isConnected)
+        }
+        // TODO: 독립형 기기 MAC 주소는 Flutter에서 전달받아야 함 (Step 7에서 구현)
+        bluetoothMonitorManager.startMonitoring(places)
+        Log.d(TAG, "✅ 블루투스 감시 시작")
+    }
+
+    /** 블루투스 장소 진입/진출 이벤트 → Flutter로 전달 */
+    private fun onBluetoothEvent(placeId: String, isEnter: Boolean) {
+        val place = alarmPlaces[placeId]
+        val placeName = place?.name ?: placeId
+
+        Log.d(TAG, "🔵 Bluetooth: $placeName ${if (isEnter) "ENTER" else "EXIT"}")
+
+        if (flutterChannel == null) {
+            Log.e(TAG, "❌ flutterChannel null — BT 이벤트 보류 저장 + 네이티브 폴백")
+            savePendingBluetoothEvent(placeId, placeName, isEnter)
+            triggerNativeAlarmFallback(placeId, placeName, isEnter)
+            return
+        }
+
+        val mainHandler = Handler(Looper.getMainLooper())
+        mainHandler.post {
+            try {
+                flutterChannel?.invokeMethod(
+                        "onNativeSignal",
+                        mapOf(
+                                "type" to "bluetooth",
+                                "placeId" to placeId,
+                                "placeName" to placeName,
+                                "isEnter" to isEnter,
+                                "timestamp" to System.currentTimeMillis()
+                        )
+                )
+                Log.d(TAG, "✅ Flutter에 BT 신호 전달 완료")
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Flutter BT 신호 전달 실패 — 네이티브 폴백: ${e.message}")
+                savePendingBluetoothEvent(placeId, placeName, isEnter)
+                triggerNativeAlarmFallback(placeId, placeName, isEnter)
+            }
+        }
+    }
+
+    /** 독립형 기기 BT 연결/해제 이벤트 → Flutter로 전달 */
+    private fun onBluetoothDeviceEvent(macAddress: String, deviceName: String, isConnected: Boolean) {
+        Log.d(TAG, "🔵 BT Device: $deviceName ($macAddress) ${if (isConnected) "CONNECTED" else "DISCONNECTED"}")
+
+        if (flutterChannel == null) {
+            Log.w(TAG, "⚠️ flutterChannel null — BT Device 이벤트 무시")
+            return
+        }
+
+        val mainHandler = Handler(Looper.getMainLooper())
+        mainHandler.post {
+            try {
+                flutterChannel?.invokeMethod(
+                        "onNativeSignal",
+                        mapOf(
+                                "type" to "bluetoothDevice",
+                                "macAddress" to macAddress,
+                                "deviceName" to deviceName,
+                                "isConnected" to isConnected,
+                                "timestamp" to System.currentTimeMillis()
+                        )
+                )
+                Log.d(TAG, "✅ Flutter에 BT Device 신호 전달 완료")
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ BT Device 신호 전달 실패: ${e.message}")
+            }
+        }
+    }
+
     /** Wi-Fi 하드웨어 ON/OFF 이벤트 → Flutter로 전달 */
     private fun onWifiHardwareEvent(isEnabled: Boolean) {
         Log.d(TAG, "📶 Wi-Fi 하드웨어: ${if (isEnabled) "ON" else "OFF"}")
@@ -277,6 +366,7 @@ class SmartLocationManager private constructor(private val context: Context) {
                 "alarmCount" to alarmPlaces.size,
                 "places" to alarmPlaces.values.map { it.name },
                 "wifi" to wifiMonitorManager.getStatus(),
+                "bluetooth" to bluetoothMonitorManager.getStatus(),
         )
     }
 
@@ -307,6 +397,17 @@ class SmartLocationManager private constructor(private val context: Context) {
                                 })
                             }
                             put("wifiNetworks", wifiArray)
+                            // ✅ 블루투스 기기 직렬화
+                            val btArray = JSONArray()
+                            for (bt in place.bluetoothDevices) {
+                                btArray.put(JSONObject().apply {
+                                    put("name", bt.name)
+                                    put("macAddress", bt.macAddress)
+                                    put("deviceType", bt.deviceType)
+                                    put("alias", bt.alias)
+                                })
+                            }
+                            put("bluetoothDevices", btArray)
                         }
                 jsonArray.put(obj)
             }
@@ -349,6 +450,21 @@ class SmartLocationManager private constructor(private val context: Context) {
                                             WifiNetwork(
                                                     ssid = w.optString("ssid", ""),
                                                     bssid = w.optString("bssid", "")
+                                            )
+                                        }
+                                    } else emptyList()
+                                } catch (e: Exception) { emptyList() },
+                                // ✅ 블루투스 기기 역직렬화
+                                bluetoothDevices = try {
+                                    val btArray = obj.optJSONArray("bluetoothDevices")
+                                    if (btArray != null) {
+                                        (0 until btArray.length()).map { i ->
+                                            val b = btArray.getJSONObject(i)
+                                            BluetoothDeviceInfo(
+                                                    name = b.optString("name", ""),
+                                                    macAddress = b.optString("macAddress", ""),
+                                                    deviceType = b.optInt("deviceType", 0),
+                                                    alias = b.optString("alias", "")
                                             )
                                         }
                                     } else emptyList()
@@ -435,6 +551,9 @@ class SmartLocationManager private constructor(private val context: Context) {
 
             // ✅ Wi-Fi 보류 이벤트도 전달
             deliverPendingWifiEvents()
+
+            // ✅ Bluetooth 보류 이벤트도 전달
+            deliverPendingBluetoothEvents()
 
             // ✅ ActivityTransition 보류 이벤트도 전달
             deliverPendingActivityTransitions()
@@ -667,6 +786,78 @@ class SmartLocationManager private constructor(private val context: Context) {
             }, 2000L) // 지오펜스 이벤트 이후 전달
         } catch (e: Exception) {
             Log.e(TAG, "❌ 보류 ActivityTransition 전달 실패: ${e.message}")
+        }
+    }
+
+    // ========== ✅ Bluetooth 보류 이벤트 저장/전달 ==========
+
+    /** Flutter 엔진이 없을 때 BT 이벤트를 SharedPreferences에 저장 */
+    private fun savePendingBluetoothEvent(placeId: String, placeName: String, isEnter: Boolean) {
+        try {
+            val pendingJson = prefs.getString(KEY_PENDING_BT_EVENTS, "[]")
+            val pendingArray = JSONArray(pendingJson)
+
+            val event = JSONObject().apply {
+                put("placeId", placeId)
+                put("placeName", placeName)
+                put("isEnter", isEnter)
+                put("timestamp", System.currentTimeMillis())
+            }
+            pendingArray.put(event)
+
+            prefs.edit().putString(KEY_PENDING_BT_EVENTS, pendingArray.toString()).apply()
+            Log.d(TAG, "💾 보류 BT 이벤트 저장: $placeName ${if (isEnter) "ENTER" else "EXIT"} (총 ${pendingArray.length()}개)")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 보류 BT 이벤트 저장 실패: ${e.message}")
+        }
+    }
+
+    /** Flutter 엔진 재연결 시 보류된 BT 이벤트 전달 */
+    fun deliverPendingBluetoothEvents() {
+        try {
+            val pendingJson = prefs.getString(KEY_PENDING_BT_EVENTS, "[]")
+            val pendingArray = JSONArray(pendingJson)
+
+            if (pendingArray.length() == 0) {
+                Log.d(TAG, "📬 보류 BT 이벤트 없음")
+                return
+            }
+
+            Log.d(TAG, "📬 보류 BT 이벤트 ${pendingArray.length()}개 전달 시작")
+
+            val totalEvents = pendingArray.length()
+            val mainHandler = Handler(Looper.getMainLooper())
+            for (i in 0 until totalEvents) {
+                val event = pendingArray.getJSONObject(i)
+                val isLast = (i == totalEvents - 1)
+                mainHandler.postDelayed(
+                        {
+                            try {
+                                flutterChannel?.invokeMethod(
+                                        "onNativeSignal",
+                                        mapOf(
+                                                "type" to "bluetooth",
+                                                "placeId" to event.getString("placeId"),
+                                                "placeName" to event.getString("placeName"),
+                                                "isEnter" to event.getBoolean("isEnter"),
+                                                "timestamp" to event.getLong("timestamp"),
+                                                "wasPending" to true
+                                        )
+                                )
+                                Log.d(TAG, "✅ 보류 BT 이벤트 전달: ${event.getString("placeName")}")
+                            } catch (e: Exception) {
+                                Log.e(TAG, "❌ 보류 BT 이벤트 전달 실패: ${e.message}")
+                            }
+                            if (isLast) {
+                                prefs.edit().remove(KEY_PENDING_BT_EVENTS).apply()
+                                Log.d(TAG, "🗑️ 보류 BT 이벤트 목록 초기화")
+                            }
+                        },
+                        (i * 500L) + 1500L
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 보류 BT 이벤트 전달 실패: ${e.message}")
         }
     }
 }
