@@ -113,6 +113,10 @@ class LocationMonitorService {
   // ───────── 추적 장소 ─────────
   Set<String> _trackedPlaceNames = {};
 
+  // ───────── 알람→장소 캐시 (GPS 폴링 시 Hive 실패 방지) ─────────
+  /// key = alarmId (UUID), value = 장소 정보 Map
+  final Map<String, Map<String, dynamic>> _alarmPlaceCache = {};
+
   // ───────── 위치 스트림 (GPS 페이지용) ─────────
   final StreamController<Position> _positionController =
       StreamController<Position>.broadcast();
@@ -259,6 +263,7 @@ class LocationMonitorService {
     }
     _wifiWaitTimers.clear();
     _pendingGpsEntryPlaces.clear();
+    _alarmPlaceCache.clear();
     _isRunning = false;
     _isCurrentlyMoving = false;
     _onTriggerCallback = null;
@@ -299,7 +304,7 @@ class LocationMonitorService {
   ) {
     return activeAlarms
         .where((alarm) {
-          final alarmId = alarm['id'] as String?;
+          final alarmId = alarm['id']?.toString();
           if (alarmId == null || alarmId.isEmpty) return false;
 
           final alarmPlaceId = alarm['placeId']?.toString();
@@ -308,12 +313,12 @@ class LocationMonitorService {
           }
 
           final alarmPlaceName =
-              (alarm['place'] ?? alarm['locationName']) as String?;
+              (alarm['place'] ?? alarm['locationName'])?.toString();
           final fallbackPlaceName = _getSavedPlaceName(placeId);
           return fallbackPlaceName != null &&
               alarmPlaceName == fallbackPlaceName;
         })
-        .map((alarm) => alarm['id'] as String)
+        .map((alarm) => alarm['id'].toString())
         .toList();
   }
 
@@ -659,9 +664,15 @@ class LocationMonitorService {
   Future<void> _checkExitForPlace(String alarmId, Position position) async {
     final placeInfo = await _getPlaceInfo(alarmId);
     if (placeInfo == null) {
-      _log('❌ [${_shortId(alarmId)}] 장소 정보 없음');
+      _log('❌ [${_shortId(alarmId)}] 장소 정보 없음 — MOVING 상태 제거');
+      // ★ 장소 정보를 영구적으로 찾을 수 없으면 stuck 방지를 위해 OUTSIDE로 전환
+      _setPlaceState(alarmId, PlaceState.outside);
+      _evaluateMovingGpsNeed();
       return;
     }
+
+    // ★ 캐시 업데이트 (성공 시)
+    _alarmPlaceCache[alarmId] = Map<String, dynamic>.from(placeInfo);
 
     final placeLat = _toDouble(placeInfo['latitude'] ?? placeInfo['lat']);
     final placeLng = _toDouble(placeInfo['longitude'] ?? placeInfo['lng']);
@@ -718,7 +729,10 @@ class LocationMonitorService {
 
   Future<void> _processEntryAlarm(String placeId) async {
     final activeAlarms = await _getActiveAlarms();
-    final placeName = await _getPlaceNameFromId(placeId);
+    final placeInfo = await _getPlaceInfo(placeId);
+    final placeName = placeInfo?['name'] as String?;
+    // ★ 실제 장소 UUID 추출 (placeId가 alarmId인 경우 대비)
+    final resolvedPlaceId = placeInfo?['id']?.toString() ?? placeId;
 
     if (placeName == null) {
       _log('❌ placeId "$placeId" 장소 정보 없음');
@@ -737,13 +751,16 @@ class LocationMonitorService {
           final alarmPlace = alarm['place'] ?? alarm['locationName'];
           final trigger = alarm['trigger'] ?? 'entry';
           if (trigger != 'entry') return false;
-          return alarmPlaceId == placeId || alarmPlace == placeName;
+          // ★ 원래 placeId와 실제 장소 UUID 양쪽으로 매칭
+          return alarmPlaceId == placeId ||
+              alarmPlaceId == resolvedPlaceId ||
+              alarmPlace == placeName;
         }).toList();
 
     for (final alarm in matchingAlarms) {
-      final alarmId = alarm['id'] as String?;
+      final alarmId = alarm['id']?.toString();
 
-      if (alarmId != null) {
+      if (alarmId != null && alarmId.isNotEmpty) {
         if (!await _isAlarmStillActive(alarmId)) continue;
         if (await _isAlarmDisabledByNative(alarmId)) continue;
         if (await _isAlarmInCooldown(alarmId, placeName)) continue;
@@ -771,7 +788,10 @@ class LocationMonitorService {
 
   Future<void> _processExitAlarm(String placeId) async {
     final activeAlarms = await _getActiveAlarms();
-    final placeName = await _getPlaceNameFromId(placeId);
+    final placeInfo = await _getPlaceInfo(placeId);
+    final placeName = placeInfo?['name'] as String?;
+    // ★ 실제 장소 UUID 추출 (placeId가 alarmId인 경우 대비)
+    final resolvedPlaceId = placeInfo?['id']?.toString() ?? placeId;
 
     if (placeName == null) {
       _log('❌ placeId "$placeId" 장소 정보 없음 (EXIT)');
@@ -784,11 +804,14 @@ class LocationMonitorService {
           final alarmPlace = alarm['place'] ?? alarm['locationName'];
           final trigger = alarm['trigger'] ?? 'entry';
           if (trigger != 'exit') return false;
-          return alarmPlaceId == placeId || alarmPlace == placeName;
+          // ★ 원래 placeId와 실제 장소 UUID 양쪽으로 매칭
+          return alarmPlaceId == placeId ||
+              alarmPlaceId == resolvedPlaceId ||
+              alarmPlace == placeName;
         }).toList();
 
     for (final alarm in matchingAlarms) {
-      final alarmId = alarm['id'] as String?;
+      final alarmId = alarm['id']?.toString();
 
       if (alarmId != null) {
         if (!await _isAlarmStillActive(alarmId)) continue;
@@ -872,7 +895,11 @@ class LocationMonitorService {
     List<Map<String, dynamic>> activeAlarms,
   ) async {
     final activeIds =
-        activeAlarms.map((a) => a['id'] as String?).whereType<String>().toSet();
+        activeAlarms
+            .map((a) => a['id']?.toString())
+            .whereType<String>()
+            .where((id) => id.isNotEmpty)
+            .toSet();
 
     // 메모리에서 제거
     final staleKeys =
@@ -909,6 +936,28 @@ class LocationMonitorService {
   ) async {
     final places = _extractAlarmedPlaces(activeAlarms);
 
+    // ★ 알람→장소 캐시 구축 (GPS 폴링 시 Hive 실패 대비)
+    _alarmPlaceCache.clear();
+    for (final alarm in activeAlarms) {
+      final alarmId = alarm['id']?.toString();
+      if (alarmId == null || alarmId.isEmpty) continue;
+      final placeId = alarm['placeId']?.toString();
+      final placeName = (alarm['place'] ?? alarm['locationName']) as String?;
+
+      final place = places.cast<Map<String, dynamic>?>().firstWhere(
+        (p) =>
+            (placeId != null &&
+                placeId.isNotEmpty &&
+                p?['id']?.toString() == placeId) ||
+            (placeName != null && p?['name'] == placeName),
+        orElse: () => null,
+      );
+      if (place != null) {
+        _alarmPlaceCache[alarmId] = Map<String, dynamic>.from(place);
+      }
+    }
+    _log('📦 알람→장소 캐시: ${_alarmPlaceCache.length}개');
+
     try {
       final pos = await _getPosition();
 
@@ -917,8 +966,8 @@ class LocationMonitorService {
           final placeName =
               (alarm['place'] ?? alarm['locationName']) as String?;
           final placeId = alarm['placeId']?.toString();
-          final alarmId = alarm['id'] as String?;
-          if (alarmId == null) continue;
+          final alarmId = alarm['id']?.toString();
+          if (alarmId == null || alarmId.isEmpty) continue;
 
           // ✅ 이미 SharedPreferences에서 복원된 상태가 있으면 GPS로 덮어쓰지 않음
           if (_placeStates.containsKey(alarmId)) {
@@ -972,9 +1021,9 @@ class LocationMonitorService {
 
     // GPS 실패: 복원 안 된 항목은 OUTSIDE로 가정 (v3: 오탐 방지)
     for (final alarm in activeAlarms) {
-      final alarmId = alarm['id'] as String?;
-      final placeName = (alarm['place'] ?? alarm['locationName']) as String?;
-      if (alarmId == null) continue;
+      final alarmId = alarm['id']?.toString();
+      final placeName = (alarm['place'] ?? alarm['locationName'])?.toString();
+      if (alarmId == null || alarmId.isEmpty) continue;
 
       if (!_placeStates.containsKey(alarmId)) {
         _placeStates[alarmId] = PlaceState.outside;
@@ -1286,51 +1335,113 @@ class LocationMonitorService {
   //  장소 정보 조회
   // ═══════════════════════════════════════════════════════════
 
-  Future<String?> _getPlaceNameFromId(String placeId) async {
-    final info = await _getPlaceInfo(placeId);
-    return info?['name'] as String?;
-  }
-
   Future<Map<String, dynamic>?> _getPlaceInfo(String placeId) async {
     try {
-      final places = HiveHelper.getSavedLocations();
-      final allAlarms = HiveHelper.getLocationAlarms();
+      // ★ Hive 초기화 확인 (백그라운드에서 stale 방지)
+      if (!HiveHelper.isInitialized) {
+        _log('⚠️ _getPlaceInfo: Hive 미초기화 → 재초기화 시도');
+        try {
+          await HiveHelper.init();
+        } catch (e) {
+          _log('❌ Hive 재초기화 실패: $e');
+        }
+      }
 
+      var places = HiveHelper.getSavedLocations();
+      var allAlarms = HiveHelper.getLocationAlarms();
+
+      // ★ 스마트 Hive 재초기화: 둘 다 빈 배열이면 Hive 문제일 가능성 높음
+      // (정상 사용자라면 최소 1개 이상의 장소와 알람이 있어야 함)
+      if (places.isEmpty && allAlarms.isEmpty && _alarmPlaceCache.isNotEmpty) {
+        _log(
+          '⚠️ _getPlaceInfo: places=0, alarms=0, 캐시=${_alarmPlaceCache.length} → Hive 재초기화 시도',
+        );
+        try {
+          await HiveHelper.init();
+          places = HiveHelper.getSavedLocations();
+          allAlarms = HiveHelper.getLocationAlarms();
+          _log(
+            '✅ Hive 재초기화 후: places=${places.length}, alarms=${allAlarms.length}',
+          );
+        } catch (e) {
+          _log('❌ Hive 재초기화 실패: $e');
+        }
+      }
+
+      // Step 1: placeId가 장소 UUID인 경우 (지오펜스/Wi-Fi 경로)
       for (final place in places) {
         if (place['id']?.toString() == placeId) {
           return place;
         }
       }
 
-      // 하위 호환: 과거 alarmId 기반 이벤트도 알람 레코드를 통해 장소 복원
+      // Step 2: placeId가 alarmId인 경우 (GPS 폴링 경로)
+      // ★ .toString() 으로 타입 안전 비교
       for (final alarm in allAlarms) {
-        if (alarm['id'] == placeId) {
+        if (alarm['id']?.toString() == placeId) {
           final alarmPlaceId = alarm['placeId']?.toString();
           if (alarmPlaceId != null && alarmPlaceId.isNotEmpty) {
             for (final place in places) {
               if (place['id']?.toString() == alarmPlaceId) return place;
             }
+            // placeId가 있지만 장소를 못 찾은 경우 — 이름으로 폴백
+            _log(
+              '⚠️ _getPlaceInfo: 알람 발견, placeId=$alarmPlaceId 장소 못 찾음 → 이름 폴백',
+            );
           }
 
           final placeName =
-              (alarm['place'] ?? alarm['locationName']) as String?;
-          if (placeName != null) {
+              (alarm['place'] ?? alarm['locationName'])?.toString();
+          if (placeName != null && placeName.isNotEmpty) {
             for (final place in places) {
-              if (place['name'] == placeName) return place;
+              if (place['name']?.toString() == placeName) return place;
             }
           }
+
+          // ★ 진단: 알람은 찾았지만 장소를 못 찾는 경우 상세 로그
+          _log(
+            '⚠️ _getPlaceInfo: 알람 찾음 (${_shortId(placeId)}) '
+            'placeId=${alarm['placeId']}, place=${alarm['place']} '
+            '→ 장소 매칭 실패 (places=${places.length}개)',
+          );
           break;
         }
       }
 
-      // 폴백: placeId 자체가 장소 이름
+      // Step 3: placeId 자체가 장소 이름인 경우
       for (final place in places) {
         if (place['name'] == placeId) return place;
       }
 
+      // ★ Step 4: 캐시에서 폴백 (Hive 접근 실패 시 안전망)
+      if (_alarmPlaceCache.containsKey(placeId)) {
+        _log('📦 _getPlaceInfo: 캐시에서 복원 (${_shortId(placeId)})');
+        return _alarmPlaceCache[placeId];
+      }
+
+      // ★ 상세 진단 로그 (문제 원인 파악용)
+      final diagnosis =
+          places.isEmpty && allAlarms.isEmpty
+              ? '🔴 Hive 데이터 없음 (재초기화 필요?)'
+              : places.isEmpty
+              ? '🟡 장소 데이터만 없음'
+              : allAlarms.isEmpty
+              ? '🟡 알람 데이터만 없음'
+              : '🟢 데이터 있으나 ID 매칭 안됨';
+      _log(
+        '❌ _getPlaceInfo 실패: id=${_shortId(placeId)}, '
+        'places=${places.length}, alarms=${allAlarms.length}, '
+        'cache=${_alarmPlaceCache.containsKey(placeId)} → $diagnosis',
+      );
       return null;
     } catch (e) {
       _log('❌ 장소 정보 조회 실패: $e');
+
+      // ★ 예외 발생 시에도 캐시에서 복원 시도
+      if (_alarmPlaceCache.containsKey(placeId)) {
+        _log('📦 _getPlaceInfo: 예외 후 캐시 복원 (${_shortId(placeId)})');
+        return _alarmPlaceCache[placeId];
+      }
       return null;
     }
   }
@@ -1707,8 +1818,8 @@ class LocationMonitorService {
       final places = _extractAlarmedPlaces(activeAlarms);
 
       for (final alarm in activeAlarms) {
-        final alarmId = alarm['id'] as String?;
-        if (alarmId == null) continue;
+        final alarmId = alarm['id']?.toString();
+        if (alarmId == null || alarmId.isEmpty) continue;
 
         final currentState = _placeStates[alarmId];
         if (currentState == null) continue;
@@ -1897,8 +2008,8 @@ class LocationMonitorService {
       for (var key in box.keys) {
         final alarm = box.get(key);
         if (alarm == null) continue;
-        final alarmId = alarm['id'] as String?;
-        if (alarmId == null) continue;
+        final alarmId = alarm['id']?.toString();
+        if (alarmId == null || alarmId.isEmpty) continue;
 
         final isDisabled = prefs.getBool('alarm_disabled_$alarmId') ?? false;
         if (isDisabled) {
@@ -1959,8 +2070,8 @@ class LocationMonitorService {
       for (var key in box.keys) {
         final alarm = box.get(key);
         if (alarm == null) continue;
-        final alarmId = alarm['id'] as String?;
-        if (alarmId == null) continue;
+        final alarmId = alarm['id']?.toString();
+        if (alarmId == null || alarmId.isEmpty) continue;
 
         final isDisabled = prefs.getBool('alarm_disabled_$alarmId') ?? false;
         if (isDisabled) {
@@ -2029,8 +2140,8 @@ class LocationMonitorService {
     //   발생해도 INSIDE_IDLE이므로 ENTER 무시됨
     final newAlarms =
         activeAlarms.where((a) {
-          final id = a['id'] as String?;
-          return id != null && !_placeStates.containsKey(id);
+          final id = a['id']?.toString();
+          return id != null && id.isNotEmpty && !_placeStates.containsKey(id);
         }).toList();
 
     if (newAlarms.isNotEmpty) {
@@ -2109,8 +2220,8 @@ class LocationMonitorService {
             (resolvedPlaceId != null && alarmPlaceId == resolvedPlaceId) ||
             alarmPlaceName == resolvedPlaceName;
         if (matchesPlace) {
-          final alarmId = alarm['id'] as String?;
-          if (alarmId != null) {
+          final alarmId = alarm['id']?.toString();
+          if (alarmId != null && alarmId.isNotEmpty) {
             _setPlaceState(alarmId, state);
           }
         }

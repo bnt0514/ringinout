@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ringinout/config/app_theme.dart';
 import 'package:ringinout/services/app_localizations.dart';
+import 'package:ringinout/pages/settings_page.dart';
 import 'add_location_alarm_page.dart';
 
 class TestPage extends StatefulWidget {
@@ -273,6 +274,17 @@ class _TestPageState extends State<TestPage>
         ),
         systemOverlayStyle: SystemUiOverlayStyle.light,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsPage()),
+              );
+            },
+          ),
+        ],
       ),
       body: Stack(
         children: [

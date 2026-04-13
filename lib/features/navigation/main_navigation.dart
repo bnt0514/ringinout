@@ -281,8 +281,8 @@ class _MainNavigationPageState extends State<MainNavigationPage>
           label: l10n.get('nav_voice'),
         ),
         BottomNavigationBarItem(
-          icon: const Icon(Icons.subscriptions),
-          label: l10n.get('nav_subscription'),
+          icon: const Icon(Icons.gps_fixed),
+          label: l10n.get('nav_gps'),
         ),
       ],
     );

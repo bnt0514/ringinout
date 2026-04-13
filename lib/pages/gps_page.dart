@@ -11,6 +11,7 @@ import 'package:ringinout/services/app_log_buffer.dart';
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/location_monitor_service.dart';
 import 'package:ringinout/services/smart_location_monitor.dart';
+import 'package:ringinout/services/app_localizations.dart';
 
 class GpsPage extends StatefulWidget {
   const GpsPage({super.key, this.showAppBar = true});
@@ -273,11 +274,12 @@ class _GpsPageState extends State<GpsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar:
           widget.showAppBar
               ? AppBar(
-                title: const Text('GPS 디버그'),
+                title: Text(l10n.get('page_title_gps')),
                 actions: [
                   // 어드민 버튼 — Firestore 기반 개발자 계정만 표시
                   if (_isDevUser)
@@ -295,7 +297,7 @@ class _GpsPageState extends State<GpsPage> {
                   IconButton(
                     onPressed: _gpsLoading ? null : _fetchGps,
                     icon: const Icon(Icons.my_location),
-                    tooltip: 'GPS 갱신',
+                    tooltip: l10n.get('gps_refresh_tooltip'),
                   ),
                 ],
               )
@@ -309,20 +311,18 @@ class _GpsPageState extends State<GpsPage> {
             if (_isDevUser) _buildAdminCard(),
             _buildGpsCard(),
             const SizedBox(height: 12),
-            // LMS v3 상태 — dev only
-            if (_isDevUser) ...[
-              _buildServiceCard(),
-              const SizedBox(height: 12),
-            ],
+            // 위치 알람 상태 — 모든 사용자에게 표시
+            _buildServiceCard(),
+            const SizedBox(height: 12),
             _buildPlaceStatesCard(),
             const SizedBox(height: 12),
-            // 강제 테스트 — dev only
+            // 강제 테스트 & 로그 — dev only
             if (_isDevUser) ...[
               _buildForceTestCard(),
               const SizedBox(height: 12),
+              _buildLogCard(),
+              const SizedBox(height: 12),
             ],
-            _buildLogCard(),
-            const SizedBox(height: 12),
             _buildBugReportButton(),
             const SizedBox(height: 16),
           ],
@@ -372,26 +372,73 @@ class _GpsPageState extends State<GpsPage> {
   // ─── 1. 현재 위치 ───
 
   Widget _buildGpsCard() {
+    final l10n = AppLocalizations.of(context);
+    // GPS 정확도 뱃지
+    String accLabel = '';
+    Color accColor = Colors.green;
+    if (_pos != null) {
+      final acc = _pos!.accuracy;
+      if (acc <= 20) {
+        accLabel = l10n.get('gps_accuracy_good');
+        accColor = Colors.green;
+      } else if (acc <= 50) {
+        accLabel = l10n.get('gps_accuracy_fair');
+        accColor = Colors.orange;
+      } else {
+        accLabel = l10n.get('gps_accuracy_poor');
+        accColor = Colors.red;
+      }
+    }
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '📍 현재 위치',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            Text(
+              '📍 ${l10n.get('gps_current_location')}',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             ),
             const SizedBox(height: 8),
             if (_error != null)
               Text(_error!, style: const TextStyle(color: Colors.red))
             else if (_pos == null)
-              const Text('위치 정보 없음')
+              Text(l10n.get('gps_no_location'))
             else ...[
-              Text('위도: ${_pos!.latitude.toStringAsFixed(6)}'),
-              Text('경도: ${_pos!.longitude.toStringAsFixed(6)}'),
-              Text('정확도: ${_pos!.accuracy.toStringAsFixed(1)}m'),
-              if (_lastGps != null) Text('갱신: ${_fmtTime(_lastGps!)}'),
+              Text(
+                '${l10n.get('gps_latitude')}: ${_pos!.latitude.toStringAsFixed(6)}',
+              ),
+              Text(
+                '${l10n.get('gps_longitude')}: ${_pos!.longitude.toStringAsFixed(6)}',
+              ),
+              Row(
+                children: [
+                  Text(
+                    '${l10n.get('gps_accuracy')}: ${_pos!.accuracy.toStringAsFixed(1)}m',
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: accColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      accLabel,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: accColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (_lastGps != null)
+                Text('${l10n.get('gps_updated_at')}: ${_fmtTime(_lastGps!)}'),
             ],
           ],
         ),
@@ -402,6 +449,7 @@ class _GpsPageState extends State<GpsPage> {
   // ─── 2. LMS v3 서비스 상태 ───
 
   Widget _buildServiceCard() {
+    final l10n = AppLocalizations.of(context);
     final lms = LocationMonitorService.instance;
     final ps = lms.placeStates;
     final outsideCnt = ps.values.where((s) => s == PlaceState.outside).length;
@@ -411,16 +459,16 @@ class _GpsPageState extends State<GpsPage> {
     String mode;
     Color modeColor;
     if (!_lmsRunning) {
-      mode = '⏸ 중지';
+      mode = '⏸ ${l10n.get('gps_stopped')}';
       modeColor = Colors.grey;
     } else if (movCnt > 0) {
-      mode = '🏃 MOVING ($movCnt)';
+      mode = '🏃 ${l10n.get('gps_moving')} ($movCnt)';
       modeColor = Colors.amber.shade700;
     } else if (idleCnt > 0) {
-      mode = '📍 IDLE ($idleCnt)';
+      mode = '📍 ${l10n.get('gps_inside')} ($idleCnt)';
       modeColor = Colors.green.shade700;
     } else {
-      mode = '💤 OUTSIDE ($outsideCnt)';
+      mode = '💤 ${l10n.get('gps_outside')} ($outsideCnt)';
       modeColor = Colors.blue.shade700;
     }
 
@@ -439,10 +487,13 @@ class _GpsPageState extends State<GpsPage> {
                   size: 20,
                 ),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'LMS v3 상태',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    l10n.get('gps_alarm_status'),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
                 Container(
@@ -470,10 +521,14 @@ class _GpsPageState extends State<GpsPage> {
               spacing: 8,
               runSpacing: 6,
               children: [
-                _chip('알람', '$_alarmCount개', Colors.deepPurple),
-                _chip('OUTSIDE', '$outsideCnt', Colors.blue),
-                _chip('IDLE', '$idleCnt', Colors.green),
-                _chip('MOVING', '$movCnt', Colors.amber.shade700),
+                _chip(
+                  l10n.get('gps_alarms'),
+                  '$_alarmCount',
+                  Colors.deepPurple,
+                ),
+                _chip(l10n.get('gps_outside'), '$outsideCnt', Colors.blue),
+                _chip(l10n.get('gps_inside'), '$idleCnt', Colors.green),
+                _chip(l10n.get('gps_moving'), '$movCnt', Colors.amber.shade700),
               ],
             ),
           ],
@@ -485,6 +540,7 @@ class _GpsPageState extends State<GpsPage> {
   // ─── 3. 장소별 상태 ───
 
   Widget _buildPlaceStatesCard() {
+    final l10n = AppLocalizations.of(context);
     final lms = LocationMonitorService.instance;
     final ps = lms.placeStates;
     final places = HiveHelper.getSavedLocations();
@@ -513,10 +569,13 @@ class _GpsPageState extends State<GpsPage> {
           children: [
             Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
-                    '🗺️ 장소별 상태',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    '🗺️ ${l10n.get('gps_place_status')}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
                 SizedBox(
@@ -525,7 +584,7 @@ class _GpsPageState extends State<GpsPage> {
                   child: IconButton(
                     padding: EdgeInsets.zero,
                     iconSize: 18,
-                    tooltip: 'GPS 기준 상태 새로고침',
+                    tooltip: l10n.get('gps_place_status_refresh_tooltip'),
                     icon: const Icon(Icons.refresh, color: Colors.blueGrey),
                     onPressed: () async {
                       final lmsInst = LocationMonitorService.instance;
@@ -542,7 +601,11 @@ class _GpsPageState extends State<GpsPage> {
                         setState(() {});
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('$updated개 장소 상태 갱신 완료'),
+                            content: Text(
+                              l10n
+                                  .get('gps_place_status_updated')
+                                  .replaceAll('{count}', '$updated'),
+                            ),
                             duration: const Duration(seconds: 2),
                           ),
                         );
@@ -555,7 +618,7 @@ class _GpsPageState extends State<GpsPage> {
             const SizedBox(height: 8),
             if (ps.isEmpty)
               Text(
-                '추적 중인 장소 없음',
+                l10n.get('gps_no_tracked_places'),
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               )
             else
@@ -564,7 +627,10 @@ class _GpsPageState extends State<GpsPage> {
                 final aName = info?['name'] ?? '';
                 final pName = info?['place'] ?? '';
                 final trig = info?['trigger'] ?? 'entry';
-                final trigLabel = trig == 'exit' ? '진출' : '진입';
+                final trigLabel =
+                    trig == 'exit'
+                        ? l10n.get('gps_exit')
+                        : l10n.get('gps_entry');
                 final shortId =
                     e.key.length > 8 ? e.key.substring(0, 8) : e.key;
 
@@ -574,15 +640,15 @@ class _GpsPageState extends State<GpsPage> {
                 switch (e.value) {
                   case PlaceState.outside:
                     c = Colors.blue;
-                    stateLabel = 'OUTSIDE';
+                    stateLabel = l10n.get('gps_outside');
                     icon = Icons.location_off;
                   case PlaceState.insideIdle:
                     c = Colors.green;
-                    stateLabel = 'IDLE';
-                    icon = Icons.bedtime;
+                    stateLabel = l10n.get('gps_inside');
+                    icon = Icons.place;
                   case PlaceState.insideMoving:
                     c = Colors.amber.shade700;
-                    stateLabel = 'MOVING';
+                    stateLabel = l10n.get('gps_moving');
                     icon = Icons.directions_walk;
                 }
 
@@ -876,6 +942,7 @@ class _GpsPageState extends State<GpsPage> {
   // ─── 6. 버그 리포트 버튼 ───
 
   Widget _buildBugReportButton() {
+    final l10n = AppLocalizations.of(context);
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
@@ -892,7 +959,9 @@ class _GpsPageState extends State<GpsPage> {
                 )
                 : const Icon(Icons.bug_report, size: 18),
         label: Text(
-          _bugReportSending ? '전송 중…' : '🐛 버그 리포트 (30분 로그 전송)',
+          _bugReportSending
+              ? l10n.get('gps_bug_report_sending')
+              : l10n.get('gps_bug_report'),
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
         ),
         style: ElevatedButton.styleFrom(
@@ -908,13 +977,14 @@ class _GpsPageState extends State<GpsPage> {
   }
 
   Future<void> _onBugReport() async {
+    final l10n = AppLocalizations.of(context);
     // 메모 입력 다이얼로그
     final memoCtrl = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,
       builder:
           (ctx) => AlertDialog(
-            title: const Text('🐛 버그 리포트'),
+            title: Text(l10n.get('gps_bug_report_title')),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,

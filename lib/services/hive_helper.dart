@@ -702,6 +702,9 @@ class HiveHelper {
     final existingAlarmId = normalized['id']?.toString().trim();
     if (existingAlarmId == null || existingAlarmId.isEmpty) {
       normalized['id'] = _uuid.v4();
+    } else {
+      // ★ 반드시 String으로 정규화 (Hive 역직렬화 타입 불일치 방지)
+      normalized['id'] = existingAlarmId;
     }
 
     final placeList = places ?? getSavedLocations();

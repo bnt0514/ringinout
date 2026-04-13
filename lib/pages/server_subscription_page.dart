@@ -14,6 +14,7 @@ import 'package:ringinout/services/billing_service.dart';
 import 'package:ringinout/services/subscription_service.dart';
 import 'package:ringinout/services/app_localizations.dart';
 import 'package:ringinout/pages/gps_page.dart';
+import 'package:ringinout/pages/settings_page.dart';
 import 'package:ringinout/services/policy_texts.dart';
 import 'package:ringinout/config/app_config.dart';
 
@@ -50,7 +51,7 @@ class _ServerSubscriptionPageState extends State<ServerSubscriptionPage>
     final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.get('page_title_subscription')),
+        title: Text(l10n.get('page_title_gps')),
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.textOnPrimary,
         elevation: 0,
@@ -58,6 +59,17 @@ class _ServerSubscriptionPageState extends State<ServerSubscriptionPage>
           decoration: BoxDecoration(gradient: AppColors.primaryGradient),
         ),
         systemOverlayStyle: SystemUiOverlayStyle.light,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsPage()),
+              );
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -71,8 +83,8 @@ class _ServerSubscriptionPageState extends State<ServerSubscriptionPage>
               indicatorColor: AppColors.primary,
               indicatorWeight: 2.5,
               tabs: [
+                Tab(text: l10n.get('gps_tab')),
                 Tab(text: l10n.get('subscription_tab')),
-                const Tab(text: 'GPS'),
               ],
             ),
           ),
@@ -82,8 +94,8 @@ class _ServerSubscriptionPageState extends State<ServerSubscriptionPage>
               controller: _tabController,
               physics: const NeverScrollableScrollPhysics(),
               children: const [
-                _ServerSubscriptionView(),
                 GpsPage(showAppBar: false),
+                _ServerSubscriptionView(),
               ],
             ),
           ),

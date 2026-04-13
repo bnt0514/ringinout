@@ -305,37 +305,6 @@ class _EditPlacePageState extends State<EditPlacePage> {
                           ),
                         ],
                       ),
-                      // 신호 경고
-                      if (_radius <= 30) ...[
-                        const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.orange.shade300),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.warning_amber_rounded,
-                                color: Colors.orange,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  l10n.get('signal_warning'),
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
                       // 반경 안내 버튼
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
