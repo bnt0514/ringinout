@@ -562,8 +562,13 @@ class MainActivity : FlutterActivity() {
                                             bluetoothDevices = parseBluetoothDevices(data),
                                     )
                                 }
-                        smartManager.startMonitoring(places)
-                        Log.d("MainActivity", "🎯 SmartLocationManager 시작: ${places.size}개 장소")
+                        @Suppress("UNCHECKED_CAST")
+                        val deviceAlarmMacs =
+                                (call.argument<List<String>>("deviceAlarmMacs") ?: emptyList())
+                                        .map { it.uppercase() }
+                                        .toSet()
+                        smartManager.startMonitoring(places, deviceAlarmMacs)
+                        Log.d("MainActivity", "🎯 SmartLocationManager 시작: ${places.size}개 장소, 독립 기기: ${deviceAlarmMacs.size}개")
                         result.success(true)
                     } catch (e: Exception) {
                         Log.e("MainActivity", "❌ SmartLocationManager 시작 실패: ${e.message}")
@@ -602,7 +607,12 @@ class MainActivity : FlutterActivity() {
                                             bluetoothDevices = parseBluetoothDevices(data),
                                     )
                                 }
-                        smartManager.updateAlarmPlaces(places)
+                        @Suppress("UNCHECKED_CAST")
+                        val deviceAlarmMacs =
+                                (call.argument<List<String>>("deviceAlarmMacs") ?: emptyList())
+                                        .map { it.uppercase() }
+                                        .toSet()
+                        smartManager.updateAlarmPlaces(places, deviceAlarmMacs)
                         result.success(true)
                     } catch (e: Exception) {
                         result.error("ERROR", e.message, null)

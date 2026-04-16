@@ -192,7 +192,13 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
 
   Future<void> _disableAlarm(String alarmId) async {
     try {
-      final box = HiveHelper.alarmBox;
+      // ✅ 위치 알람 또는 기기 알람 모두 처리
+      final locationBox = HiveHelper.alarmBox;
+      final deviceBox = HiveHelper.deviceAlarmBox;
+
+      final isDeviceAlarm =
+          !locationBox.containsKey(alarmId) && deviceBox.containsKey(alarmId);
+      final box = isDeviceAlarm ? deviceBox : locationBox;
 
       // ✅ Hive 키 = 알람 ID → 직접 조회
       final alarm = box.get(alarmId);
@@ -204,7 +210,8 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
       final updatedAlarm = Map<String, dynamic>.from(alarm);
 
       // ✅ 반복 알람이면 enabled=false 하지 않음! (내일 다시 울려야 함)
-      if (_isRepeatAlarm) {
+      // 기기 알람은 repeat 개념이 없으므로 항상 enabled=false
+      if (_isRepeatAlarm && !isDeviceAlarm) {
         updatedAlarm['snoozePending'] = false;
         await box.put(alarmId, updatedAlarm);
         print('🔄 반복 알람 — enabled 유지 (비활성화 스킵): $alarmId');
@@ -212,9 +219,9 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
         updatedAlarm['enabled'] = false;
         updatedAlarm['snoozePending'] = false;
         await box.put(alarmId, updatedAlarm);
-        print('✅ 일회성 알람 비활성화 완료 (id: $alarmId)');
+        print('✅ ${isDeviceAlarm ? "기기" : "일회성"} 알람 비활성화 완료 (id: $alarmId)');
 
-        // ✅ 트리거 카운트 제거 (일회성만)
+        // ✅ 트리거 카운트 제거 (일회성/기기 알람)
         final triggerBox = await Hive.openBox('trigger_counts_v2');
         await triggerBox.delete(alarmId);
         print('🗑️ 트리거 카운트 제거: $alarmId');

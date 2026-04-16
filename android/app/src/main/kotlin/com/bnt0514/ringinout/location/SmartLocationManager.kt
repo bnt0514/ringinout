@@ -69,8 +69,8 @@ class SmartLocationManager private constructor(private val context: Context) {
      * - ActivityTransition 감시 시작
      * - Wi-Fi 기반 장소 감지 시작
      */
-    fun startMonitoring(places: List<AlarmPlace>) {
-        Log.d(TAG, "🚀 v2 모니터링 시작 (${places.size}개 장소)")
+    fun startMonitoring(places: List<AlarmPlace>, deviceAlarmMacs: Set<String> = emptySet()) {
+        Log.d(TAG, "🚀 v2 모니터링 시작 (${places.size}개 장소, 독립 기기: ${deviceAlarmMacs.size}개)")
 
         // 장소 저장
         alarmPlaces.clear()
@@ -89,7 +89,7 @@ class SmartLocationManager private constructor(private val context: Context) {
         startWifiMonitoring(places)
 
         // ✅ 블루투스 모니터링 시작
-        startBluetoothMonitoring(places)
+        startBluetoothMonitoring(places, deviceAlarmMacs)
 
         isMonitoring = true
         Log.d(TAG, "✅ v2 지오펜스 + ActivityTransition + Wi-Fi + Bluetooth 가동 완료")
@@ -106,8 +106,8 @@ class SmartLocationManager private constructor(private val context: Context) {
     }
 
     /** 알람 장소 업데이트 */
-    fun updateAlarmPlaces(places: List<AlarmPlace>) {
-        Log.d(TAG, "🔄 장소 업데이트 (${places.size}개)")
+    fun updateAlarmPlaces(places: List<AlarmPlace>, deviceAlarmMacs: Set<String> = emptySet()) {
+        Log.d(TAG, "🔄 장소 업데이트 (${places.size}개, 독립 기기: ${deviceAlarmMacs.size}개)")
 
         alarmPlaces.clear()
         places.forEach { alarmPlaces[it.id] = it }
@@ -116,8 +116,8 @@ class SmartLocationManager private constructor(private val context: Context) {
         // Wi-Fi 장소 업데이트
         wifiMonitorManager.updatePlaces(places)
 
-        // ✅ 블루투스 장소 업데이트
-        bluetoothMonitorManager.updatePlaces(places)
+        // ✅ 블루투스 장소 + 독립 기기 MAC 업데이트
+        bluetoothMonitorManager.updatePlaces(places, deviceAlarmMacs)
 
         // 지오펜스 재등록
         nativeGeofenceManager.registerGeofences(places)
@@ -226,16 +226,15 @@ class SmartLocationManager private constructor(private val context: Context) {
     // ========== ✅ 블루투스 모니터링 ==========
 
     /** 블루투스 감시 시작 — 장소에 등록된 BT 기기 감지 */
-    private fun startBluetoothMonitoring(places: List<AlarmPlace>) {
+    private fun startBluetoothMonitoring(places: List<AlarmPlace>, deviceAlarmMacs: Set<String> = emptySet()) {
         bluetoothMonitorManager.onBluetoothPlaceEvent = { placeId, isEnter ->
             onBluetoothEvent(placeId, isEnter)
         }
         bluetoothMonitorManager.onBluetoothDeviceEvent = { macAddress, deviceName, isConnected ->
             onBluetoothDeviceEvent(macAddress, deviceName, isConnected)
         }
-        // TODO: 독립형 기기 MAC 주소는 Flutter에서 전달받아야 함 (Step 7에서 구현)
-        bluetoothMonitorManager.startMonitoring(places)
-        Log.d(TAG, "✅ 블루투스 감시 시작")
+        bluetoothMonitorManager.startMonitoring(places, deviceAlarmMacs)
+        Log.d(TAG, "✅ 블루투스 감시 시작 (장소: ${places.size}개, 독립 기기: ${deviceAlarmMacs.size}개)")
     }
 
     /** 블루투스 장소 진입/진출 이벤트 → Flutter로 전달 */

@@ -4,10 +4,8 @@ import 'package:flutter/services.dart';
 // Project imports
 import 'package:ringinout/config/app_theme.dart';
 import 'package:ringinout/pages/location_alarm_list.dart';
-import 'package:ringinout/pages/device_alarm_list.dart';
 import 'package:ringinout/pages/settings_page.dart';
 import 'package:ringinout/services/permissions.dart';
-import 'package:ringinout/features/common/keep_alive_wrapper.dart';
 import 'package:ringinout/services/app_localizations.dart';
 
 class AlarmPage extends StatefulWidget {
@@ -17,19 +15,10 @@ class AlarmPage extends StatefulWidget {
   State<AlarmPage> createState() => _AlarmPageState();
 }
 
-class _AlarmPageState extends State<AlarmPage>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
+class _AlarmPageState extends State<AlarmPage> {
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) {
-        setState(() {}); // AppBar actions 갱신
-      }
-    });
     _checkPermissions();
   }
 
@@ -42,7 +31,6 @@ class _AlarmPageState extends State<AlarmPage>
 
   @override
   void dispose() {
-    _tabController.dispose();
     super.dispose();
   }
 
@@ -60,14 +48,12 @@ class _AlarmPageState extends State<AlarmPage>
         ),
         systemOverlayStyle: SystemUiOverlayStyle.light,
         actions: [
-          // sort 버튼은 위치 알람 탭에서만 표시
-          if (_tabController.index == 0)
-            IconButton(
-              icon: const Icon(Icons.sort),
-              onPressed: () {
-                LocationAlarmList.showSortDialog();
-              },
-            ),
+          IconButton(
+            icon: const Icon(Icons.sort),
+            onPressed: () {
+              LocationAlarmList.showSortDialog();
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
@@ -79,36 +65,7 @@ class _AlarmPageState extends State<AlarmPage>
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Container(
-            color: AppColors.card,
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-            child: TabBar(
-              controller: _tabController,
-              labelColor: AppColors.textPrimary,
-              unselectedLabelColor: AppColors.textSecondary,
-              indicatorColor: AppColors.primary,
-              indicatorWeight: 2.5,
-              tabs: [
-                Tab(text: l10n.get('tab_location_alarm')),
-                Tab(text: l10n.get('tab_device_alarm')),
-              ],
-            ),
-          ),
-          const Divider(height: 1, thickness: 1, color: AppColors.divider),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              physics: const NeverScrollableScrollPhysics(),
-              children: const [
-                KeepAliveWidget(child: LocationAlarmList()),
-                DeviceAlarmList(),
-              ],
-            ),
-          ),
-        ],
-      ),
+      body: const LocationAlarmList(),
     );
   }
 }

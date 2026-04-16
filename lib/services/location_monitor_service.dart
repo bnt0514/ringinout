@@ -82,6 +82,11 @@ class LocationMonitorService {
   /// Wi-Fi 연결 대기 타이머: GPS ENTER 후 15분 내 Wi-Fi 미연결 → GPS 보조 알람
   final Map<String, Timer> _wifiWaitTimers = {};
 
+  /// ★ 현재 Wi-Fi 연결 중인 장소 ID 집합
+  /// Wi-Fi ENTER 시 add, Wi-Fi EXIT 시 remove
+  /// GPS EXIT 판정 시 여기에 포함된 장소는 EXIT 무시 (Wi-Fi 우선)
+  final Set<String> _wifiConnectedPlaceIds = {};
+
   /// Init Guard: 앱 시작 후 5초간 ENTER 억제
   DateTime? _initGuardUntil;
 
@@ -263,6 +268,7 @@ class LocationMonitorService {
     }
     _wifiWaitTimers.clear();
     _pendingGpsEntryPlaces.clear();
+    _wifiConnectedPlaceIds.clear();
     _alarmPlaceCache.clear();
     _isRunning = false;
     _isCurrentlyMoving = false;
@@ -414,6 +420,15 @@ class LocationMonitorService {
       return;
     }
 
+    // ★ Wi-Fi 연결 중이면 GPS EXIT 무시 (Wi-Fi 절대 우선)
+    if (_wifiConnectedPlaceIds.contains(placeId)) {
+      _log(
+        '🛡️📶 [$placeId] GPS 지오펜스 EXIT 수신 — 그러나 Wi-Fi 연결 중 → EXIT 무시! '
+        '(Wi-Fi 우선 정책)',
+      );
+      return;
+    }
+
     // INSIDE_IDLE 또는 INSIDE_MOVING → 지오펜스 EXIT 수신
     // 즉시 EXIT 알람 + OUTSIDE 전환
     _log('🎯 [$placeId] ${currentState.name} → 지오펜스 EXIT → 즉시 진출 처리!');
@@ -489,19 +504,155 @@ class LocationMonitorService {
 
   /// 독립형 기기 알람 BT 연결/해제 이벤트
   /// 장소 무관하게 특정 BT 기기 연결/해제 시 알람 발동
-  void onBluetoothDeviceEvent(
+  Future<void> onBluetoothDeviceEvent(
     String macAddress,
     String deviceName,
     bool isConnected,
-  ) {
-    if (!_isRunning) return;
+  ) async {
+    if (!_isRunning) {
+      _log(
+        '⚠️ onBluetoothDeviceEvent 무시 (_isRunning=false): $deviceName ($macAddress)',
+      );
+      return;
+    }
 
     _log(
       '🔵 BT Device: $deviceName ($macAddress) ${isConnected ? "CONNECTED" : "DISCONNECTED"}',
     );
 
-    // TODO: Step 7에서 구현 — 독립형 기기 알람 트리거 로직
-    // HiveHelper.getActiveDeviceAlarms() 조회 → macAddress 매칭 → trigger 방향 확인 → 알람 발동
+    await _processDeviceAlarm(macAddress, deviceName, isConnected);
+  }
+
+  /// 독립형 기기 알람 강제 트리거 (개발자 도구 — _isRunning 무관)
+  Future<void> forceDeviceAlarmTrigger(
+    String macAddress,
+    String deviceName,
+    bool isConnected,
+  ) async {
+    _log(
+      '🧪 기기 알람 강제 트리거: $deviceName ($macAddress) ${isConnected ? "CONNECTED" : "DISCONNECTED"}',
+    );
+    await _processDeviceAlarm(macAddress, deviceName, isConnected);
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  독립형 기기 알람 처리
+  // ═══════════════════════════════════════════════════════════
+
+  Future<void> _processDeviceAlarm(
+    String macAddress,
+    String deviceName,
+    bool isConnected,
+  ) async {
+    final upperMac = macAddress.toUpperCase();
+
+    // 활성화된 기기 알람 중 MAC 매칭
+    final matchingAlarms =
+        HiveHelper.getActiveDeviceAlarms()
+            .where(
+              (a) =>
+                  (a['macAddress'] ?? '').toString().toUpperCase() == upperMac,
+            )
+            .toList();
+
+    if (matchingAlarms.isEmpty) {
+      _log('🔵 BT Device: $deviceName ($upperMac) — 등록된 기기 알람 없음');
+      return;
+    }
+
+    for (final alarm in matchingAlarms) {
+      final alarmId = alarm['id']?.toString();
+      final alarmName = alarm['name']?.toString() ?? deviceName;
+      final triggerType = (alarm['trigger'] ?? 'connect').toString();
+
+      // 연결/해제 방향이 triggerType과 일치하는지 확인
+      final shouldTrigger =
+          isConnected ? triggerType == 'connect' : triggerType == 'disconnect';
+      if (!shouldTrigger) {
+        _log(
+          '⏭️ BT [$alarmName] trigger=$triggerType, isConnected=$isConnected — 방향 불일치, 무시',
+        );
+        continue;
+      }
+
+      // 요일/시간 조건 체크
+      if (!await _checkDayCondition(alarm) || !_checkTimeCondition(alarm)) {
+        _log('⏭️ BT [$alarmName] 요일/시간 조건 불만족');
+        continue;
+      }
+
+      // 쿨다운 체크
+      if (alarmId != null && await _isAlarmInCooldown(alarmId, alarmName)) {
+        continue;
+      }
+
+      // 당일 중복 트리거 방지
+      if (alarmId != null &&
+          await _hasAlreadyTriggeredToday(alarmId, alarm, alarmName)) {
+        continue;
+      }
+
+      _log('🚨 BT [$alarmName] 기기 알람 트리거! (${isConnected ? "연결" : "해제"})');
+
+      // _triggerAlarm은 HiveHelper.alarmBox를 사용하므로, 기기 알람은 별도로 처리
+      await _triggerDeviceAlarm(alarm, isConnected);
+    }
+  }
+
+  /// 독립형 기기 알람 발동 (위치 알람의 _triggerAlarm과 동일한 후처리)
+  Future<void> _triggerDeviceAlarm(
+    Map<String, dynamic> alarmData,
+    bool isConnected,
+  ) async {
+    final alarmId = alarmData['id']?.toString();
+    final alarmName = alarmData['name']?.toString() ?? 'BT 기기 알람';
+    final trigger = isConnected ? 'connect' : 'disconnect';
+
+    // 쿨다운 설정 (10초)
+    if (alarmId != null) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final cooldownUntil = DateTime.now().millisecondsSinceEpoch + 10000;
+        await prefs.setInt('cooldown_until_$alarmId', cooldownUntil);
+
+        // 당일 트리거 기록
+        final todayStr = _todayDateString();
+        await prefs.setString('alarm_triggered_date_$alarmId', todayStr);
+        _log('📅 BT 기기 알람 당일 트리거 기록: ${_shortId(alarmId)} → $todayStr');
+      } catch (e) {
+        _log('⚠️ BT 기기 알람 쿨다운 설정 실패: $e');
+      }
+    }
+
+    // 진동
+    try {
+      await HapticFeedback.heavyImpact();
+    } catch (_) {}
+
+    // 알람 메시지 구성
+    final message = isConnected ? '블루투스 기기가 연결되었습니다' : '블루투스 기기 연결이 해제되었습니다';
+
+    // 전체화면 알람 표시
+    try {
+      await AlarmNotificationHelper.showNativeAlarm(
+        title: alarmName,
+        message: message,
+        sound: alarmData['sound'] ?? 'assets/sounds/thoughtfulringtone.mp3',
+        vibrate: (alarmData['vibrate'] ?? true) == true,
+        alarmData: alarmData,
+      );
+    } catch (e) {
+      _log('❌ BT 기기 알람 표시 실패: $e');
+    }
+
+    // 콜백
+    try {
+      _onTriggerCallback?.call(trigger, alarmData);
+    } catch (e) {
+      _log('❌ BT 기기 알람 콜백 실패: $e');
+    }
+
+    _log('✅ BT 기기 알람 발동 완료: $alarmName ($trigger)');
   }
 
   // ─── 블루투스 ENTER 처리 (Wi-Fi ENTER와 동일 로직) ───
@@ -556,6 +707,10 @@ class LocationMonitorService {
   // ─── Wi-Fi ENTER 처리 ───
 
   void _handleWifiEnter(String placeId, List<String> alarmIds) {
+    // ★ Wi-Fi 연결 상태 추적 (GPS EXIT 방어용)
+    _wifiConnectedPlaceIds.add(placeId);
+    _log('📶 [$placeId] Wi-Fi 연결 추적 등록 (총 ${_wifiConnectedPlaceIds.length}개)');
+
     // Init Guard 체크 (GPS와 동일)
     if (_initGuardUntil != null && DateTime.now().isBefore(_initGuardUntil!)) {
       _log('🛡️ Init Guard — Wi-Fi ENTER 무시, INSIDE_IDLE 설정: $placeId');
@@ -598,6 +753,10 @@ class LocationMonitorService {
   // ─── Wi-Fi EXIT 처리 ───
 
   void _handleWifiExit(String placeId, List<String> alarmIds) {
+    // ★ Wi-Fi 연결 해제 추적
+    _wifiConnectedPlaceIds.remove(placeId);
+    _log('📶 [$placeId] Wi-Fi 연결 추적 해제 (남은 ${_wifiConnectedPlaceIds.length}개)');
+
     final currentState = _getAggregatePlaceState(alarmIds);
 
     if (currentState == PlaceState.outside) {
@@ -788,14 +947,24 @@ class LocationMonitorService {
     final exitThreshold = radius + accuracyBuffer;
 
     if (distance > exitThreshold) {
-      _log(
-        '🚨 [$placeName] GPS EXIT 확정! '
-        'dist=${distance.toInt()}m > R+${accuracyBuffer.toInt()}=${exitThreshold.toInt()}m '
-        '(accuracy=${position.accuracy.toInt()}m)',
-      );
-      _setPlaceState(alarmId, PlaceState.outside);
-      _evaluateMovingGpsNeed();
-      await _processExitAlarm(alarmId);
+      // ★ Wi-Fi 연결 중이면 GPS EXIT 무시 (Wi-Fi 절대 우선)
+      final resolvedPlaceId = placeInfo['id']?.toString();
+      if (resolvedPlaceId != null &&
+          _wifiConnectedPlaceIds.contains(resolvedPlaceId)) {
+        _log(
+          '🛡️📶 [$placeName] GPS EXIT 감지 (${distance.toInt()}m) — '
+          '그러나 Wi-Fi 연결 중 → EXIT 무시! (Wi-Fi 우선 정책)',
+        );
+      } else {
+        _log(
+          '🚨 [$placeName] GPS EXIT 확정! '
+          'dist=${distance.toInt()}m > R+${accuracyBuffer.toInt()}=${exitThreshold.toInt()}m '
+          '(accuracy=${position.accuracy.toInt()}m)',
+        );
+        _setPlaceState(alarmId, PlaceState.outside);
+        _evaluateMovingGpsNeed();
+        await _processExitAlarm(alarmId);
+      }
     } else {
       _log(
         '📍 [$placeName] 아직 내부 '
@@ -1954,11 +2123,21 @@ class LocationMonitorService {
           // 단, 버퍼 추가 (exitBuffer + accuracy)
           final exitThreshold = radius + _exitBufferMeters + position.accuracy;
           if (distance > exitThreshold) {
-            _log(
-              '📡 [$placeName] GPS 상태체크: 반경 밖(${distance.toInt()}m > ${exitThreshold.toInt()}m) '
-              '→ ${currentState.name}→OUTSIDE',
-            );
-            _setPlaceState(alarmId, PlaceState.outside);
+            // ★ Wi-Fi 연결 중이면 OUTSIDE 전환 무시 (Wi-Fi 절대 우선)
+            final checkPlaceId = place['id']?.toString();
+            if (checkPlaceId != null &&
+                _wifiConnectedPlaceIds.contains(checkPlaceId)) {
+              _log(
+                '🛡️📶 [$placeName] GPS 상태체크: 반경 밖(${distance.toInt()}m) — '
+                '그러나 Wi-Fi 연결 중 → OUTSIDE 전환 무시!',
+              );
+            } else {
+              _log(
+                '📡 [$placeName] GPS 상태체크: 반경 밖(${distance.toInt()}m > ${exitThreshold.toInt()}m) '
+                '→ ${currentState.name}→OUTSIDE',
+              );
+              _setPlaceState(alarmId, PlaceState.outside);
+            }
           }
         }
       }
@@ -1991,13 +2170,15 @@ class LocationMonitorService {
 
   static Future<void> sendWatchdogHeartbeat() async {
     try {
-      final activeCount = await _getActiveAlarmsStatic();
+      // ✅ 복구 판단용: 요일 필터 없이 enabled=true 알람 수 사용
+      // (주간 알람이 오늘 해당 요일이 아니어도 복구 대상)
+      final enabledCount = await _getEnabledAlarmsCountStatic();
       await _watchdogChannel.invokeMethod('sendHeartbeat', {
-        'activeAlarmsCount': activeCount,
+        'activeAlarmsCount': enabledCount,
       });
       // ✅ heartbeat 성공 = 서비스 살아있음 → 오탐 알림(7777) 자동 취소
       await _watchdogChannel.invokeMethod('cancelDeathNotification');
-      if (activeCount == 0) {
+      if (enabledCount == 0) {
         await _watchdogChannel.invokeMethod('stopWatchdog');
       } else {
         await _watchdogChannel.invokeMethod('startWatchdog');
@@ -2009,6 +2190,28 @@ class LocationMonitorService {
     }
   }
 
+  /// 요일 필터 없이 enabled=true인 알람 수 (복구 판단용)
+  /// - 목요일 전용 주간 알람이라도 수요일에 앱이 죽으면 복구해야 함
+  static Future<int> _getEnabledAlarmsCountStatic() async {
+    try {
+      final box = HiveHelper.alarmBox;
+      int count = 0;
+      for (var key in box.keys) {
+        final value = box.get(key);
+        if (value is Map) {
+          final converted = Map<String, dynamic>.from(value);
+          if (converted['enabled'] == true) {
+            count++;
+          }
+        }
+      }
+      return count;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  // ignore: unused_element
   static Future<int> _getActiveAlarmsStatic() async {
     try {
       final box = HiveHelper.alarmBox;
@@ -2095,6 +2298,7 @@ class LocationMonitorService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.reload();
 
+      // ── 1. 위치 알람 ──
       final box = HiveHelper.alarmBox;
       for (var key in box.keys) {
         final alarm = box.get(key);
@@ -2138,6 +2342,25 @@ class LocationMonitorService {
           _log('✅ 네이티브 비활성화 → Hive 반영 완료: ${alarm['name']} (repeat=$isRepeat)');
         }
       }
+
+      // ── 2. 기기 알람 ──
+      final deviceBox = HiveHelper.deviceAlarmBox;
+      for (var key in deviceBox.keys) {
+        final alarm = deviceBox.get(key);
+        if (alarm == null) continue;
+        final alarmId = alarm['id']?.toString();
+        if (alarmId == null || alarmId.isEmpty) continue;
+
+        final isDisabled = prefs.getBool('alarm_disabled_$alarmId') ?? false;
+        if (isDisabled) {
+          _log('🔕 기기 알람 비활성화 플래그 감지: ${alarm['name']} (${_shortId(alarmId)})');
+          final updated = Map<String, dynamic>.from(alarm);
+          updated['enabled'] = false;
+          await deviceBox.put(alarmId, updated);
+          await prefs.remove('alarm_disabled_$alarmId');
+          _log('✅ 기기 알람 비활성화 → Hive 반영 완료: ${alarm['name']}');
+        }
+      }
     } catch (e) {
       _log('⚠️ 네이티브 비활성화 플래그 체크 실패: $e');
     }
@@ -2157,6 +2380,7 @@ class LocationMonitorService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.reload();
 
+      // ── 1. 위치 알람 ──
       final box = HiveHelper.alarmBox;
       for (var key in box.keys) {
         final alarm = box.get(key);
@@ -2198,6 +2422,25 @@ class LocationMonitorService {
           debugPrint(
             '[LMS] ✅ 네이티브 비활성화 → Hive 반영 완료 (즉시): ${alarm['name']} (repeat=$isRepeat)',
           );
+        }
+      }
+
+      // ── 2. 기기 알람 ──
+      final deviceBox = HiveHelper.deviceAlarmBox;
+      for (var key in deviceBox.keys) {
+        final alarm = deviceBox.get(key);
+        if (alarm == null) continue;
+        final alarmId = alarm['id']?.toString();
+        if (alarmId == null || alarmId.isEmpty) continue;
+
+        final isDisabled = prefs.getBool('alarm_disabled_$alarmId') ?? false;
+        if (isDisabled) {
+          debugPrint('[LMS] 🔕 기기 알람 비활성화 플래그 감지 (즉시): ${alarm['name']}');
+          final updated = Map<String, dynamic>.from(alarm);
+          updated['enabled'] = false;
+          await deviceBox.put(alarmId, updated);
+          await prefs.remove('alarm_disabled_$alarmId');
+          debugPrint('[LMS] ✅ 기기 알람 비활성화 → Hive 반영 완료 (즉시): ${alarm['name']}');
         }
       }
     } catch (e) {

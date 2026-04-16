@@ -9,6 +9,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:ringinout/config/app_theme.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:ringinout/services/billing_service.dart';
 import 'package:ringinout/services/subscription_service.dart';
@@ -105,8 +107,41 @@ class _ServerSubscriptionPageState extends State<ServerSubscriptionPage>
   }
 }
 
-class _ServerSubscriptionView extends StatelessWidget {
+class _ServerSubscriptionView extends StatefulWidget {
   const _ServerSubscriptionView();
+
+  @override
+  State<_ServerSubscriptionView> createState() =>
+      _ServerSubscriptionViewState();
+}
+
+class _ServerSubscriptionViewState extends State<_ServerSubscriptionView> {
+  bool _isDevUser = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkDevUser();
+  }
+
+  /// Firestore admin_config/special_users 기반 개발자 여부 체크
+  Future<void> _checkDevUser() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('admin_config')
+              .doc('special_users')
+              .get();
+      if (doc.exists) {
+        final uids = List<String>.from(doc.data()?['uids'] ?? []);
+        if (uids.contains(uid) && mounted) {
+          setState(() => _isDevUser = true);
+        }
+      }
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -127,11 +162,14 @@ class _ServerSubscriptionView extends StatelessWidget {
                 plan: plan,
                 expiresAt: expiresAt,
                 isLoading: isLoading,
+                onChangePlan: () => _showPlanSheet(context, plan, l10n),
               ),
               const SizedBox(height: 16),
 
-              // 베타 안내 또는 플랜 목록
-              if (AppConfig.isBetaVersion)
+              // 베타 안내 또는 플랜 목록 (개발자는 베타여도 플랜 표시)
+              if (AppConfig.isBetaVersion &&
+                  !_isDevUser &&
+                  plan != SubscriptionPlan.special)
                 Card(
                   color: AppColors.shimmer,
                   child: Padding(
@@ -205,9 +243,92 @@ class _ServerSubscriptionView extends StatelessWidget {
   }
 
   void _showComingSoon(BuildContext context) {
+    // 개발자는 실제 구독 로직 (준비 중)
     final l10n = AppLocalizations.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(l10n.get('subscription_coming_soon'))),
+    );
+  }
+
+  void _showPlanSheet(
+    BuildContext context,
+    SubscriptionPlan currentPlan,
+    AppLocalizations l10n,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder:
+          (ctx) => DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.75,
+            maxChildSize: 0.92,
+            minChildSize: 0.4,
+            builder:
+                (context, scrollController) => ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 20),
+                        decoration: BoxDecoration(
+                          color: AppColors.border,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    Text(
+                      l10n.get('subscription_tab'),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _PlanCard(
+                      title: 'Basic',
+                      price: '₩2,900 ${l10n.get('subscription_per_month')}',
+                      features: [
+                        l10n.getWithArgs('subscription_places_n', {'n': '5'}),
+                        l10n.getWithArgs('subscription_alarms_n', {'n': '10'}),
+                        l10n.get('subscription_no_ads'),
+                      ],
+                      isCurrentPlan: currentPlan == SubscriptionPlan.basic,
+                      l10n: l10n,
+                      onTap: () {
+                        Navigator.of(ctx).pop();
+                        _showComingSoon(context);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _PlanCard(
+                      title: 'Premium',
+                      price: '₩4,900 ${l10n.get('subscription_per_month')}',
+                      features: [
+                        l10n.get('subscription_places_unlimited'),
+                        l10n.get('subscription_alarms_unlimited'),
+                        l10n.get('subscription_no_ads'),
+                      ],
+                      isCurrentPlan:
+                          currentPlan == SubscriptionPlan.premium ||
+                          currentPlan == SubscriptionPlan.special,
+                      recommended: true,
+                      l10n: l10n,
+                      onTap: () {
+                        Navigator.of(ctx).pop();
+                        _showComingSoon(context);
+                      },
+                    ),
+                  ],
+                ),
+          ),
     );
   }
 
@@ -248,11 +369,13 @@ class _CurrentPlanCard extends StatelessWidget {
     required this.plan,
     this.expiresAt,
     this.isLoading = false,
+    this.onChangePlan,
   });
 
   final SubscriptionPlan plan;
   final DateTime? expiresAt;
   final bool isLoading;
+  final VoidCallback? onChangePlan;
 
   @override
   Widget build(BuildContext context) {
@@ -294,6 +417,22 @@ class _CurrentPlanCard extends StatelessWidget {
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else if (onChangePlan != null)
+                  TextButton.icon(
+                    onPressed: onChangePlan,
+                    icon: const Icon(Icons.upgrade, size: 16),
+                    label: Text(
+                      l10n.get('subscription_subscribe'),
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                    ),
                   ),
               ],
             ),

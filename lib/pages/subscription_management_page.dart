@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:ringinout/config/app_theme.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 
 import 'package:ringinout/pages/gps_page.dart';
 import 'package:ringinout/services/app_localizations.dart';
 import 'package:ringinout/services/policy_texts.dart';
 import 'package:ringinout/config/app_config.dart';
+import 'package:ringinout/services/billing_service.dart';
+import 'package:ringinout/services/subscription_service.dart';
 
 class SubscriptionManagementPage extends StatefulWidget {
   const SubscriptionManagementPage({
@@ -107,7 +112,7 @@ class _SubscriptionManagementPageState extends State<SubscriptionManagementPage>
   }
 }
 
-class _SubscriptionManagementView extends StatelessWidget {
+class _SubscriptionManagementView extends StatefulWidget {
   const _SubscriptionManagementView({
     required this.currentPlanName,
     required this.currentPlanExpiry,
@@ -125,17 +130,56 @@ class _SubscriptionManagementView extends StatelessWidget {
   final ProductDetails? adRemoveProduct;
 
   @override
+  State<_SubscriptionManagementView> createState() =>
+      _SubscriptionManagementViewState();
+}
+
+class _SubscriptionManagementViewState
+    extends State<_SubscriptionManagementView> {
+  bool _isDevUser = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkDevUser();
+  }
+
+  /// Firestore admin_config/special_users 기반 개발자 여부 체크
+  Future<void> _checkDevUser() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('admin_config')
+              .doc('special_users')
+              .get();
+      if (doc.exists) {
+        final uids = List<String>.from(doc.data()?['uids'] ?? []);
+        if (uids.contains(uid) && mounted) {
+          setState(() => _isDevUser = true);
+        }
+      }
+    } catch (_) {}
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // BillingService에서 현재 플랜 확인 (special = 개발자)
+    final billingPlan = context.watch<BillingService>().currentPlan;
+    final isDevByPlan = billingPlan == SubscriptionPlan.special;
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         _CurrentPlanCard(
-          planName: currentPlanName,
-          expiryDate: currentPlanExpiry,
-          onCancel: onCancelPlan,
+          planName: widget.currentPlanName,
+          expiryDate: widget.currentPlanExpiry,
+          onCancel: widget.onCancelPlan,
         ),
         const SizedBox(height: 16),
-        if (AppConfig.isBetaVersion)
+        // 개발자는 베타여도 플랜 표시
+        if (AppConfig.isBetaVersion && !_isDevUser && !isDevByPlan)
           Card(
             color: AppColors.shimmer,
             child: Padding(
@@ -149,7 +193,7 @@ class _SubscriptionManagementView extends StatelessWidget {
         else ...[
           _PlanCard(
             title: 'Basic',
-            priceText: _priceText(context, basicProduct),
+            priceText: _priceText(context, widget.basicProduct),
             benefits: [
               AppLocalizations.of(context).get('places_5'),
               AppLocalizations.of(context).get('active_alarms_10'),
@@ -169,7 +213,7 @@ class _SubscriptionManagementView extends StatelessWidget {
           const SizedBox(height: 12),
           _PlanCard(
             title: 'Premium',
-            priceText: _priceText(context, premiumProduct),
+            priceText: _priceText(context, widget.premiumProduct),
             benefits: [
               AppLocalizations.of(context).get('places_alarms_unlimited'),
               AppLocalizations.of(context).get('ad_free_included'),
@@ -188,7 +232,7 @@ class _SubscriptionManagementView extends StatelessWidget {
           const SizedBox(height: 16),
           _PlanCard(
             title: AppLocalizations.of(context).get('ad_remove_title'),
-            priceText: _priceText(context, adRemoveProduct),
+            priceText: _priceText(context, widget.adRemoveProduct),
             benefits: [AppLocalizations.of(context).get('in_app_ad_remove')],
             onSubscribe:
                 () => _showOneTimeSheet(

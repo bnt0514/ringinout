@@ -612,7 +612,19 @@ class AppLocalizations {
 
       'false_trigger_dialog_ok': 'Got it',
 
-      // 블루투스
+      // Bluetooth device alarm — unintended trigger guide
+      'bt_false_trigger_info_title': '⚡ Unintended Alarm?',
+      'bt_false_trigger_info_subtitle':
+          'Alarm fired without your intent? Here\'s what to do',
+      'bt_false_trigger_dialog_title': 'Unintended Alarm?',
+      'bt_false_trigger_dialog_body':
+          'Bluetooth alarms fire when a connection or disconnection\n'
+          'lasts 15 seconds or more. This is by design — but life\n'
+          'doesn\'t always go as planned.\n\n'
+          'When the alarm fires, tap "⚡ False Trigger" to stop the ringtone\n'
+          'while keeping the alarm active for next time.\n\n'
+          '💡 Tip: Use day-of-week or time conditions to greatly reduce\n'
+          'unwanted triggers during other times of day.',
       'bt_bonded_devices_title': 'Paired Bluetooth Devices',
       'bt_refresh_tooltip': 'Refresh device list',
       'bt_selector_description':
@@ -1276,8 +1288,16 @@ class AppLocalizations {
           '("대기" 모드 — 요청이 많을 시 도입 고려: 설정한 시간 이후 자동 재활성화)',
       'false_trigger_dialog_ok': '확인',
 
-      // 블루투스
-      'bt_bonded_devices_title': '페어링된 블루투스 기기',
+      // 블루투스 기기 알람 — 의도치 않은 발동 안내
+      'bt_false_trigger_info_title': '⚡ 의도치 않게 울렸나요?',
+      'bt_false_trigger_info_subtitle': '예상치 못한 상황에서 울린 경우, 이렇게 활용하세요',
+      'bt_false_trigger_dialog_title': '의도치 않게 울렸나요?',
+      'bt_false_trigger_dialog_body':
+          '블루투스 알람은 연결·해제 상태가 15초 이상 지속되면 발동합니다.\n'
+          '정상 작동이지만, 다양한 변수로 인해 의도치 않은 상황에 발동할 수 있습니다.\n\n'
+          '알람이 울릴 때 "⚡ 오발동" 버튼을 누르면\n'
+          '벨소리는 바로 멈추고, 알람은 비활성화 없이 유지됩니다.\n\n'
+          '💡 팁: 요일·시간 조건으로 의도치 않은 발동을 크게 줄일 수 있습니다.',
       'bt_refresh_tooltip': '기기 목록 새로고침',
       'bt_selector_description': '이 장소에서 감지할 페어링된 블루투스 기기를 선택하세요.',
       'bt_permission_needed': '블루투스 권한이 필요합니다.\n설정에서 블루투스 접근을 허용해주세요.',
@@ -1930,8 +1950,16 @@ class AppLocalizations {
           '(「Standby」モード — 要望が多ければ導入検討: 設定した時間後に自動再有効化)',
       'false_trigger_dialog_ok': 'OK',
 
-      // ブルートゥース
-      'bt_bonded_devices_title': 'ペアリング済みBluetoothデバイス',
+      // Bluetoothデバイスアラーム — 意図しない発動 案内
+      'bt_false_trigger_info_title': '⚡ 意図せず鳴りましたか？',
+      'bt_false_trigger_info_subtitle': '予期せぬ状況で鳴った場合の活用法',
+      'bt_false_trigger_dialog_title': '意図せず鳴りましたか？',
+      'bt_false_trigger_dialog_body':
+          'Bluetoothアラームは、接続・切断状態が15秒以上続いた場合に発動します。\n'
+          '正常な動作ですが、様々な事情で意図しないタイミングで鳴ることがあります。\n\n'
+          'アラームが鳴ったら「⚡ 誤発動」をタップすると\n'
+          '音はすぐ止まり、アラームは無効化されずに維持されます。\n\n'
+          '💡 ヒント：曜日・時間条件を設定すると、意図しない発動を大幅に減らせます。',
       'bt_refresh_tooltip': 'デバイスリストを更新',
       'bt_selector_description': 'この場所で検出するペアリング済みBluetoothデバイスを選択してください。',
       'bt_permission_needed': 'Bluetooth権限が必要です。\n設定からBluetoothアクセスを許可してください。',
@@ -2576,8 +2604,16 @@ class AppLocalizations {
           '("Standby"模式 — 如需求较多将考虑引入: 设定时间后自动重新启用)',
       'false_trigger_dialog_ok': '确定',
 
-      // 蓝牙
-      'bt_bonded_devices_title': '已配对蓝牙设备',
+      // 蓝牙设备闹钟 — 非预期触发 说明
+      'bt_false_trigger_info_title': '⚡ 闹钟意外响起了？',
+      'bt_false_trigger_info_subtitle': '非预期情况下响起时的应对方法',
+      'bt_false_trigger_dialog_title': '闹钟意外响起了？',
+      'bt_false_trigger_dialog_body':
+          '蓝牙闹钟在连接或断开状态持续15秒以上时触发。\n'
+          '这是正常工作，但各种意外情况可能导致非预期触发。\n\n'
+          '闹钟响起时，点击「⚡ 误触发」\n'
+          '铃声立即停止，闹钟保持启用状态以备下次使用。\n\n'
+          '💡 建议：使用星期/时间条件，可大幅减少非预期触发。',
       'bt_refresh_tooltip': '刷新设备列表',
       'bt_selector_description': '选择要在此位置检测的已配对蓝牙设备。',
       'bt_permission_needed': '需要蓝牙权限。\n请在设置中允许蓝牙访问。',

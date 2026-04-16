@@ -1032,7 +1032,7 @@ class _AddDeviceAlarmPageState extends State<AddDeviceAlarmPage> {
                   const SizedBox(height: 16),
 
                   // ── 오발동 안내 ────────────────────────────────
-                  const FalseTriggerInfoTile(),
+                  const FalseTriggerInfoTile(mode: 'device'),
                   const SizedBox(height: 16),
                 ],
               ),

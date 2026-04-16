@@ -4,7 +4,27 @@ import 'package:flutter/material.dart';
 import 'package:ringinout/services/app_localizations.dart';
 
 class FalseTriggerInfoTile extends StatelessWidget {
-  const FalseTriggerInfoTile({super.key});
+  /// 'gps' (기본) 또는 'device' (블루투스 기기 알람 전용 문구)
+  final String mode;
+
+  const FalseTriggerInfoTile({super.key, this.mode = 'gps'});
+
+  String _titleKey() =>
+      mode == 'device'
+          ? 'bt_false_trigger_info_title'
+          : 'false_trigger_info_title';
+  String _subtitleKey() =>
+      mode == 'device'
+          ? 'bt_false_trigger_info_subtitle'
+          : 'false_trigger_info_subtitle';
+  String _dialogTitleKey() =>
+      mode == 'device'
+          ? 'bt_false_trigger_dialog_title'
+          : 'false_trigger_dialog_title';
+  String _dialogBodyKey() =>
+      mode == 'device'
+          ? 'bt_false_trigger_dialog_body'
+          : 'false_trigger_dialog_body';
 
   void _showDialog(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -20,7 +40,7 @@ class FalseTriggerInfoTile extends StatelessWidget {
                 Icon(Icons.bolt, color: Colors.amber.shade700, size: 24),
                 const SizedBox(width: 8),
                 Text(
-                  l10n.get('false_trigger_dialog_title'),
+                  l10n.get(_dialogTitleKey()),
                   style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
@@ -30,7 +50,7 @@ class FalseTriggerInfoTile extends StatelessWidget {
             ),
             content: SingleChildScrollView(
               child: Text(
-                l10n.get('false_trigger_dialog_body'),
+                l10n.get(_dialogBodyKey()),
                 style: const TextStyle(fontSize: 13.5, height: 1.55),
               ),
             ),
@@ -69,7 +89,7 @@ class FalseTriggerInfoTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    l10n.get('false_trigger_info_title'),
+                    l10n.get(_titleKey()),
                     style: TextStyle(
                       color: Colors.amber.shade800,
                       fontWeight: FontWeight.bold,
@@ -77,7 +97,7 @@ class FalseTriggerInfoTile extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    l10n.get('false_trigger_info_subtitle'),
+                    l10n.get(_subtitleKey()),
                     style: TextStyle(
                       color: Colors.amber.shade700,
                       fontSize: 11.5,

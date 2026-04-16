@@ -14,6 +14,7 @@
 
 import 'dart:async';
 import 'package:flutter/services.dart';
+import 'package:ringinout/services/app_log_buffer.dart';
 import 'package:ringinout/services/location_monitor_service.dart';
 import 'package:ringinout/services/background_service.dart';
 import 'package:ringinout/services/hive_helper.dart';
@@ -148,9 +149,10 @@ class SmartLocationMonitor {
           final deviceName = args['deviceName'] as String? ?? '';
           final isConnected = args['isConnected'] as bool? ?? true;
 
-          print(
-            '[SLM] 🔵 BT Device: $deviceName ($macAddress) ${isConnected ? "CONNECTED" : "DISCONNECTED"}',
-          );
+          final btLog =
+              '🔵 BT ${isConnected ? "연결" : "해제"}: $deviceName ($macAddress)';
+          print('[SLM] $btLog');
+          AppLogBuffer.record('BT', btLog);
 
           if (_locationService != null) {
             _locationService!.onBluetoothDeviceEvent(
@@ -260,24 +262,28 @@ class SmartLocationMonitor {
   }
 
   /// ★ 네이티브 지오펜스 + ActivityTransition 등록
-  /// startSmartMonitoring() 및 복구 시 호출
+  /// startSmartMonitoring() 및 복구 시 호웉
   static Future<void> _registerNativeGeofences() async {
     try {
       final places = _buildNativePlacesList();
       if (places.isEmpty) {
-        print('[SLM] 📭 등록할 네이티브 장소 없음');
+        print('[SLM] 💭 등록할 네이티브 장소 없음');
         return;
       }
-      await _nativeChannel.invokeMethod('startMonitoring', {'places': places});
+      final deviceAlarmMacs = _buildDeviceAlarmMacList();
+      await _nativeChannel.invokeMethod('startMonitoring', {
+        'places': places,
+        'deviceAlarmMacs': deviceAlarmMacs,
+      });
       print(
-        '[SLM] ✅ 네이티브 지오펜스 등록 완료 (${places.length}개) — ENTER+EXIT+ActivityTransition',
+        '[SLM] ✅ 네이티브 지오펜스 등록 완료 (${places.length}개) — 독립 BT 기기: ${deviceAlarmMacs.length}개',
       );
     } catch (e) {
       print('[SLM] ⚠️ 네이티브 지오펜스 등록 실패 (앱 포그라운드 아닐 수 있음): $e');
     }
   }
 
-  /// 장소 목록 변경 시 호출 — LMS + 네이티브 지오펜스 동시 업데이트
+  /// 장소 목록 변경 시 호웉 — LMS + 네이티브 지오펜스 동시 업데이트
   static Future<void> updatePlaces() async {
     // 1. Flutter LMS 업데이트
     if (_locationService != null) {
@@ -287,8 +293,14 @@ class SmartLocationMonitor {
     // 2. 네이티브 SmartLocationManager 지오펜스 재등록
     try {
       final places = _buildNativePlacesList();
-      await _nativeChannel.invokeMethod('updatePlaces', {'places': places});
-      print('[SLM] ✅ 네이티브 지오펜스 재등록 완료 (${places.length}개)');
+      final deviceAlarmMacs = _buildDeviceAlarmMacList();
+      await _nativeChannel.invokeMethod('updatePlaces', {
+        'places': places,
+        'deviceAlarmMacs': deviceAlarmMacs,
+      });
+      print(
+        '[SLM] ✅ 네이티브 지오펜스 재등록 완료 (${places.length}개, BT 기기: ${deviceAlarmMacs.length}개)',
+      );
     } catch (e) {
       print('[SLM] ⚠️ 네이티브 지오펜스 업데이트 실패 (앱 포그라운드 아닐 수 있음): $e');
     }
@@ -376,6 +388,20 @@ class SmartLocationMonitor {
       return result;
     } catch (e) {
       print('[SLM] ❌ _buildNativePlacesList 실패: $e');
+      return [];
+    }
+  }
+
+  /// 활성화된 독립형 기기 알람의 MAC 주소 목록 반환 (네이티브 전달용)
+  static List<String> _buildDeviceAlarmMacList() {
+    try {
+      return HiveHelper.getActiveDeviceAlarms()
+          .map((a) => (a['macAddress'] ?? '').toString().toUpperCase())
+          .where((mac) => mac.isNotEmpty)
+          .toSet()
+          .toList();
+    } catch (e) {
+      print('[SLM] ❌ _buildDeviceAlarmMacList 실패: $e');
       return [];
     }
   }

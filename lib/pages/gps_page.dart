@@ -767,9 +767,15 @@ class _GpsPageState extends State<GpsPage> {
               style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 10),
+            // ── 위치 알람 섹션 ──
+            const Text(
+              '📍 위치 알람',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+            ),
+            const SizedBox(height: 6),
             if (alarm == null)
               const Text(
-                '등록된 알람이 없습니다.',
+                '등록된 위치 알람이 없습니다.',
                 style: TextStyle(fontSize: 12, color: Colors.grey),
               )
             else

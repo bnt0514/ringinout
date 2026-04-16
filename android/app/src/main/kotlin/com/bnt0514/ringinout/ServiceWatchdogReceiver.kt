@@ -29,7 +29,7 @@ class ServiceWatchdogReceiver : BroadcastReceiver() {
         const val ACTION_RESTART_SERVICE = "com.bnt0514.ringinout.ACTION_RESTART_SERVICE"
         const val ACTION_DAILY_CHECK = "com.bnt0514.ringinout.ACTION_DAILY_CHECK"
         const val ACTION_BOOT_RECOVERY_REMIND = "com.bnt0514.ringinout.ACTION_BOOT_RECOVERY_REMIND"
-        private const val WATCHDOG_INTERVAL_MS = 60 * 60 * 1000L // 1시간마다 체크
+        private const val WATCHDOG_INTERVAL_MS = 30 * 60 * 1000L // 30분마다 체크
         private const val BOOT_REMIND_INTERVAL_MS = 60 * 1000L // 부팅 복구 리마인더 1분 간격
         private const val BOOT_REMIND_MAX_STACK = 3 // 최대 알림 스택 수
         private const val DAILY_CHECK_REQUEST_CODE_BASE = 9990

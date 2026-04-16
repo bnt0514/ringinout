@@ -1,12 +1,14 @@
 ﻿package com.bnt0514.ringinout
 
-import android.app.*
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.os.Handler
 import android.os.IBinder
-import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.bnt0514.ringinout.location.SmartLocationManager
@@ -23,8 +25,6 @@ class AppDeathDetectorService : Service() {
         private const val NOTIFICATION_ID = 7778
         private const val PREFS_NAME = "ringinout_watchdog"
         private const val KEY_ACTIVE_ALARMS = "active_alarms_count"
-        private const val ALIVE_LOG_INTERVAL_MS = 30_000L
-
         fun start(context: Context) {
             try {
                 val intent = Intent(context, AppDeathDetectorService::class.java)
@@ -42,25 +42,13 @@ class AppDeathDetectorService : Service() {
         }
     }
 
-    private val aliveLogHandler = Handler(Looper.getMainLooper())
-    private var aliveLogStarted = false
-    private val aliveLogRunnable =
-            object : Runnable {
-                override fun run() {
-                    logAliveTick()
-                    aliveLogHandler.postDelayed(this, ALIVE_LOG_INTERVAL_MS)
-                }
-            }
-
     override fun onCreate() {
         super.onCreate()
         Log.d("AppDeathDetector", "🛡️ onCreate - 서비스 생성됨")
-        startAliveLoggingIfNeeded()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d("AppDeathDetector", "🛡️ onStartCommand")
-        startAliveLoggingIfNeeded()
         return START_STICKY // 죽으면 시스템이 재시작
     }
 
@@ -115,40 +103,8 @@ class AppDeathDetectorService : Service() {
     }
 
     override fun onDestroy() {
-        stopAliveLogging()
-        Log.d("AppDeathDetector", "🛑 onDestroy - 생존 로그 중지")
+        Log.d("AppDeathDetector", "🛑 onDestroy")
         super.onDestroy()
-    }
-
-    private fun startAliveLoggingIfNeeded() {
-        if (aliveLogStarted) return
-        aliveLogStarted = true
-        aliveLogHandler.post(aliveLogRunnable)
-        Log.d("AppDeathDetector", "💓 30초 주기 생존 로그 시작")
-    }
-
-    private fun stopAliveLogging() {
-        aliveLogHandler.removeCallbacks(aliveLogRunnable)
-        aliveLogStarted = false
-    }
-
-    private fun logAliveTick() {
-        val processInfo = ActivityManager.RunningAppProcessInfo()
-        ActivityManager.getMyMemoryState(processInfo)
-
-        val stateLabel =
-                when (processInfo.importance) {
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND -> "foreground"
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE -> "visible"
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_SERVICE -> "service"
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED -> "cached"
-                    else -> "background"
-                }
-
-        Log.d(
-                "AppAlive",
-                "💓 alive tick - importance=${processInfo.importance}, state=$stateLabel, serviceRunning=true"
-        )
     }
 
     private fun showDeathNotification(activeAlarms: Int) {
