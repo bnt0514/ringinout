@@ -29,7 +29,7 @@ class WifiSelectorWidget extends StatefulWidget {
 
 class _WifiSelectorWidgetState extends State<WifiSelectorWidget> {
   List<Map<String, dynamic>> _availableNetworks = [];
-  Set<String> _selectedBssids = {};
+  final Set<String> _selectedBssids = {};
   bool _isLoading = false;
   bool _wifiEnabled = true;
   String? _errorMessage;

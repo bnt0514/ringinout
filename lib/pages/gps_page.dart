@@ -12,6 +12,7 @@ import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/location_monitor_service.dart';
 import 'package:ringinout/services/smart_location_monitor.dart';
 import 'package:ringinout/services/app_localizations.dart';
+import 'package:ringinout/utils/report_rate_limiter.dart';
 
 class GpsPage extends StatefulWidget {
   const GpsPage({super.key, this.showAppBar = true});
@@ -311,13 +312,12 @@ class _GpsPageState extends State<GpsPage> {
             if (_isDevUser) _buildAdminCard(),
             _buildGpsCard(),
             const SizedBox(height: 12),
-            // 위치 알람 상태 — 모든 사용자에게 표시
-            _buildServiceCard(),
-            const SizedBox(height: 12),
-            _buildPlaceStatesCard(),
-            const SizedBox(height: 12),
-            // 강제 테스트 & 로그 — dev only
+            // 서비스 상태 / 장소 상태 / 강제 테스트 / 로그 — 개발자 전용
             if (_isDevUser) ...[
+              _buildServiceCard(),
+              const SizedBox(height: 12),
+              _buildPlaceStatesCard(),
+              const SizedBox(height: 12),
               _buildForceTestCard(),
               const SizedBox(height: 12),
               _buildLogCard(),
@@ -984,47 +984,92 @@ class _GpsPageState extends State<GpsPage> {
 
   Future<void> _onBugReport() async {
     final l10n = AppLocalizations.of(context);
-    // 메모 입력 다이얼로그
+
+    // ── 전송 제한 확인 ──
+    final limitReason = ReportRateLimiter.canSend('bug_report');
+    if (limitReason != null) {
+      String msg;
+      if (limitReason == 'daily_limit') {
+        msg =
+            '오늘 최대 ${ReportRateLimiter.maxPerDay}회까지 전송할 수 있습니다.\n'
+            '서버 안정성 보호를 위한 조치입니다.';
+      } else {
+        // cooldown:MM:SS
+        final parts = limitReason.split(':');
+        msg =
+            '${parts[1]}분 ${parts[2]}초 후에 다시 전송할 수 있습니다.\n'
+            '서버 안정성 보호를 위해 30분 간격으로 제한됩니다.';
+      }
+      _showSnack('⏳ $msg');
+      return;
+    }
+
+    final remaining = ReportRateLimiter.remainingToday('bug_report');
+
+    // 메모 입력 다이얼로그 + 실시간 용량 표시
     final memoCtrl = TextEditingController();
+    const int maxMemoBytes = 12 * 1024; // 12KB 메모 제한
+
     final ok = await showDialog<bool>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text(l10n.get('gps_bug_report_title')),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '최근 30분간의 로그가 서버로 전송됩니다.\n'
-                  '상황을 간단히 메모해 주세요. (선택)',
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: memoCtrl,
-                  decoration: const InputDecoration(
-                    hintText: '예: 알람이 울리지 않았습니다',
-                    border: OutlineInputBorder(),
-                    isDense: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final currentBytes = memoCtrl.text.length * 2; // UTF-16 근사
+            final sizeKb = (currentBytes / 1024).toStringAsFixed(1);
+            final maxKb = (maxMemoBytes / 1024).toStringAsFixed(0);
+            final isOverLimit = currentBytes > maxMemoBytes;
+
+            return AlertDialog(
+              title: Text(l10n.get('gps_bug_report_title')),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '최근 30분간의 로그가 서버로 전송됩니다.\n'
+                    '상황을 간단히 메모해 주세요. (선택)\n'
+                    '오늘 남은 전송 횟수: $remaining/${ReportRateLimiter.maxPerDay}회',
+                    style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
                   ),
-                  maxLines: 3,
-                  maxLength: 300,
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: memoCtrl,
+                    decoration: const InputDecoration(
+                      hintText: '예: 알람이 울리지 않았습니다',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    maxLines: 3,
+                    maxLength: 500,
+                    onChanged: (_) => setDialogState(() {}),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '메모 용량: ${sizeKb}KB / ${maxKb}KB',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isOverLimit ? Colors.red : Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('취소'),
+                ),
+                ElevatedButton(
+                  onPressed:
+                      isOverLimit ? null : () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                  child: const Text('전송'),
                 ),
               ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('취소'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
-                child: const Text('전송'),
-              ),
-            ],
-          ),
+            );
+          },
+        );
+      },
     );
 
     if (ok != true) return;
@@ -1087,6 +1132,7 @@ class _GpsPageState extends State<GpsPage> {
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
         final reportId = body['reportId'] ?? '';
+        await ReportRateLimiter.recordSent('bug_report');
         _showSnack(
           '✅ 버그 리포트 전송 완료 (ID: ${reportId.toString().substring(0, 8)}…)',
         );

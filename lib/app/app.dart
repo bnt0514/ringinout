@@ -92,6 +92,9 @@ class RinginoutApp extends StatelessWidget {
             Locale('en', 'US'),
             Locale('ja', 'JP'),
             Locale('zh', 'CN'),
+            Locale('de', 'DE'),
+            Locale('fr', 'FR'),
+            Locale('es', 'ES'),
           ],
           // BETA 워터마크 오버레이
           builder: (context, child) {

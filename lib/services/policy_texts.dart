@@ -24,9 +24,12 @@ String _getSubscriptionPolicyKo({required bool isBeta}) {
   buffer.writeln('- 본 서비스는 위치 기반 알람 기능을 제공하며, 일부 기능은 유료 구독을 통해 이용할 수 있습니다.');
   buffer.writeln();
   buffer.writeln('2. 구독 상품 및 제공 범위');
-  buffer.writeln('- Free: 장소 2개, 등록 가능 알람 4개, 맵 오픈 월 20회');
-  buffer.writeln('- Basic: 장소 5개, 등록 가능 알람 10개 (광고 제거 포함)');
-  buffer.writeln('- Premium: 장소/알람 무제한 (광고 제거 포함)');
+  buffer.writeln(
+    '- Free: 장소 2개, 등록 알람 4개, 맵 오픈 월 15회, 알람 종료 후 광고 시청 (하루 최대 3회)',
+  );
+  buffer.writeln('- Plus: 장소 5개, 등록 알람 10개, 맵 오픈 월 50회 (광고 제거 포함)');
+  buffer.writeln('- Pro: 장소/알람/맵 오픈 무제한 (광고 제거 포함)');
+  buffer.writeln('- 자동 구독(매월 자동 결제) 등록 시 월 구독료 15% 할인이 적용됩니다.');
   buffer.writeln();
   buffer.writeln('3. GPS 위치 기반 서비스 안내');
   buffer.writeln('- 본 서비스는 GPS 위치 정보를 활용한 알람 서비스입니다.');
@@ -45,26 +48,42 @@ String _getSubscriptionPolicyKo({required bool isBeta}) {
   buffer.writeln('- 본 약관에 동의하시면, 유료 구독자를 포함하여 GPS 오차로 인한');
   buffer.writeln('  ⚡오발동 또는 미작동에 대해 개발사에 책임을 묻지 않는 것에 동의하는 것으로 간주합니다.');
   buffer.writeln();
-  buffer.writeln('4. 결제 및 자동 갱신');
+  buffer.writeln('4. Wi-Fi 기반 보조 감지 안내');
+  buffer.writeln('- Wi-Fi 감지는 알람 정확도 향상을 위한 선택적 보조 기능이며, 등록을 강제하지 않습니다.');
+  buffer.writeln(
+    '- Wi-Fi SSID/BSSID 정보는 기기 내에서만 장소 인식에 사용되며, 외부 서버로 전송되지 않습니다.',
+  );
+  buffer.writeln('- Wi-Fi 신호 환경(공유기 이전·변경·채널 충돌 등)에 따라 감지 오작동이 발생할 수 있으며,');
+  buffer.writeln('  이로 인한 알람 오발동·미작동에 대한 책임은 제한됩니다.');
+  buffer.writeln('- 본 약관에 동의하시면 위 사항에 동의한 것으로 간주합니다.');
+  buffer.writeln();
+  buffer.writeln('5. 결제 및 자동 갱신');
   buffer.writeln('- 구독 결제는 Google Play 결제 시스템을 통해 처리됩니다.');
-  buffer.writeln('- 자동 구독은 31일마다 자동 결제되며, 결제일 이전에 해지하지 않으면 자동 갱신됩니다.');
+  buffer.writeln(
+    '- 구독은 Google Play 정책에 따라 자동 갱신되며, 갱신 주기 및 결제일은 Google Play에서 관리합니다.',
+  );
+  buffer.writeln('- 결제일 이전에 해지하지 않으면 자동 갱신됩니다.');
   buffer.writeln('- 결제 금액은 Google Play에 등록된 가격을 따릅니다.');
   buffer.writeln();
-  buffer.writeln('5. 해지 및 플랜 변경');
+  buffer.writeln('6. 해지 및 플랜 변경');
   buffer.writeln('- 구독 해지는 Google Play 구독 관리에서 가능합니다.');
   buffer.writeln('- 해지 후에도 다음 갱신일까지는 구독 혜택이 유지됩니다.');
   buffer.writeln('- 플랜 변경은 Google Play 정책 및 결제 시스템 규칙에 따릅니다.');
   buffer.writeln();
-  buffer.writeln('6. 광고');
+  buffer.writeln('7. 광고');
   buffer.writeln('- Free 플랜은 장소 등록/알람 생성 시 광고가 노출될 수 있습니다.');
   buffer.writeln('- Basic/Premium 플랜은 광고가 제거됩니다.');
   buffer.writeln();
-  buffer.writeln('7. 서비스 제공 및 변경');
+  buffer.writeln('8. 서비스 이용 제한');
+  buffer.writeln('- 서비스 안정성 보호를 위해 버그 리포트 및 건의사항 전송은 30분 간격, 하루 최대 3회로 제한됩니다.');
+  buffer.writeln('- 비정상적이거나 과도한 사용이 감지될 경우 서비스 이용이 제한될 수 있습니다.');
+  buffer.writeln();
+  buffer.writeln('9. 서비스 제공 및 변경');
   buffer.writeln('- 서비스 품질 향상 또는 정책 변경을 위해 기능/가격/플랜 구성이 변경될 수 있습니다.');
   buffer.writeln('- 중요한 변경은 앱 내 공지 또는 기타 합리적인 방법으로 안내합니다.');
   buffer.writeln();
   if (isBeta) {
-    buffer.writeln('8. 베타 버전 이용 고지');
+    buffer.writeln('10. 베타 버전 이용 고지');
     buffer.writeln('- 본 서비스는 베타 버전이며 안정성, 완전성, 무중단 제공을 보장하지 않습니다.');
     buffer.writeln('- 베타 기간에는 예고 없이 기능이 변경, 중단되거나 서비스가 일시 중지될 수 있습니다.');
     buffer.writeln(
@@ -73,9 +92,9 @@ String _getSubscriptionPolicyKo({required bool isBeta}) {
     buffer.writeln('- 베타 기간에는 성능 저하, 위치 오차, 알람 누락/지연/오작동이 발생할 수 있습니다.');
     buffer.writeln('- 유료 플랜 구독은 베타 종료 후 활성화됩니다.');
     buffer.writeln();
-    buffer.writeln('9. 책임의 제한');
+    buffer.writeln('11. 책임의 제한');
   } else {
-    buffer.writeln('8. 책임의 제한');
+    buffer.writeln('10. 책임의 제한');
   }
   buffer.writeln(
     '- 법령이 허용하는 범위 내에서, 서비스 이용으로 인한 직접/간접/부수적/특별/결과적 손해에 대해 책임을 지지 않습니다.',
@@ -134,9 +153,16 @@ String _getSubscriptionPolicyEn({required bool isBeta}) {
   );
   b.writeln();
   b.writeln('2. Plans & Coverage');
-  b.writeln('- Free: 2 places, 4 registered alarms, 20 map opens/month');
-  b.writeln('- Basic: 5 places, 10 registered alarms (ad-free)');
-  b.writeln('- Premium: Unlimited places/alarms (ad-free)');
+  b.writeln(
+    '- Free: 2 places, 4 registered alarms, 15 map opens/month, ads after alarm dismissal (up to 3/day)',
+  );
+  b.writeln(
+    '- Plus: 5 places, 10 registered alarms, 50 map opens/month (ad-free)',
+  );
+  b.writeln('- Pro: Unlimited places/alarms/map opens (ad-free)');
+  b.writeln(
+    '- Auto-subscription (monthly auto-renewal) receives a 15% discount.',
+  );
   b.writeln();
   b.writeln('3. GPS Location-Based Service Notice');
   b.writeln('- This service uses GPS location data to trigger alarms.');
@@ -168,32 +194,60 @@ String _getSubscriptionPolicyEn({required bool isBeta}) {
     '- By agreeing to these terms, including paid subscribers, you agree not to hold the developer liable for \u26a1False Triggers or Missed Triggers caused by GPS errors.',
   );
   b.writeln();
-  b.writeln('4. Payment & Auto-Renewal');
+  b.writeln('4. Wi-Fi Assisted Detection Notice');
+  b.writeln(
+    '- Wi-Fi detection is an optional supplementary feature to improve alarm accuracy. Registration is not mandatory.',
+  );
+  b.writeln(
+    '- Wi-Fi SSID/BSSID data is used solely on-device for place recognition and is never transmitted to external servers.',
+  );
+  b.writeln(
+    '- Detection errors may occur due to Wi-Fi environment changes (router relocation, replacement, channel conflicts, etc.).',
+  );
+  b.writeln(
+    '  The developer is not liable for false or missed alarms caused by such conditions.',
+  );
+  b.writeln(
+    '- By agreeing to these terms, you acknowledge and accept the above.',
+  );
+  b.writeln();
+  b.writeln('5. Payment & Auto-Renewal');
   b.writeln('- Payments are processed through Google Play billing.');
   b.writeln(
-    '- Subscriptions auto-renew every 31 days unless cancelled before the renewal date.',
+    '- Subscriptions auto-renew according to Google Play policies. The renewal cycle and billing date are managed by Google Play.',
+  );
+  b.writeln(
+    '- Subscriptions will auto-renew unless cancelled before the renewal date.',
   );
   b.writeln('- Pricing follows the amounts listed on Google Play.');
   b.writeln();
-  b.writeln('5. Cancellation & Plan Changes');
+  b.writeln('6. Cancellation & Plan Changes');
   b.writeln('- Cancel subscriptions via Google Play subscription management.');
   b.writeln(
     '- Benefits remain until the next renewal date after cancellation.',
   );
   b.writeln('- Plan changes follow Google Play policies.');
   b.writeln();
-  b.writeln('6. Ads');
+  b.writeln('7. Ads');
   b.writeln('- Free plan may show ads when adding places/alarms.');
   b.writeln('- Basic/Premium plans are ad-free.');
   b.writeln();
-  b.writeln('7. Service Changes');
+  b.writeln('8. Usage Restrictions');
+  b.writeln(
+    '- To protect service stability, bug reports and feedback are limited to once every 30 minutes, up to 3 times per day.',
+  );
+  b.writeln(
+    '- Abnormal or excessive usage may result in service restrictions.',
+  );
+  b.writeln();
+  b.writeln('9. Service Changes');
   b.writeln(
     '- Features, pricing, and plan structure may change to improve service quality.',
   );
   b.writeln('- Important changes will be communicated through in-app notices.');
   b.writeln();
   if (isBeta) {
-    b.writeln('8. Beta Notice');
+    b.writeln('10. Beta Notice');
     b.writeln(
       '- This is a beta version. Stability and uninterrupted service are not guaranteed.',
     );
@@ -208,9 +262,9 @@ String _getSubscriptionPolicyEn({required bool isBeta}) {
     );
     b.writeln('- Paid subscriptions will be activated after beta ends.');
     b.writeln();
-    b.writeln('9. Limitation of Liability');
+    b.writeln('11. Limitation of Liability');
   } else {
-    b.writeln('8. Limitation of Liability');
+    b.writeln('10. Limitation of Liability');
   }
   b.writeln(
     '- To the extent permitted by law, we are not liable for direct/indirect/incidental/special/consequential damages.',
@@ -269,9 +323,10 @@ String _getSubscriptionPolicyJa({required bool isBeta}) {
   b.writeln('- 本サービスは位置ベースのアラーム機能を提供し、一部の機能は有料サブスクリプションが必要です。');
   b.writeln();
   b.writeln('2. プランと提供範囲');
-  b.writeln('- Free: 場所2個、登録可能アラーム4個、マップ表示月 20回');
-  b.writeln('- Basic: 場所5個、アラーム10個（広告なし）');
-  b.writeln('- Premium: 場所/アラーム無制限（広告なし）');
+  b.writeln('- Free: 場所2個、登録アラーム4個、マップ表示月15回、アラーム終了後に広告視聴（1日最大3回）');
+  b.writeln('- Plus: 場所5個、登録アラーム10個、マップ表示月50回（広告なし）');
+  b.writeln('- Pro: 場所/アラーム/マップ表示無制限（広告なし）');
+  b.writeln('- 自動購読（毎月自動決済）登録時、月額料金15%割引が適用されます。');
   b.writeln();
   b.writeln('3. GPS位置情報サービスのご案内');
   b.writeln('- 本サービスはGPS位置情報を利用したアラームサービスです。');
@@ -287,31 +342,45 @@ String _getSubscriptionPolicyJa({required bool isBeta}) {
     '- 本規約に同意することで、有料ユーザーを含むGPS誤差による⚡誤発動または未発動について開発者に責任を問わないことに同意するものとみなします。',
   );
   b.writeln();
-  b.writeln('4. 決済と自動更新');
-  b.writeln('- 決済はGoogle Play決済システムを通じて処理されます。');
-  b.writeln('- サブスクリプションは31日ごとに自動更新されます。');
+  b.writeln('4. Wi-Fi補助検知のご案内');
+  b.writeln('- Wi-Fi検知はアラーム精度向上のための任意の補助機能であり、登録は強制ではありません。');
+  b.writeln('- Wi-Fi SSID/BSSID情報は端末内でのみ場所認識に使用され、外部サーバーには送信されません。');
+  b.writeln('- Wi-Fi環境の変化（ルーターの移動・交換・チャンネル干渉など）により検知エラーが発生する場合があります。');
+  b.writeln('  これによるアラームの誤発動・未発動について、開発者は責任を負いません。');
+  b.writeln('- 本規約に同意することで、上記事項に同意したものとみなします。');
   b.writeln();
-  b.writeln('5. 解約とプラン変更');
+  b.writeln('5. 決済と自動更新');
+  b.writeln('- 決済はGoogle Play決済システムを通じて処理されます。');
+  b.writeln(
+    '- サブスクリプションはGoogle Playポリシーに従って自動更新されます。更新サイクルと請求日はGoogle Playが管理します。',
+  );
+  b.writeln('- 更新日前にキャンセルしない場合、自動更新されます。');
+  b.writeln();
+  b.writeln('6. 解約とプラン変更');
   b.writeln('- 解約はGoogle Playサブスクリプション管理から可能です。');
   b.writeln('- 解約後も次の更新日まで特典が維持されます。');
   b.writeln();
-  b.writeln('6. 広告');
+  b.writeln('7. 広告');
   b.writeln('- Freeプランでは場所登録/アラーム作成時に広告が表示される場合があります。');
   b.writeln('- Basic/Premiumプランは広告なしです。');
   b.writeln();
-  b.writeln('7. サービス変更');
+  b.writeln('8. 利用制限');
+  b.writeln('- サービスの安定性を保護するため、バグレポートおよびフィードバックの送信は30分間隔、1日最大3回までに制限されています。');
+  b.writeln('- 異常または過度な使用が検知された場合、サービスの利用が制限される場合があります。');
+  b.writeln();
+  b.writeln('9. サービス変更');
   b.writeln('- 機能、価格、プラン構成は品質向上のために変更される場合があります。');
   b.writeln();
   if (isBeta) {
-    b.writeln('8. ベータ版のご注意');
+    b.writeln('10. ベータ版のご注意');
     b.writeln('- 本サービスはベータ版であり、安定性や無中断提供は保証されません。');
     b.writeln('- ベータ期間中は機能の変更・中断が予告なく行われる場合があります。');
     b.writeln('- データの損失や変更が発生する可能性があります。');
     b.writeln('- 有料プランはベータ終了後に活性化されます。');
     b.writeln();
-    b.writeln('9. 責任の制限');
+    b.writeln('11. 責任の制限');
   } else {
-    b.writeln('8. 責任の制限');
+    b.writeln('10. 責任の制限');
   }
   b.writeln('- 法令が許容する範囲内で、サービス利用による損害について責任を負いません。');
   b.writeln('- 位置情報はデバイス/OS/通信環境によって誤差が生じる場合があります。');
@@ -356,9 +425,10 @@ String _getSubscriptionPolicyZh({required bool isBeta}) {
   b.writeln('- 本服务提供基于位置的闹钟功能，部分功能需要付费订阅。');
   b.writeln();
   b.writeln('2. 方案与范围');
-  b.writeln('- Free: 2个地点，4个闹钟，每月 20 次地图打开');
-  b.writeln('- Basic: 5个地点，10个闹钟（无广告）');
-  b.writeln('- Premium: 无限地点/闹钟（无广告）');
+  b.writeln('- Free: 2个地点，4个闹钟，每月15次地图打开，闹钟结束后观看广告（每天最多3次）');
+  b.writeln('- Plus: 5个地点，10个闹钟，每月50次地图打开（无广告）');
+  b.writeln('- Pro: 无限地点/闹钟/地图打开（无广告）');
+  b.writeln('- 注册自动订阅（每月自动付款）可享受月费15%折扣。');
   b.writeln();
   b.writeln('3. GPS位置服务说明');
   b.writeln('- 本服务利用GPS位置信息提供闹钟服务。');
@@ -372,31 +442,43 @@ String _getSubscriptionPolicyZh({required bool isBeta}) {
   b.writeln('- 未触发发生时：请使用GPS页面的「错误报告」按钮发送日志，可修复部分将尽快处理。');
   b.writeln('- 同意本条款即表示，包括付费用户在内，均同意不就GPS误差导致的⚡误触发或未触发向开发者追究责任。');
   b.writeln();
-  b.writeln('4. 支付与自动续费');
-  b.writeln('- 支付通过Google Play计费系统处理。');
-  b.writeln('- 订阅每31天自动续费。');
+  b.writeln('4. Wi-Fi辅助检测说明');
+  b.writeln('- Wi-Fi检测是提升闹钟精度的可选辅助功能，注册非强制要求。');
+  b.writeln('- Wi-Fi SSID/BSSID信息仅在设备本地用于地点识别，不会传输至外部服务器。');
+  b.writeln('- Wi-Fi环境变化（路由器移位、更换、频道冲突等）可能导致检测错误，');
+  b.writeln('  因此造成的误触发或未触发，开发者不承担责任。');
+  b.writeln('- 同意本条款即表示您已知悉并接受上述内容。');
   b.writeln();
-  b.writeln('5. 取消与方案变更');
+  b.writeln('5. 支付与自动续费');
+  b.writeln('- 支付通过Google Play计费系统处理。');
+  b.writeln('- 订阅按照Google Play政策自动续费。续费周期和扣款日由Google Play管理。');
+  b.writeln('- 在续费日之前未取消的订阅将自动续费。');
+  b.writeln();
+  b.writeln('6. 取消与方案变更');
   b.writeln('- 可通过Google Play订阅管理取消。');
   b.writeln('- 取消后，权益保留至下一续费日。');
   b.writeln();
-  b.writeln('6. 广告');
+  b.writeln('7. 广告');
   b.writeln('- Free方案可能在添加地点/闹钟时显示广告。');
   b.writeln('- Basic/Premium方案无广告。');
   b.writeln();
-  b.writeln('7. 服务变更');
+  b.writeln('8. 使用限制');
+  b.writeln('- 为保护服务稳定性，错误报告和反馈每30分钟可发送一次，每天最多3次。');
+  b.writeln('- 如检测到异常或过度使用，服务可能受到限制。');
+  b.writeln();
+  b.writeln('9. 服务变更');
   b.writeln('- 功能、价格和方案结构可能会变更以改善服务质量。');
   b.writeln();
   if (isBeta) {
-    b.writeln('8. 测试版须知');
+    b.writeln('10. 测试版须知');
     b.writeln('- 本服务为测试版，不保证稳定性和不间断服务。');
     b.writeln('- 测试期间功能可能会无预告变更或中断。');
     b.writeln('- 数据可能会丢失或变更。');
     b.writeln('- 付费方案将在测试结束后开放。');
     b.writeln();
-    b.writeln('9. 责任限制');
+    b.writeln('11. 责任限制');
   } else {
-    b.writeln('8. 责任限制');
+    b.writeln('10. 责任限制');
   }
   b.writeln('- 在法律允许的范围内，我们不对因使用服务而造成的损害承担责任。');
   b.writeln('- 位置精度取决于设备/操作系统/网络条件。');

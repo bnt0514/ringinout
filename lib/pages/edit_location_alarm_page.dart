@@ -202,7 +202,7 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
       final period = l10n.get(h >= 12 ? 'pm_label' : 'am_label');
       final hour12 = h == 0 ? 12 : (h > 12 ? h - 12 : h);
       parts.add(
-        '$period ${hour12}${l10n.get('hour_suffix')}${m.toString().padLeft(2, '0')}${l10n.get('min_suffix')}${l10n.get('after_suffix')}',
+        '$period $hour12${l10n.get('hour_suffix')}${m.toString().padLeft(2, '0')}${l10n.get('min_suffix')}${l10n.get('after_suffix')}',
       );
     }
 
@@ -392,7 +392,7 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<Map<String, dynamic>>(
-              value: selectedPlace,
+              initialValue: selectedPlace,
               hint: Text(AppLocalizations.of(context).get('select_place_hint')),
               items:
                   places.map((place) {

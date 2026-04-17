@@ -309,7 +309,7 @@ class _PermissionStep {
   final Color color;
   final Future<bool> Function() checkPermission;
   final Future<void> Function() requestPermission;
-  bool isGranted;
+  bool isGranted = false;
 
   _PermissionStep({
     required this.title,
@@ -318,6 +318,5 @@ class _PermissionStep {
     required this.color,
     required this.checkPermission,
     required this.requestPermission,
-    this.isGranted = false,
   });
 }

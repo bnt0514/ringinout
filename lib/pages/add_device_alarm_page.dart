@@ -1,4 +1,4 @@
-﻿// lib/pages/add_device_alarm_page.dart
+// lib/pages/add_device_alarm_page.dart
 //
 // 새 기기알람 추가 페이지 — 위치 알람 추가 페이지와 동일한 UI 형식
 // - 기기 선택 (페어링된 BT 드롭다운 — 사용자 지정 이름 표시)
@@ -166,6 +166,12 @@ class _AddDeviceAlarmPageState extends State<AddDeviceAlarmPage> {
         return 'zh_CN';
       case AppLanguage.english:
         return 'en_US';
+      case AppLanguage.german:
+        return 'de_DE';
+      case AppLanguage.french:
+        return 'fr_FR';
+      case AppLanguage.spanish:
+        return 'es_ES';
       case AppLanguage.system:
         final sysLocale = WidgetsBinding.instance.platformDispatcher.locale;
         return '${sysLocale.languageCode}_${sysLocale.countryCode ?? sysLocale.languageCode.toUpperCase()}';
@@ -390,7 +396,7 @@ class _AddDeviceAlarmPageState extends State<AddDeviceAlarmPage> {
       final period = l10n.get(h >= 12 ? 'pm_label' : 'am_label');
       final hour12 = h == 0 ? 12 : (h > 12 ? h - 12 : h);
       parts.add(
-        '$period ${hour12}${l10n.get('hour_suffix')}${m.toString().padLeft(2, '0')}${l10n.get('min_suffix')}${l10n.get('after_suffix')}',
+        '$period $hour12${l10n.get('hour_suffix')}${m.toString().padLeft(2, '0')}${l10n.get('min_suffix')}${l10n.get('after_suffix')}',
       );
     }
 
@@ -743,7 +749,7 @@ class _AddDeviceAlarmPageState extends State<AddDeviceAlarmPage> {
                         ),
                       )
                       : DropdownButtonFormField<Map<String, dynamic>>(
-                        value:
+                        initialValue:
                             _bondedDevices.any(
                                   (d) =>
                                       d['macAddress'] ==

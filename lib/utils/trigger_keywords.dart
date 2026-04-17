@@ -119,6 +119,47 @@ class TriggerKeywords {
       // 踏入
       '踏入', '踏进', '迈入', '迈进',
     ],
+
+    'de': [
+      // Ankommen
+      'ankommen', 'ankomme', 'ankommst', 'angekommen',
+      'ankunft', 'bei ankunft',
+      // Erreichen
+      'erreichen', 'erreiche', 'erreichst', 'erreicht',
+      // Betreten/Eintreten
+      'betreten', 'betrete', 'eintreten', 'eintrete',
+      'hineingehen', 'reingehen', 'reinkommen',
+      // Wenn ich ankomme
+      'wenn ich ankomme', 'wenn ich da bin', 'wenn ich dort bin',
+      'sobald ich ankomme', 'sobald ich da bin',
+    ],
+
+    'fr': [
+      // Arriver
+      'arriver', 'arrive', 'arrives', 'arrivé', 'arrivée',
+      'arrivée', 'à l\'arrivée',
+      // Entrer
+      'entrer', 'entre', 'entré', 'entrée',
+      // Atteindre
+      'atteindre', 'atteins', 'atteint',
+      // Quand j'arrive
+      'quand j\'arrive', 'quand j\'entre',
+      'lorsque j\'arrive', 'dès que j\'arrive',
+      'en arrivant',
+    ],
+
+    'es': [
+      // Llegar
+      'llegar', 'llego', 'llegas', 'llegado', 'llegada',
+      'al llegar', 'cuando llego', 'cuando llegue',
+      // Entrar
+      'entrar', 'entro', 'entras', 'entrado', 'entrada',
+      'al entrar', 'cuando entro', 'cuando entre',
+      // Arribar
+      'arribar', 'arribo',
+      // Alcanzar
+      'alcanzar', 'alcanzo',
+    ],
   };
 
   /// 진출(Exit) 키워드 - 언어별 맵
@@ -245,6 +286,52 @@ class TriggerKeywords {
       '远离', '远离时', '离', '离了',
       // 出~
       '出公司', '出办公室', '出学校', '出家门',
+    ],
+
+    'de': [
+      // Verlassen
+      'verlassen', 'verlasse', 'verlässt', 'verlaesst', 'verlassen',
+      // Weggehen/Abfahren
+      'weggehen', 'weggehe', 'abfahren', 'abfahre',
+      'losfahren', 'losfahre', 'losgehen', 'losgehe',
+      // Rausgehen
+      'rausgehen', 'rausgehe', 'hinausgehen',
+      // Abreise
+      'abreise', 'abreisen', 'abfahrt',
+      // Wenn ich gehe
+      'wenn ich gehe', 'wenn ich verlasse', 'wenn ich losfahre',
+      'sobald ich gehe', 'beim verlassen',
+    ],
+
+    'fr': [
+      // Partir
+      'partir', 'pars', 'part', 'parti', 'partie',
+      'au départ', 'au depart',
+      // Quitter
+      'quitter', 'quitte', 'quitté',
+      // Sortir
+      'sortir', 'sors', 'sort', 'sorti', 'sortie',
+      // S'en aller
+      's\'en aller', 'je m\'en vais',
+      // Quand je pars
+      'quand je pars', 'quand je quitte', 'quand je sors',
+      'lorsque je pars', 'en partant', 'en quittant',
+    ],
+
+    'es': [
+      // Salir
+      'salir', 'salgo', 'sales', 'salido', 'salida',
+      'al salir', 'cuando salgo', 'cuando salga',
+      // Irse/Marcharse
+      'irme', 'irse', 'me voy', 'marcharse', 'me marcho',
+      // Partir
+      'partir', 'parto',
+      // Dejar
+      'dejar', 'dejo', 'dejas',
+      // Abandonar
+      'abandonar', 'abandono',
+      // Alejarse
+      'alejarse', 'me alejo',
     ],
   };
 

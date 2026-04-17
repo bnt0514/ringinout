@@ -7,6 +7,7 @@ import 'package:ringinout/services/billing_service.dart';
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/holiday_service.dart';
 import 'package:ringinout/services/locale_provider.dart';
+import 'package:ringinout/utils/report_rate_limiter.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -16,6 +17,45 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  void _showAccountOptions() {
+    final l10n = AppLocalizations.of(context);
+    showModalBottomSheet(
+      context: context,
+      builder:
+          (ctx) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.logout),
+                  title: Text(l10n.get('logout')),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _handleGoogleSignOut();
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.delete_forever, color: Colors.red),
+                  title: Text(
+                    l10n.get('delete_account'),
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                  subtitle: Text(
+                    l10n.get('delete_account_subtitle'),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _handleDeleteAccount();
+                  },
+                ),
+              ],
+            ),
+          ),
+    );
+  }
+
   Future<void> _handleGoogleSignOut() async {
     final l10n = AppLocalizations.of(context);
     final authService = Provider.of<AuthService>(context, listen: false);
@@ -50,6 +90,71 @@ class _SettingsPageState extends State<SettingsPage> {
       Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
     } catch (e) {
       debugPrint('로그아웃 실패: $e');
+    }
+  }
+
+  Future<void> _handleDeleteAccount() async {
+    final l10n = AppLocalizations.of(context);
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final billingService = Provider.of<BillingService>(context, listen: false);
+
+    // 1차 확인
+    final confirm1 = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text(l10n.get('delete_account')),
+            content: Text(l10n.get('delete_account_warning')),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(l10n.get('cancel')),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: Text(l10n.get('delete_account_confirm')),
+              ),
+            ],
+          ),
+    );
+    if (confirm1 != true) return;
+
+    // 2차 최종 확인
+    final confirm2 = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text(l10n.get('delete_account_final_title')),
+            content: Text(l10n.get('delete_account_final_warning')),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(l10n.get('cancel')),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: Text(
+                  l10n.get('delete_account_final_confirm'),
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+    );
+    if (confirm2 != true) return;
+
+    try {
+      await authService.deleteAccount();
+      billingService.clearCache();
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.get('delete_account_failed'))),
+      );
     }
   }
 
@@ -164,37 +269,101 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _showFeedbackDialog() {
     final l10n = AppLocalizations.of(context);
+
+    // ── 전송 제한 확인 ──
+    final limitReason = ReportRateLimiter.canSend('feedback');
+    if (limitReason != null) {
+      String msg;
+      if (limitReason == 'daily_limit') {
+        msg =
+            '오늘 최대 ${ReportRateLimiter.maxPerDay}회까지 전송할 수 있습니다.\n'
+            '서버 안정성 보호를 위한 조치입니다.';
+      } else {
+        final parts = limitReason.split(':');
+        msg =
+            '${parts[1]}분 ${parts[2]}초 후에 다시 전송할 수 있습니다.\n'
+            '서버 안정성 보호를 위해 30분 간격으로 제한됩니다.';
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('⏳ $msg')));
+      return;
+    }
+
+    final remaining = ReportRateLimiter.remainingToday('feedback');
     final controller = TextEditingController();
+    const int maxContentBytes = 12 * 1024; // 12KB
 
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text(l10n.get('feedback_title')),
-            content: TextField(
-              controller: controller,
-              maxLines: 5,
-              decoration: InputDecoration(
-                hintText: l10n.get('feedback_hint'),
-                border: const OutlineInputBorder(),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final currentBytes = controller.text.length * 2;
+            final sizeKb = (currentBytes / 1024).toStringAsFixed(1);
+            final maxKb = (maxContentBytes / 1024).toStringAsFixed(0);
+            final isOverLimit = currentBytes > maxContentBytes;
+
+            return AlertDialog(
+              title: Text(l10n.get('feedback_title')),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '오늘 남은 전송 횟수: $remaining/${ReportRateLimiter.maxPerDay}회',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: controller,
+                    maxLines: 5,
+                    maxLength: 1000,
+                    decoration: InputDecoration(
+                      hintText: l10n.get('feedback_hint'),
+                      border: const OutlineInputBorder(),
+                    ),
+                    onChanged: (_) => setDialogState(() {}),
+                  ),
+                  const SizedBox(height: 4),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      '${sizeKb}KB / ${maxKb}KB',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isOverLimit ? Colors.red : Colors.grey,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(l10n.get('cancel')),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(l10n.get('feedback_sent'))),
-                  );
-                },
-                child: Text(l10n.get('send')),
-              ),
-            ],
-          ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(l10n.get('cancel')),
+                ),
+                ElevatedButton(
+                  onPressed:
+                      (isOverLimit || controller.text.trim().isEmpty)
+                          ? null
+                          : () async {
+                            Navigator.pop(context);
+                            await ReportRateLimiter.recordSent('feedback');
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(l10n.get('feedback_sent')),
+                                ),
+                              );
+                            }
+                          },
+                  child: Text(l10n.get('send')),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -320,10 +489,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   authService.currentUser?.displayName ??
                   'Not logged in',
             ),
-            trailing: TextButton(
-              onPressed: _handleGoogleSignOut,
-              child: Text(l10n.get('logout')),
-            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _showAccountOptions,
           ),
           const Divider(),
           ListTile(

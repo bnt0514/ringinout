@@ -4,6 +4,8 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:path_provider/path_provider.dart'; // ✅ 추가
+import 'package:ringinout/utils/geocoding_cache.dart';
+import 'package:ringinout/utils/report_rate_limiter.dart';
 
 class HiveHelper {
   static late Box _placeBox;
@@ -63,6 +65,10 @@ class HiveHelper {
       }
 
       await _runPlaceAlarmMigrations();
+
+      // ✅ 지오코딩 캐시 + 전송 제한 초기화
+      await GeocodingCache().init();
+      await ReportRateLimiter.init();
 
       _isInitialized = true; // ✅ 초기화 완료 플래그
       print('📦 HiveHelper 초기화 완료 (고유 경로)');
@@ -157,7 +163,7 @@ class HiveHelper {
       print('✅ 폴백 초기화 성공 (기존 데이터 유지)');
     } catch (e) {
       print('❌ 폴백 초기화도 실패: $e');
-      throw e;
+      rethrow;
     }
   }
 

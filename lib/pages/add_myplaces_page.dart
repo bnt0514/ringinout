@@ -20,7 +20,7 @@ import 'package:ringinout/widgets/subscription_limit_dialog.dart';
 import 'package:ringinout/widgets/unified_map_widget.dart';
 import 'package:ringinout/widgets/map_toggle_button.dart';
 import 'package:ringinout/widgets/wifi_selector_widget.dart';
-import 'package:ringinout/widgets/bluetooth_selector_widget.dart';
+// import 'package:ringinout/widgets/bluetooth_selector_widget.dart'; // 추후 활성화 예정
 
 class AddMyPlacesPage extends StatefulWidget {
   final Future<void> Function(double lat, double lng, String name, int radius)
@@ -381,15 +381,15 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                           });
                         },
                       ),
-                      const SizedBox(height: 8),
-                      // ── ✅ 블루투스 기기 선택 ──
-                      BluetoothSelectorWidget(
-                        onChanged: (devices) {
-                          setDialogState(() {
-                            selectedBluetoothDevices = devices;
-                          });
-                        },
-                      ),
+                      // 블루투스 기기 선택 — 추후 활성화 예정
+                      // const SizedBox(height: 8),
+                      // BluetoothSelectorWidget(
+                      //   onChanged: (devices) {
+                      //     setDialogState(() {
+                      //       selectedBluetoothDevices = devices;
+                      //     });
+                      //   },
+                      // ),
                     ],
                   ),
                 ),

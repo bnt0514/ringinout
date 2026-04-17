@@ -15,9 +15,8 @@ import 'package:ringinout/services/locale_provider.dart';
 import 'package:ringinout/firebase_options.dart';
 
 import 'package:ringinout/services/location_monitor_service.dart';
-import 'package:ringinout/services/test_controller.dart';
 import 'package:ringinout/services/alarm_notification_helper.dart';
-import 'package:ringinout/services/smart_location_monitor.dart'; // ✅ 추가
+// ✅ 추가
 import 'package:ringinout/services/remote_config_service.dart';
 import 'package:ringinout/services/auth_service.dart';
 import 'package:ringinout/services/billing_service.dart';
@@ -57,14 +56,6 @@ void main() async {
   final alarmController = AlarmController();
   await alarmController.initialize();
 
-  // ✅ TestGeofenceController 생성 및 초기화
-  final testGeofenceController = TestGeofenceController();
-
-  // ✅ 지연 초기화 (UI가 준비된 후)
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    testGeofenceController.initialize();
-  });
-
   // ✅ 하나의 navigatorKey만 사용 (통일)
   final globalNavigatorKey = LocationMonitorService.navigatorKey;
 
@@ -86,7 +77,6 @@ void main() async {
         ChangeNotifierProvider(create: (_) => LocaleProvider()),
         ChangeNotifierProvider(create: (_) => MapProviderService()),
         ChangeNotifierProvider.value(value: alarmController),
-        ChangeNotifierProvider.value(value: testGeofenceController),
         Provider.value(value: authService),
         ChangeNotifierProvider.value(value: billingService),
       ],

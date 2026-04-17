@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:ringinout/config/app_theme.dart';
-import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:ringinout/pages/add_location_alarm_page.dart';
 import 'package:ringinout/pages/edit_places_page.dart';
@@ -583,8 +582,9 @@ class MyPlacesPageState extends State<MyPlacesPage> {
                                             onSelected: (value) async {
                                               if (value == 'edit_places') {
                                                 // 무료 유저 지도 오픈 제한 체크
-                                                if (!await _checkMapOpenAllowed())
+                                                if (!await _checkMapOpenAllowed()) {
                                                   return;
+                                                }
                                                 final updated =
                                                     await Navigator.push(
                                                       context,
@@ -600,8 +600,9 @@ class MyPlacesPageState extends State<MyPlacesPage> {
                                                             ),
                                                       ),
                                                     );
-                                                if (updated == true)
+                                                if (updated == true) {
                                                   setState(() {});
+                                                }
                                               } else if (value == 'add_alarm') {
                                                 Navigator.push(
                                                   context,

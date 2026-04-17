@@ -12,7 +12,7 @@ import '../services/smart_location_service.dart';
 import '../widgets/unified_map_widget.dart';
 import '../widgets/map_toggle_button.dart';
 import '../widgets/wifi_selector_widget.dart';
-import '../widgets/bluetooth_selector_widget.dart';
+// import '../widgets/bluetooth_selector_widget.dart'; // 추후 활성화 예정
 
 class EditPlacePage extends StatefulWidget {
   final Map<String, dynamic> initialData;
@@ -412,58 +412,15 @@ class _EditPlacePageState extends State<EditPlacePage> {
                           ],
                         ),
                       ),
-                      // ✅ 블루투스 (접기/펼치기)
-                      Theme(
-                        data: Theme.of(
-                          context,
-                        ).copyWith(dividerColor: Colors.transparent),
-                        child: ExpansionTile(
-                          tilePadding: EdgeInsets.zero,
-                          leading: Icon(
-                            Icons.bluetooth,
-                            color: Theme.of(context).colorScheme.primary,
-                            size: 20,
-                          ),
-                          title: Text(
-                            l10n.get('bt_devices_label'),
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          subtitle:
-                              _selectedBluetoothDevices.isEmpty
-                                  ? Text(
-                                    l10n.get('bt_none_selected'),
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey,
-                                    ),
-                                  )
-                                  : Text(
-                                    l10n.getWithArgs('bt_count_selected', {
-                                      'count':
-                                          _selectedBluetoothDevices.length
-                                              .toString(),
-                                    }),
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color:
-                                          Theme.of(context).colorScheme.primary,
-                                    ),
-                                  ),
-                          children: [
-                            BluetoothSelectorWidget(
-                              initialDevices: _selectedBluetoothDevices,
-                              onChanged: (devices) {
-                                setState(() {
-                                  _selectedBluetoothDevices = devices;
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
+                      // 추후 활성화 예정 (블루투스)
+                      // Theme(
+                      //   data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                      //   child: ExpansionTile(
+                      //     tilePadding: EdgeInsets.zero,
+                      //     leading: Icon(Icons.bluetooth, ...),
+                      //     ...BluetoothSelectorWidget...
+                      //   ),
+                      // ),
                       const SizedBox(height: 8),
                       // 저장/삭제 버튼
                       Row(

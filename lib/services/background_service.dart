@@ -1,13 +1,10 @@
 // lib/services/background_services.dart
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:flutter_background_service_android/flutter_background_service_android.dart';
 import 'package:hive/hive.dart';
 
 // Project imports
-import 'package:ringinout/config/constants.dart';
 import 'package:ringinout/services/alarm_notification_helper.dart';
 import 'package:ringinout/services/location_monitor_service.dart';
 import 'package:ringinout/services/hive_helper.dart';

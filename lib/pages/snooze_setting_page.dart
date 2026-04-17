@@ -58,7 +58,7 @@ class SnoozeSettingPage extends StatelessWidget {
                 Navigator.pop(context);
               },
             );
-          }).toList(),
+          }),
         ],
       ),
     );

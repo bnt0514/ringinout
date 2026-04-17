@@ -3,7 +3,6 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Project imports
-import 'package:ringinout/config/constants.dart';
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/smart_location_monitor.dart';
 import 'package:ringinout/services/location_monitor_service.dart'; // ✅ Heartbeat 전송용

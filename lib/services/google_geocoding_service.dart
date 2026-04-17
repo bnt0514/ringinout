@@ -5,13 +5,22 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:ringinout/services/naver_geocoding_service.dart';
+import 'package:ringinout/utils/geocoding_cache.dart';
 
 class GoogleGeocodingService {
   // Google Maps Geocoding API key (AndroidManifest.xml과 동일)
   static const String _apiKey = 'AIzaSyBeH5HhLcpj2JL91U_1eSHU4vRyC_qmxao';
+  static final _cache = GeocodingCache();
 
   /// 좌표 → 주소 변환 (Reverse Geocoding)
   static Future<String?> reverseGeocode(double lat, double lng) async {
+    // 온디바이스 캐시 확인
+    final cached = _cache.get(lat, lng);
+    if (cached != null) {
+      debugPrint('📦 [GoogleGeocode] cache hit');
+      return cached;
+    }
+
     try {
       debugPrint('🔄 Google 역지오코딩 시작: ($lat, $lng)');
       final url = Uri.parse(
@@ -31,6 +40,7 @@ class GoogleGeocodingService {
             (data['results'] as List).isNotEmpty) {
           final address = data['results'][0]['formatted_address'] as String?;
           debugPrint('✅ Google 역지오코딩 결과: $address');
+          if (address != null) await _cache.put(lat, lng, address);
           return address;
         }
         if (data['status'] == 'REQUEST_DENIED') {

@@ -180,7 +180,7 @@ class AlarmListItem extends StatelessWidget {
       final period = l10n.get(h >= 12 ? 'pm_label' : 'am_label');
       final hour12 = h == 0 ? 12 : (h > 12 ? h - 12 : h);
       parts.add(
-        '$period ${hour12}${l10n.get('hour_suffix')}${(m ?? 0).toString().padLeft(2, '0')}${l10n.get('min_suffix')}${l10n.get('after_suffix')}',
+        '$period $hour12${l10n.get('hour_suffix')}${(m ?? 0).toString().padLeft(2, '0')}${l10n.get('min_suffix')}${l10n.get('after_suffix')}',
       );
     } else {
       final startTimeMs = alarm['startTimeMs'];
@@ -190,7 +190,7 @@ class AlarmListItem extends StatelessWidget {
         final hour12 =
             dt.hour == 0 ? 12 : (dt.hour > 12 ? dt.hour - 12 : dt.hour);
         parts.add(
-          '$period ${hour12}${l10n.get('hour_suffix')}${dt.minute.toString().padLeft(2, '0')}${l10n.get('min_suffix')}${l10n.get('after_suffix')}',
+          '$period $hour12${l10n.get('hour_suffix')}${dt.minute.toString().padLeft(2, '0')}${l10n.get('min_suffix')}${l10n.get('after_suffix')}',
         );
       }
     }
@@ -525,8 +525,9 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
     // 1) placeId로 먼저 조회
     final placeId = alarm['placeId']?.toString();
     if (placeId != null && placeId.isNotEmpty) {
-      if (HiveHelper.getBluetoothDevicesForPlace(placeId).isNotEmpty)
+      if (HiveHelper.getBluetoothDevicesForPlace(placeId).isNotEmpty) {
         return true;
+      }
     }
 
     // 2) 장소명으로 폴백 조회

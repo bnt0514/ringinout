@@ -38,7 +38,7 @@ class AppInitializer {
       final activeAlarms = await _getActiveAlarmsCount();
 
       if (activeAlarms > 0) {
-        print('🔔 활성 알람 ${activeAlarms}개 발견 - SmartLocationMonitor 시작');
+        print('🔔 활성 알람 $activeAlarms개 발견 - SmartLocationMonitor 시작');
         await SmartLocationMonitor.startSmartMonitoring();
       } else {
         print('📭 활성 알람이 없어 SmartLocationMonitor 시작하지 않음');

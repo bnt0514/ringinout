@@ -1,4 +1,4 @@
-﻿// location_monitor_service.dart
+// location_monitor_service.dart
 //
 // ✅ LMS v3 — 3-State 위치 엔진 (재설계)
 //
@@ -1024,8 +1024,9 @@ class LocationMonitorService {
         if (!await _isAlarmStillActive(alarmId)) continue;
         if (await _isAlarmDisabledByNative(alarmId)) continue;
         if (await _isAlarmInCooldown(alarmId, placeName)) continue;
-        if (await _hasAlreadyTriggeredToday(alarmId, alarm, placeName))
+        if (await _hasAlreadyTriggeredToday(alarmId, alarm, placeName)) {
           continue;
+        }
       }
 
       if (!await _checkDayCondition(alarm) || !_checkTimeCondition(alarm)) {
@@ -1077,8 +1078,9 @@ class LocationMonitorService {
         if (!await _isAlarmStillActive(alarmId)) continue;
         if (await _isAlarmDisabledByNative(alarmId)) continue;
         if (await _isAlarmInCooldown(alarmId, placeName)) continue;
-        if (await _hasAlreadyTriggeredToday(alarmId, alarm, placeName))
+        if (await _hasAlreadyTriggeredToday(alarmId, alarm, placeName)) {
           continue;
+        }
       }
 
       if (!await _checkDayCondition(alarm) || !_checkTimeCondition(alarm)) {
@@ -1359,7 +1361,7 @@ class LocationMonitorService {
       final cooldownMs = prefs.getInt('cooldown_until_$alarmId') ?? 0;
       if (cooldownMs > nowMs) {
         final remaining = (cooldownMs - nowMs) ~/ 1000;
-        _log('⏭️ [${placeName ?? alarmId}] 쿨다운 중 (${remaining}초 남음)');
+        _log('⏭️ [${placeName ?? alarmId}] 쿨다운 중 ($remaining초 남음)');
         return true;
       }
 

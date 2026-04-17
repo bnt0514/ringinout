@@ -1,11 +1,10 @@
-/**
- * BillingService - 구독 관리 서비스
- *
- * 플랜 조회 우선순위:
- * 1. Firestore users/{uid}.subscriptionPlan (테스트 계정 / 특별 부여)
- * 2. Firestore admin_config/special_users.uids 에 포함된 UID → special
- * 3. 서버 getBillingStatus (일반 유저)
- */
+/// BillingService - 구독 관리 서비스
+///
+/// 플랜 조회 우선순위:
+/// 1. Firestore users/{uid}.subscriptionPlan (테스트 계정 / 특별 부여)
+/// 2. Firestore admin_config/special_users.uids 에 포함된 UID → special
+/// 3. 서버 getBillingStatus (일반 유저)
+library;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -15,6 +14,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:ringinout/services/auth_service.dart';
 import 'package:ringinout/services/subscription_service.dart';
+import 'package:ringinout/utils/retry_helper.dart';
 
 class BillingService extends ChangeNotifier {
   static const String serverUrl =
@@ -38,7 +38,7 @@ class BillingService extends ChangeNotifier {
   Future<void> fetchStatus({bool forceRefresh = false}) async {
     if (!forceRefresh && _lastFetch != null) {
       final diff = DateTime.now().difference(_lastFetch!);
-      if (diff.inSeconds < 30) {
+      if (diff.inMinutes < 5) {
         debugPrint('⏭️  Billing status cached (${diff.inSeconds}s ago)');
         return;
       }
@@ -97,9 +97,13 @@ class BillingService extends ChangeNotifier {
         return;
       }
 
-      final response = await http.get(
-        Uri.parse('$serverUrl/getBillingStatus'),
-        headers: {'Authorization': 'Bearer $idToken'},
+      final response = await retryWithBackoff(
+        () => http.get(
+          Uri.parse('$serverUrl/getBillingStatus'),
+          headers: {'Authorization': 'Bearer $idToken'},
+        ),
+        maxAttempts: 3,
+        initialDelay: const Duration(seconds: 2),
       );
 
       if (response.statusCode == 200) {

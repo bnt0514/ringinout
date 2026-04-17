@@ -115,16 +115,7 @@ class _PlaceRecord {
   int insideStreakCount;
   int insideSinceMs;
 
-  _PlaceRecord({
-    this.state = PlaceState.UNKNOWN,
-    this.lastConfirmedAtMs = 0,
-    this.snoozeUntilMs = 0,
-    this.placeVersion = 0,
-    this.outsideStreakCount = 0,
-    this.outsideSinceMs = 0,
-    this.insideStreakCount = 0,
-    this.insideSinceMs = 0,
-  });
+  _PlaceRecord();
 }
 
 // ========== 판정 엔진 ==========
@@ -246,9 +237,9 @@ class PlaceStateEngine {
   static bool evaluateInsideFast(
     double distance,
     double accuracy,
-    double R_rearm,
+    double rRearm,
   ) {
-    return (distance + accuracy) < R_rearm;
+    return (distance + accuracy) < rRearm;
   }
 
   /// 애매한 영역인지 판정
@@ -261,10 +252,10 @@ class PlaceStateEngine {
   static bool isAmbiguousEnter(
     double distance,
     double accuracy,
-    double R_rearm,
+    double rRearm,
   ) {
-    return distance <= R_rearm &&
-        !evaluateInsideFast(distance, accuracy, R_rearm);
+    return distance <= rRearm &&
+        !evaluateInsideFast(distance, accuracy, rRearm);
   }
 
   // ========== 메인 판정 ==========

@@ -606,7 +606,7 @@ class _MyDevicesPageState extends State<MyDevicesPage> {
           (dialogContext) => AlertDialog(
             title: Text(l10n.get('delete')),
             content: Text(
-              '${count}${l10n.get('selected_count_suffix')}\n${l10n.get('my_devices_delete_confirm')}',
+              '$count${l10n.get('selected_count_suffix')}\n${l10n.get('my_devices_delete_confirm')}',
             ),
             actions: [
               TextButton(

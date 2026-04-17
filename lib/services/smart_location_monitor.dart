@@ -1,4 +1,4 @@
-﻿// lib/services/smart_location_monitor.dart
+// lib/services/smart_location_monitor.dart
 //
 // ✅ v3 지오펜스 + ActivityTransition — 모니터링 오케스트레이터
 //
@@ -42,7 +42,7 @@ class SmartLocationMonitor {
       await BackgroundServiceManager.initialize();
 
       final activeAlarms = await _getActiveAlarmsCount();
-      print('[SLM] 🎯 활성 알람 ${activeAlarms}개 발견');
+      print('[SLM] 🎯 활성 알람 $activeAlarms개 발견');
 
       if (activeAlarms == 0) {
         print('[SLM] 📭 활성 알람이 없어 모니터링 중단');

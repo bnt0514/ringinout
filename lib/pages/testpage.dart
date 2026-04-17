@@ -8,7 +8,7 @@ import 'add_location_alarm_page.dart';
 // import 'add_device_alarm_page.dart'; // BT 기능 숨김
 
 class TestPage extends StatefulWidget {
-  const TestPage({Key? key}) : super(key: key);
+  const TestPage({super.key});
 
   @override
   State<TestPage> createState() => _TestPageState();

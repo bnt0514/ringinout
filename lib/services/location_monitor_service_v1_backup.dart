@@ -1,4 +1,4 @@
-﻿// location_monitor_service.dart
+// location_monitor_service.dart
 //
 // ✅ 지오펜스 + 모션 감지 하이브리드 아키텍처
 //
@@ -406,7 +406,7 @@ class LocationMonitorService {
       // 최대 횟수 도달 시 중단
       if (_verifyCount >= _maxVerifyAttempts) {
         print(
-          '[LMS] ⏹️ [$placeName] GPS 확인 실패 (${_maxVerifyAttempts}회 소진) → 대기',
+          '[LMS] ⏹️ [$placeName] GPS 확인 실패 ($_maxVerifyAttempts회 소진) → 대기',
         );
         _stopGpsVerification();
         return;
@@ -579,7 +579,7 @@ class LocationMonitorService {
             if (passingUntilMs > nowMs) {
               final remaining = (passingUntilMs - nowMs) ~/ 1000;
               print(
-                '[LMS] ⏭️ [$placeName] passing 억제 중 (${remaining}초 남음) - 트리거 안함',
+                '[LMS] ⏭️ [$placeName] passing 억제 중 ($remaining초 남음) - 트리거 안함',
               );
               continue;
             }
@@ -968,7 +968,7 @@ class LocationMonitorService {
           monitorPlaces.where((p) => p['checkType'] == 'exit').length;
       final enterCount =
           monitorPlaces.where((p) => p['checkType'] == 'enter').length;
-      print('[LMS] 📱 모션 감시 시작 (EXIT: ${exitCount}개, ENTER: ${enterCount}개)');
+      print('[LMS] 📱 모션 감시 시작 (EXIT: $exitCount개, ENTER: $enterCount개)');
       for (final info in monitorPlaces) {
         print(
           '[LMS]    📍 ${info['placeName']}: ${(info['checkType'] as String).toUpperCase()} 감시 (모션 대기)',

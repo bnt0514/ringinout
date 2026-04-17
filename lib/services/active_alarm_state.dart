@@ -22,7 +22,7 @@ class ActiveAlarmState {
     _activeAlarmTitle = alarmTitle;
     _activeAlarmData = alarmData;
     _activeAlarmSoundPath = soundPath;
-    debugPrint('🔔 ActiveAlarmState: 알람 활성화 (${_activeAlarmId})');
+    debugPrint('🔔 ActiveAlarmState: 알람 활성화 ($_activeAlarmId)');
   }
 
   /// 알람이 종료(dismiss/snooze)될 때 호출

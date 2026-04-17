@@ -2,9 +2,9 @@
 // 네이버 지오코딩 API 서비스
 
 import 'dart:convert';
-import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
+import 'package:ringinout/utils/geocoding_cache.dart';
 
 class NaverGeocodingService {
   // 네이버 클라우드 플랫폼 API 키 (Geocoding/Reverse Geocoding)
@@ -15,6 +15,8 @@ class NaverGeocodingService {
   // 네이버 개발자센터 API 키 (Local Search)
   static const String _devClientId = 'aUS9TAPzqwqtpQJwNvKL';
   static const String _devClientSecret = 'MKU_6OiXW9';
+
+  static final _cache = GeocodingCache();
 
   /// 주소 → 좌표 변환 (Geocoding)
   static Future<GeocodingResult?> searchAddress(String query) async {
@@ -68,6 +70,13 @@ class NaverGeocodingService {
 
   /// 좌표 → 주소 변환 (Reverse Geocoding)
   static Future<String?> reverseGeocode(double lat, double lng) async {
+    // 온디바이스 캐시 확인
+    final cached = _cache.get(lat, lng);
+    if (cached != null) {
+      debugPrint('📦 [NaverGeocode] cache hit');
+      return cached;
+    }
+
     try {
       debugPrint('🔄 역지오코딩 시작: ($lat, $lng)');
       final url = Uri.parse(
@@ -111,7 +120,9 @@ class NaverGeocodingService {
             if (number2.isNotEmpty) {
               address += '-$number2';
             }
-            return address.trim();
+            final trimmed = address.trim();
+            await _cache.put(lat, lng, trimmed);
+            return trimmed;
           }
 
           // 지번 주소 조합
@@ -126,7 +137,9 @@ class NaverGeocodingService {
             if (number2.isNotEmpty) {
               address += '-$number2';
             }
-            return address.trim();
+            final trimmed = address.trim();
+            await _cache.put(lat, lng, trimmed);
+            return trimmed;
           }
         }
       } else {

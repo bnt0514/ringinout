@@ -6,15 +6,24 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:ringinout/utils/geocoding_cache.dart';
 
 class OsmGeocodingService {
   static const _userAgent = 'ringinout/1.0 (location-alarm-app)';
   static const _baseUrl = 'https://nominatim.openstreetmap.org';
+  static final _cache = GeocodingCache();
 
   // ──────────────────────────────────────────────
   // 역지오코딩: 좌표 → 주소
   // ──────────────────────────────────────────────
   static Future<String?> reverseGeocode(double lat, double lng) async {
+    // Check on-device cache first
+    final cached = _cache.get(lat, lng);
+    if (cached != null) {
+      debugPrint('📦 [OsmGeocode] cache hit');
+      return cached;
+    }
+
     try {
       final url = Uri.parse(
         '$_baseUrl/reverse'
@@ -26,7 +35,9 @@ class OsmGeocodingService {
 
       if (response.statusCode != 200) return null;
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      return data['display_name'] as String?;
+      final address = data['display_name'] as String?;
+      if (address != null) await _cache.put(lat, lng, address);
+      return address;
     } catch (e) {
       debugPrint('⚠️ [OsmGeocode] reverseGeocode 실패: $e');
       return null;

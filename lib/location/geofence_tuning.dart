@@ -77,7 +77,7 @@ TuningParams computeTuning(double rMeters) {
 
   // R_rearm: INSIDE 확정(재무장) 반경 = R - H
   // ✅ 하한 25m 적용 (R=30 엣지케이스 방어: GPS accuracy 20m에서도 inside 확정 가능)
-  final R_rearm = max(25.0, R - H);
+  final rRearm = max(25.0, R - H);
 
   return TuningParams._(
     R: R,
@@ -85,6 +85,6 @@ TuningParams computeTuning(double rMeters) {
     E: E,
     smallRadius: smallRadius,
     bigRadius: bigRadius,
-    R_rearm: R_rearm,
+    R_rearm: rRearm,
   );
 }

@@ -166,6 +166,12 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
         return 'zh_CN';
       case AppLanguage.english:
         return 'en_US';
+      case AppLanguage.german:
+        return 'de_DE';
+      case AppLanguage.french:
+        return 'fr_FR';
+      case AppLanguage.spanish:
+        return 'es_ES';
       case AppLanguage.system:
         // 기기 시스템 언어 그대로 사용 (speech_to_text 기본값)
         final sysLocale = WidgetsBinding.instance.platformDispatcher.locale;
@@ -438,7 +444,7 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
       final period = l10n.get(h >= 12 ? 'pm_label' : 'am_label');
       final hour12 = h == 0 ? 12 : (h > 12 ? h - 12 : h);
       parts.add(
-        '$period ${hour12}${l10n.get('hour_suffix')}${m.toString().padLeft(2, '0')}${l10n.get('min_suffix')}${l10n.get('after_suffix')}',
+        '$period $hour12${l10n.get('hour_suffix')}${m.toString().padLeft(2, '0')}${l10n.get('min_suffix')}${l10n.get('after_suffix')}',
       );
     }
 
@@ -672,7 +678,7 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<Map<String, dynamic>>(
-              value: selectedPlace,
+              initialValue: selectedPlace,
               items:
                   places.asMap().entries.map((entry) {
                     final idx = entry.key;

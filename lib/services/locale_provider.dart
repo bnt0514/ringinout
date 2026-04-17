@@ -8,6 +8,9 @@ enum AppLanguage {
   korean, // 한국어
   japanese, // 일본어
   chinese, // 중국어
+  german, // 독일어
+  french, // 프랑스어
+  spanish, // 스페인어
 }
 
 extension AppLanguageExtension on AppLanguage {
@@ -23,6 +26,12 @@ extension AppLanguageExtension on AppLanguage {
         return '日本語';
       case AppLanguage.chinese:
         return '中文';
+      case AppLanguage.german:
+        return 'Deutsch';
+      case AppLanguage.french:
+        return 'Français';
+      case AppLanguage.spanish:
+        return 'Español';
     }
   }
 
@@ -38,6 +47,12 @@ extension AppLanguageExtension on AppLanguage {
         return 'ja';
       case AppLanguage.chinese:
         return 'zh';
+      case AppLanguage.german:
+        return 'de';
+      case AppLanguage.french:
+        return 'fr';
+      case AppLanguage.spanish:
+        return 'es';
     }
   }
 
@@ -53,6 +68,12 @@ extension AppLanguageExtension on AppLanguage {
         return const Locale('ja', 'JP');
       case AppLanguage.chinese:
         return const Locale('zh', 'CN');
+      case AppLanguage.german:
+        return const Locale('de', 'DE');
+      case AppLanguage.french:
+        return const Locale('fr', 'FR');
+      case AppLanguage.spanish:
+        return const Locale('es', 'ES');
     }
   }
 
@@ -66,6 +87,12 @@ extension AppLanguageExtension on AppLanguage {
         return AppLanguage.japanese;
       case 'zh':
         return AppLanguage.chinese;
+      case 'de':
+        return AppLanguage.german;
+      case 'fr':
+        return AppLanguage.french;
+      case 'es':
+        return AppLanguage.spanish;
       default:
         return AppLanguage.system;
     }
@@ -110,7 +137,15 @@ class LocaleProvider extends ChangeNotifier {
     // 시스템 기본 로케일
     final systemLocale = Localizations.localeOf(context);
     // 지원하는 언어인지 확인
-    if (['ko', 'en', 'ja', 'zh'].contains(systemLocale.languageCode)) {
+    if ([
+      'ko',
+      'en',
+      'ja',
+      'zh',
+      'de',
+      'fr',
+      'es',
+    ].contains(systemLocale.languageCode)) {
       return systemLocale;
     }
     // 지원하지 않으면 영어로

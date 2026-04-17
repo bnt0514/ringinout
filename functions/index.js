@@ -4,9 +4,26 @@ const crypto = require('crypto');
 
 admin.initializeApp();
 
-// 메모리 DB (간단한 캐시용)
-const users = new Map();
-const subscriptions = new Map();
+const db = admin.firestore();
+
+// Allowed origins for CORS (restrict in production)
+const ALLOWED_ORIGINS = ['https://ringgo-485705.web.app', 'https://ringgo-485705.firebaseapp.com'];
+
+function setCors(req, res) {
+    const origin = req.headers.origin;
+    // Allow any origin in dev, restrict in production
+    if (ALLOWED_ORIGINS.includes(origin)) {
+        res.set('Access-Control-Allow-Origin', origin);
+    } else {
+        // Mobile apps don't send Origin header, so allow if no origin
+        res.set('Access-Control-Allow-Origin', origin || '*');
+    }
+    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
+
+// Max bug report payload size (500KB)
+const MAX_BUG_REPORT_SIZE = 500 * 1024;
 
 // HMAC 익명 ID 생성
 function generateAnonUserId(firebaseUid) {
@@ -38,10 +55,7 @@ async function checkSpecialPlan(firebaseUid) {
 // POST /auth/session - 로그인 세션 생성
 // ============================================================
 exports.createSession = functions.https.onRequest(async (req, res) => {
-    // CORS 설정
-    res.set('Access-Control-Allow-Origin', '*');
-    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    setCors(req, res);
 
     if (req.method === 'OPTIONS') {
         return res.status(204).send('');
@@ -65,16 +79,19 @@ exports.createSession = functions.https.onRequest(async (req, res) => {
         // HMAC 기반 익명 ID 생성
         const anonUserId = generateAnonUserId(firebaseUid);
 
-        // 사용자 등록
+        // 사용자 등록 (Firestore 영속 저장)
         const now = Date.now();
-        if (!users.has(anonUserId)) {
-            users.set(anonUserId, { created_at: now, last_login_at: now });
+        const userRef = db.collection('cf_users').doc(anonUserId);
+        const userSnap = await userRef.get();
+
+        if (!userSnap.exists) {
+            await userRef.set({ created_at: now, last_login_at: now });
 
             // Firestore에서 special 플랜 여부 확인
             const isSpecialUser = await checkSpecialPlan(firebaseUid);
             const plan = isSpecialUser ? 'special' : 'free';
 
-            subscriptions.set(anonUserId, {
+            await db.collection('cf_subscriptions').doc(anonUserId).set({
                 store: 'manual',
                 plan: plan,
                 status: 'active',
@@ -84,7 +101,7 @@ exports.createSession = functions.https.onRequest(async (req, res) => {
 
             console.log(`👤 신규 사용자 생성: ${plan} 플랜`);
         } else {
-            users.get(anonUserId).last_login_at = now;
+            await userRef.update({ last_login_at: now });
         }
 
         res.json({ success: true, message: 'Session created' });
@@ -98,10 +115,7 @@ exports.createSession = functions.https.onRequest(async (req, res) => {
 // GET /billing/status - 구독 플랜 조회
 // ============================================================
 exports.getBillingStatus = functions.https.onRequest(async (req, res) => {
-    // CORS 설정
-    res.set('Access-Control-Allow-Origin', '*');
-    res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    setCors(req, res);
 
     if (req.method === 'OPTIONS') {
         return res.status(204).send('');
@@ -127,12 +141,14 @@ exports.getBillingStatus = functions.https.onRequest(async (req, res) => {
         // HMAC 기반 익명 ID 생성
         const anonUserId = generateAnonUserId(firebaseUid);
 
-        // 구독 조회
-        const subscription = subscriptions.get(anonUserId);
+        // 구독 조회 (Firestore)
+        const subSnap = await db.collection('cf_subscriptions').doc(anonUserId).get();
 
-        if (!subscription) {
+        if (!subSnap.exists) {
             return res.status(404).json({ error: 'Subscription not found' });
         }
+
+        const subscription = subSnap.data();
 
         res.json({
             plan: subscription.plan,
@@ -150,10 +166,7 @@ exports.getBillingStatus = functions.https.onRequest(async (req, res) => {
 // POST /billing/verify - 영수증 검증 (향후 구현)
 // ============================================================
 exports.verifyPurchase = functions.https.onRequest(async (req, res) => {
-    // CORS 설정
-    res.set('Access-Control-Allow-Origin', '*');
-    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    setCors(req, res);
 
     if (req.method === 'OPTIONS') {
         return res.status(204).send('');
@@ -201,9 +214,7 @@ exports.verifyPurchase = functions.https.onRequest(async (req, res) => {
 // Firestore > bug_reports 컬렉션에 저장
 // ============================================================
 exports.submitBugReport = functions.https.onRequest(async (req, res) => {
-    res.set('Access-Control-Allow-Origin', '*');
-    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    setCors(req, res);
 
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -223,6 +234,12 @@ exports.submitBugReport = functions.https.onRequest(async (req, res) => {
 
         if (!logs || !Array.isArray(logs)) {
             return res.status(400).json({ error: 'logs array is required' });
+        }
+
+        // Payload size guard
+        const payloadSize = JSON.stringify(req.body).length;
+        if (payloadSize > MAX_BUG_REPORT_SIZE) {
+            return res.status(413).json({ error: `Payload too large (${payloadSize} bytes, max ${MAX_BUG_REPORT_SIZE})` });
         }
 
         // 로그 분석: severity 자동 판단

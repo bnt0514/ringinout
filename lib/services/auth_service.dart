@@ -2,6 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
 /// AuthService - 인증 관리 서비스
@@ -106,10 +108,30 @@ class AuthService {
     final user = currentUser;
     if (user == null) throw Exception('No user signed in');
 
-    // TODO: 서버에 계정 삭제 요청 (구독 데이터 삭제)
+    final uid = user.uid;
 
+    // 1. Firestore 사용자 데이터 삭제
+    try {
+      final firestore = FirebaseFirestore.instance;
+      await firestore.collection('users').doc(uid).delete();
+      await firestore.collection('subscriptions').doc(uid).delete();
+      final mapUsageDoc = firestore.collection('map_usage').doc(uid);
+      if ((await mapUsageDoc.get()).exists) await mapUsageDoc.delete();
+    } catch (e) {
+      debugPrint('⚠️ Firestore data deletion (continuing): $e');
+    }
+
+    // 2. 로컬 SharedPreferences 초기화
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+    } catch (e) {
+      debugPrint('⚠️ SharedPreferences clear failed (continuing): $e');
+    }
+
+    // 3. Firebase Auth 계정 삭제
     await user.delete();
     await _googleSignIn.signOut();
-    debugPrint('✅ Account deleted');
+    debugPrint('✅ Account deleted completely');
   }
 }

@@ -7,7 +7,6 @@ import 'package:ringinout/services/smart_location_monitor.dart';
 import 'package:ringinout/services/smart_location_service.dart';
 import 'package:ringinout/utils/trigger_keywords.dart';
 import 'package:ringinout/widgets/false_trigger_info_tile.dart';
-import 'package:uuid/uuid.dart';
 
 class AddAlarmPage extends StatefulWidget {
   final Map<String, dynamic> location;

@@ -1,9 +1,8 @@
-/**
- * ServerSubscriptionPage - 서버 기반 구독 관리 페이지
- * 
- * 기존 subscription_management_page.dart를 대체
- * BillingService에서 실시간으로 플랜을 가져와 표시
- */
+/// ServerSubscriptionPage - 서버 기반 구독 관리 페이지
+/// 
+/// 기존 subscription_management_page.dart를 대체
+/// BillingService에서 실시간으로 플랜을 가져와 표시
+library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -166,6 +165,10 @@ class _ServerSubscriptionViewState extends State<_ServerSubscriptionView> {
               ),
               const SizedBox(height: 16),
 
+              // Free 플랜 요약
+              _FreePlanSummaryCard(l10n: l10n),
+              const SizedBox(height: 12),
+
               // 베타 안내 또는 플랜 목록 (개발자는 베타여도 플랜 표시)
               if (AppConfig.isBetaVersion &&
                   !_isDevUser &&
@@ -182,11 +185,13 @@ class _ServerSubscriptionViewState extends State<_ServerSubscriptionView> {
                 )
               else ...[
                 _PlanCard(
-                  title: 'Basic',
+                  title: 'Plus',
                   price: '₩2,900 ${l10n.get('subscription_per_month')}',
+                  discountPrice: '₩2,500',
                   features: [
                     l10n.getWithArgs('subscription_places_n', {'n': '5'}),
                     l10n.getWithArgs('subscription_alarms_n', {'n': '10'}),
+                    l10n.get('subscription_map_opens_50'),
                     l10n.get('subscription_no_ads'),
                   ],
                   isCurrentPlan: plan == SubscriptionPlan.basic,
@@ -195,11 +200,13 @@ class _ServerSubscriptionViewState extends State<_ServerSubscriptionView> {
                 ),
                 const SizedBox(height: 12),
                 _PlanCard(
-                  title: 'Premium',
-                  price: '₩4,900 ${l10n.get('subscription_per_month')}',
+                  title: 'Pro',
+                  price: '₩5,900 ${l10n.get('subscription_per_month')}',
+                  discountPrice: '₩4,900',
                   features: [
                     l10n.get('subscription_places_unlimited'),
                     l10n.get('subscription_alarms_unlimited'),
+                    l10n.get('subscription_map_opens_unlimited'),
                     l10n.get('subscription_no_ads'),
                   ],
                   isCurrentPlan:
@@ -293,11 +300,13 @@ class _ServerSubscriptionViewState extends State<_ServerSubscriptionView> {
                     ),
                     const SizedBox(height: 16),
                     _PlanCard(
-                      title: 'Basic',
+                      title: 'Plus',
                       price: '₩2,900 ${l10n.get('subscription_per_month')}',
+                      discountPrice: '₩2,500',
                       features: [
                         l10n.getWithArgs('subscription_places_n', {'n': '5'}),
                         l10n.getWithArgs('subscription_alarms_n', {'n': '10'}),
+                        l10n.get('subscription_map_opens_50'),
                         l10n.get('subscription_no_ads'),
                       ],
                       isCurrentPlan: currentPlan == SubscriptionPlan.basic,
@@ -309,11 +318,13 @@ class _ServerSubscriptionViewState extends State<_ServerSubscriptionView> {
                     ),
                     const SizedBox(height: 12),
                     _PlanCard(
-                      title: 'Premium',
-                      price: '₩4,900 ${l10n.get('subscription_per_month')}',
+                      title: 'Pro',
+                      price: '₩5,900 ${l10n.get('subscription_per_month')}',
+                      discountPrice: '₩4,900',
                       features: [
                         l10n.get('subscription_places_unlimited'),
                         l10n.get('subscription_alarms_unlimited'),
+                        l10n.get('subscription_map_opens_unlimited'),
                         l10n.get('subscription_no_ads'),
                       ],
                       isCurrentPlan:
@@ -417,22 +428,6 @@ class _CurrentPlanCard extends StatelessWidget {
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                else if (onChangePlan != null)
-                  TextButton.icon(
-                    onPressed: onChangePlan,
-                    icon: const Icon(Icons.upgrade, size: 16),
-                    label: Text(
-                      l10n.get('subscription_subscribe'),
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                    ),
                   ),
               ],
             ),
@@ -466,28 +461,73 @@ class _CurrentPlanCard extends StatelessWidget {
       case SubscriptionPlan.free:
         return 'Free';
       case SubscriptionPlan.basic:
-        return 'Basic';
+        return 'Plus';
       case SubscriptionPlan.premium:
-        return 'Premium';
+        return 'Pro';
       case SubscriptionPlan.special:
         return 'Developer (Special)';
     }
   }
 
   String _getPlanDescription(SubscriptionPlan plan) {
-    // Plan descriptions use the build context's l10n indirectly
-    // These are displayed as secondary text, keep English plan names
     switch (plan) {
       case SubscriptionPlan.free:
-        return '2 places, 2 alarms';
+        return '2 places · 4 alarms · 15 map opens/mo';
       case SubscriptionPlan.basic:
-        return '5 places, 10 alarms';
+        return '5 places · 10 alarms · 50 map opens/mo · ad-free';
       case SubscriptionPlan.premium:
-        return 'All features unlimited';
+        return 'Unlimited everything · ad-free';
       case SubscriptionPlan.special:
         return 'Developer - all features unlimited';
     }
   }
+}
+
+class _FreePlanSummaryCard extends StatelessWidget {
+  const _FreePlanSummaryCard({required this.l10n});
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: AppColors.card,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.card_giftcard, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  'Free',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _bullet('2 places · 4 alarms · 15 map opens/month'),
+            _bullet(
+              '${l10n.get('subscription_no_ads')} ✗  (ad after alarm, max 3/day)',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _bullet(String text) => Padding(
+    padding: const EdgeInsets.only(top: 4),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('• ', style: TextStyle(fontSize: 14)),
+        Expanded(child: Text(text, style: const TextStyle(fontSize: 13))),
+      ],
+    ),
+  );
 }
 
 class _PlanCard extends StatelessWidget {
@@ -497,12 +537,14 @@ class _PlanCard extends StatelessWidget {
     required this.features,
     required this.onTap,
     required this.l10n,
+    this.discountPrice,
     this.isCurrentPlan = false,
     this.recommended = false,
   });
 
   final String title;
   final String price;
+  final String? discountPrice;
   final List<String> features;
   final VoidCallback onTap;
   final AppLocalizations l10n;
@@ -569,6 +611,15 @@ class _PlanCard extends StatelessWidget {
                   color: AppColors.primary,
                 ),
               ),
+              if (discountPrice != null)
+                Text(
+                  '자동구독 시 $discountPrice/월 (15% 할인)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               const SizedBox(height: 12),
               ...features.map(
                 (feature) => Padding(

@@ -1,4 +1,4 @@
-﻿// lib/pages/admin_dashboard_page.dart
+// lib/pages/admin_dashboard_page.dart
 // 어드민 전용: 탭 네비게이션 Shell (Maps | 버그리포트 | ...)
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -201,28 +201,31 @@ class _MapsDashboardTabState extends State<_MapsDashboardTab> {
       }
       await _loadStats();
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('오류: $e')));
+      }
     }
   }
 
   Future<void> _forceUpload() async {
     try {
       await MapUsageService.forceUpload();
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Firestore 업로드 완료'),
             duration: Duration(seconds: 2),
           ),
         );
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('업로드 실패: $e')));
+      }
     }
   }
 
@@ -255,10 +258,11 @@ class _MapsDashboardTabState extends State<_MapsDashboardTab> {
         }
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('오류: $e'), backgroundColor: Colors.red),
         );
+      }
     } finally {
       if (mounted) setState(() => _forceUploadInProgress = false);
     }
@@ -554,21 +558,23 @@ class _BugReportsTabState extends State<_BugReportsTab> {
   }
 
   Future<void> _load() async {
-    if (mounted)
+    if (mounted) {
       setState(() {
         _loading = true;
         _reports = [];
         _cursor = null;
         _hasMore = true;
       });
+    }
     try {
       final snap = await _buildQuery().limit(20).get();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _reports = snap.docs.map((d) => _BugReport.fromDoc(d)).toList();
           _cursor = snap.docs.isNotEmpty ? snap.docs.last : null;
           _hasMore = snap.docs.length == 20;
         });
+      }
     } catch (e) {
       debugPrint('버그 리포트 로드 실패: $e');
     } finally {
@@ -582,12 +588,13 @@ class _BugReportsTabState extends State<_BugReportsTab> {
     try {
       final snap =
           await _buildQuery().startAfterDocument(_cursor!).limit(20).get();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _reports.addAll(snap.docs.map((d) => _BugReport.fromDoc(d)));
           _cursor = snap.docs.isNotEmpty ? snap.docs.last : _cursor;
           _hasMore = snap.docs.length == 20;
         });
+      }
     } catch (e) {
       debugPrint('버그 리포트 추가 로드 실패: $e');
     } finally {
@@ -1049,7 +1056,7 @@ class _ProviderCard extends StatelessWidget {
                   Switch(
                     value: isEnabled,
                     onChanged: onToggle,
-                    activeColor: iconColor,
+                    activeThumbColor: iconColor,
                   ),
                   Text(
                     isEnabled ? '활성' : '비활성',

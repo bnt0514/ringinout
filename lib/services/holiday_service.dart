@@ -34,6 +34,14 @@ class HolidayService {
     'CA',
     'BR',
     'TW',
+    'DE',
+    'FR',
+    'ES',
+    'IT',
+    'NL',
+    'SE',
+    'PL',
+    'GB',
   ];
 
   /// 국가코드 → 국기 이모지 매핑
@@ -48,6 +56,14 @@ class HolidayService {
     'CA': '🇨🇦',
     'BR': '🇧🇷',
     'TW': '🇹🇼',
+    'DE': '🇩🇪',
+    'FR': '🇫🇷',
+    'ES': '🇪🇸',
+    'IT': '🇮🇹',
+    'NL': '🇳🇱',
+    'SE': '🇸🇪',
+    'PL': '🇵🇱',
+    'GB': '🇬🇧',
   };
 
   final WorldHolidays _worldHolidays = WorldHolidays();
