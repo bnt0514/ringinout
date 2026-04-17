@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ringinout – Privacy Policy / 개인정보 처리방침</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+            background: #f5f5f5;
+            color: #222;
+            line-height: 1.7;
+        }
+
+        header {
+            background: #4A90D9;
+            color: #fff;
+            padding: 28px 20px 20px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        header p {
+            font-size: 0.9rem;
+            margin-top: 4px;
+            opacity: 0.85;
+        }
+
+        .lang-bar {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            background: #3a7ec8;
+            padding: 8px;
+            flex-wrap: wrap;
+        }
+
+        .lang-bar button {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 16px;
+            padding: 4px 14px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+        }
+
+        .lang-bar button:hover,
+        .lang-bar button.active {
+            background: rgba(255, 255, 255, 0.35);
+        }
+
+        .container {
+            max-width: 720px;
+            margin: 32px auto;
+            padding: 0 16px 60px;
+        }
+
+        .section {
+            background: #fff;
+            border-radius: 10px;
+            padding: 20px 24px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+        }
+
+        .section h2 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #4A90D9;
+            margin-bottom: 10px;
+        }
+
+        .section p,
+        .section li {
+            font-size: 0.92rem;
+            color: #444;
+        }
+
+        .section ul {
+            padding-left: 18px;
+        }
+
+        .section ul li {
+            margin-bottom: 6px;
+        }
+
+        .updated {
+            font-size: 0.82rem;
+            color: #999;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .lang-section {
+            display: none;
+        }
+
+        .lang-section.active {
+            display: block;
+        }
+
+        footer {
+            text-align: center;
+            font-size: 0.78rem;
+            color: #aaa;
+            padding: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>🔔 Ringinout</h1>
+        <p>Privacy Policy / 개인정보 처리방침</p>
+    </header>
+
+    <div class="lang-bar">
+        <button onclick="setLang('ko')" id="btn-ko" class="active">한국어</button>
+        <button onclick="setLang('en')" id="btn-en">English</button>
+        <button onclick="setLang('ja')" id="btn-ja">日本語</button>
+        <button onclick="setLang('zh')" id="btn-zh">中文</button>
+    </div>
+
+    <div class="container">
+
+        <!-- ===== KOREAN ===== -->
+        <div class="lang-section active" id="lang-ko">
+            <p class="updated">최종 업데이트: 2026년 1월</p>
+
+            <div class="section">
+                <h2>1. 수집하는 정보</h2>
+                <p>Ringinout은 사용자의 개인정보를 수집하지 않습니다.</p>
+                <ul>
+                    <li><strong>위치 정보:</strong> 알람 기능을 위해 기기 내에서만 처리되며, 외부 서버로 전송되지 않습니다.</li>
+                    <li><strong>음성 인식:</strong> 알람 입력을 위해 일시적으로 마이크를 사용하며, 음성 데이터는 서버에 저장되지 않습니다.</li>
+                    <li><strong>계정 정보:</strong> Google 로그인 시 이메일 주소는 익명화된 랜덤 ID로 변환되어 저장됩니다. 원본 이메일은 저장되지 않습니다.</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h2>2. 익명화된 ID 사용 목적</h2>
+                <p>익명화된 ID는 오직 유료 구독 상태 확인 목적으로만 사용됩니다. 이 ID를 통해 개인을 식별하거나 추적할 수 없습니다.</p>
+            </div>
+
+            <div class="section">
+                <h2>3. 데이터 저장</h2>
+                <p>모든 알람 데이터와 장소 정보는 사용자의 기기 내에만 저장되며, 외부 서버로 전송되지 않습니다.</p>
+            </div>
+
+            <div class="section">
+                <h2>4. 제3자 공유</h2>
+                <p>Ringinout은 어떠한 사용자 정보도 제3자와 공유하지 않습니다.</p>
+            </div>
+
+            <div class="section">
+                <h2>5. 사용 권한 안내</h2>
+                <ul>
+                    <li><strong>위치 권한 (백그라운드 포함):</strong> 지정 장소 도착/출발 감지 알람 기능에 사용됩니다.</li>
+                    <li><strong>마이크 권한 (RECORD_AUDIO):</strong> 음성으로 알람 시간 및 장소를 입력할 때만 사용됩니다. 녹음 내용은 저장되거나 전송되지 않습니다.
+                    </li>
+                    <li><strong>알림 권한:</strong> 알람 발생 시 사용자에게 알림을 전달하기 위해 필요합니다.</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h2>6. 문의</h2>
+                <p>개인정보 관련 문의사항이 있으시면 앱 내 '건의사항 보내기' 기능을 이용해주세요.</p>
+            </div>
+        </div>
+
+        <!-- ===== ENGLISH ===== -->
+        <div class="lang-section" id="lang-en">
+            <p class="updated">Last updated: January 2026</p>
+
+            <div class="section">
+                <h2>1. Information We Collect</h2>
+                <p>Ringinout does not collect personal information.</p>
+                <ul>
+                    <li><strong>Location data:</strong> Processed only on your device for alarm functionality. Not sent
+                        to external servers.</li>
+                    <li><strong>Voice recognition:</strong> The microphone is used temporarily to enter alarm details
+                        via voice. Audio data is not stored on any server.</li>
+                    <li><strong>Account info:</strong> When signing in with Google, your email is converted to an
+                        anonymized random ID. The original email is not stored.</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h2>2. Purpose of Anonymized ID</h2>
+                <p>The anonymized ID is used solely to verify premium subscription status. This ID cannot be used to
+                    identify or track individuals.</p>
+            </div>
+
+            <div class="section">
+                <h2>3. Data Storage</h2>
+                <p>All alarm and location data is stored only on your device and is not transmitted to external servers.
+                </p>
+            </div>
+
+            <div class="section">
+                <h2>4. Third-Party Sharing</h2>
+                <p>Ringinout does not share any user information with third parties.</p>
+            </div>
+
+            <div class="section">
+                <h2>5. Permissions Explained</h2>
+                <ul>
+                    <li><strong>Location (including background):</strong> Used to detect arrival/departure at designated
+                        places for alarm triggering.</li>
+                    <li><strong>Microphone (RECORD_AUDIO):</strong> Used only when you choose to input alarm time or
+                        location by voice. Recordings are never stored or transmitted.</li>
+                    <li><strong>Notifications:</strong> Required to deliver alarm alerts to the user.</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h2>6. Contact</h2>
+                <p>For privacy-related inquiries, please use the 'Send Feedback' feature in the app.</p>
+            </div>
+        </div>
+
+        <!-- ===== JAPANESE ===== -->
+        <div class="lang-section" id="lang-ja">
+            <p class="updated">最終更新日：2026年1月</p>
+
+            <div class="section">
+                <h2>1. 収集する情報</h2>
+                <p>Ringinoutはユーザーの個人情報を収集しません。</p>
+                <ul>
+                    <li><strong>位置情報：</strong>アラーム機能のためにデバイス内でのみ処理され、外部サーバーには送信されません。</li>
+                    <li><strong>音声認識：</strong>アラームの入力時に一時的にマイクを使用します。音声データはサーバーに保存されません。</li>
+                    <li><strong>アカウント情報：</strong>Googleログイン時、メールアドレスは匿名化されたランダムIDに変換されます。元のメールアドレスは保存されません。</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h2>2. 匿名化IDの使用目的</h2>
+                <p>匿名化IDは、有料サブスクリプションの確認のみに使用されます。このIDによって個人を特定・追跡することはできません。</p>
+            </div>
+
+            <div class="section">
+                <h2>3. データの保存</h2>
+                <p>すべてのアラームデータと場所情報はユーザーのデバイス内にのみ保存され、外部サーバーには送信されません。</p>
+            </div>
+
+            <div class="section">
+                <h2>4. 第三者への共有</h2>
+                <p>Ringinoutはいかなるユーザー情報も第三者と共有しません。</p>
+            </div>
+
+            <div class="section">
+                <h2>5. 権限の説明</h2>
+                <ul>
+                    <li><strong>位置情報（バックグラウンド含む）：</strong>指定した場所への到着・出発を検知するアラーム機能に使用されます。</li>
+                    <li><strong>マイク（RECORD_AUDIO）：</strong>音声でアラームを入力する場合のみ使用されます。録音内容は保存・送信されません。</li>
+                    <li><strong>通知：</strong>アラームをユーザーに届けるために必要です。</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h2>6. お問い合わせ</h2>
+                <p>プライバシーに関するお問い合わせは、アプリ内の「フィードバックを送る」機能をご利用ください。</p>
+            </div>
+        </div>
+
+        <!-- ===== CHINESE ===== -->
+        <div class="lang-section" id="lang-zh">
+            <p class="updated">最后更新：2026年1月</p>
+
+            <div class="section">
+                <h2>1. 收集的信息</h2>
+                <p>Ringinout不收集用户个人信息。</p>
+                <ul>
+                    <li><strong>位置信息：</strong>仅在设备内处理，用于闹钟功能，不发送至外部服务器。</li>
+                    <li><strong>语音识别：</strong>输入闹钟时临时使用麦克风，语音数据不会存储在任何服务器上。</li>
+                    <li><strong>账户信息：</strong>通过Google登录时，邮箱地址将被转换为匿名随机ID。原始邮箱不会被存储。</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h2>2. 匿名ID的使用目的</h2>
+                <p>匿名ID仅用于验证付费订阅状态。该ID无法用于识别或追踪个人。</p>
+            </div>
+
+            <div class="section">
+                <h2>3. 数据存储</h2>
+                <p>所有闹钟数据和位置信息仅存储在用户设备上，不传输至外部服务器。</p>
+            </div>
+
+            <div class="section">
+                <h2>4. 第三方共享</h2>
+                <p>Ringinout不与任何第三方共享用户信息。</p>
+            </div>
+
+            <div class="section">
+                <h2>5. 权限说明</h2>
+                <ul>
+                    <li><strong>位置权限（含后台）：</strong>用于检测到达/离开指定地点以触发闹钟。</li>
+                    <li><strong>麦克风权限（RECORD_AUDIO）：</strong>仅在您通过语音输入闹钟时使用，录音内容不会被存储或传输。</li>
+                    <li><strong>通知权限：</strong>向用户发送闹钟提醒所必需。</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h2>6. 联系方式</h2>
+                <p>如有隐私相关问题，请使用应用内的"发送反馈"功能与我们联系。</p>
+            </div>
+        </div>
+
+    </div>
+
+    <footer>© 2026 Ringinout · bnt0514</footer>
+
+    <script>
+        function setLang(lang) {
+            document.querySelectorAll('.lang-section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.lang-bar button').forEach(el => el.classList.remove('active'));
+            document.getElementById('lang-' + lang).classList.add('active');
+            document.getElementById('btn-' + lang).classList.add('active');
+            document.documentElement.lang = lang;
+        }
+        // Auto-detect browser language
+        const bl = navigator.language || 'ko';
+        if (bl.startsWith('ja')) setLang('ja');
+        else if (bl.startsWith('zh')) setLang('zh');
+        else if (bl.startsWith('ko')) setLang('ko');
+        else setLang('en');
+    </script>
+
+</body>
+
+</html>
