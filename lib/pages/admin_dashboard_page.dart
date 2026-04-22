@@ -155,17 +155,31 @@ class _MapsDashboardTabState extends State<_MapsDashboardTab> {
   List<WeeklyMapStats> _weeklyHistory = [];
   bool _weeklyLoading = true;
   bool _forceUploadInProgress = false;
+  Map<String, int> _geoCounts = {};
+  bool _geoLoading = true;
 
   @override
   void initState() {
     super.initState();
     _loadStats();
     _loadWeeklyHistory();
+    _loadGeoCounts();
   }
 
   void refresh() {
     _loadStats();
     _loadWeeklyHistory();
+    _loadGeoCounts();
+  }
+
+  Future<void> _loadGeoCounts() async {
+    if (mounted) setState(() => _geoLoading = true);
+    final counts = await MapUsageService.getLocalGeocodingCounts();
+    if (mounted)
+      setState(() {
+        _geoCounts = counts;
+        _geoLoading = false;
+      });
   }
 
   Future<void> _loadStats() async {
@@ -200,6 +214,31 @@ class _MapsDashboardTabState extends State<_MapsDashboardTab> {
         );
       }
       await _loadStats();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('오류: $e')));
+      }
+    }
+  }
+
+  Future<void> _toggleGeocoding(bool enabled) async {
+    try {
+      await MapUsageService.setGeocodingEnabled(enabled);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '지오코딩 ${enabled ? "활성화 ✅" : "비활성화 🚫"}',
+              style: const TextStyle(color: Colors.white),
+            ),
+            backgroundColor: enabled ? Colors.green : Colors.red,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        setState(() {});
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -360,6 +399,19 @@ class _MapsDashboardTabState extends State<_MapsDashboardTab> {
           const SizedBox(height: 12),
           _OsmCard(osmCount: stats?.osm ?? 0, fmt: fmt),
           const SizedBox(height: 24),
+
+          // ── 지오코딩 섹션 ──
+          _SectionHeader(title: '지오코딩 & 검색 API (이 기기, 이번 달)'),
+          const SizedBox(height: 8),
+          _GeocodingSection(
+            geoCounts: _geoCounts,
+            isLoading: _geoLoading,
+            isGeocodingEnabled: AppConfig.isGeocodingEnabled,
+            fmt: fmt,
+            onToggle: _toggleGeocoding,
+          ),
+          const SizedBox(height: 24),
+
           _SectionHeader(title: '로컬 누적 (이번 달)'),
           const SizedBox(height: 8),
           _LocalCountRow(provider: 'google', label: 'Google', fmt: fmt),
@@ -1457,10 +1509,11 @@ class _AdminSettingsTabState extends State<_AdminSettingsTab> {
   Future<void> _loadSettings() async {
     setState(() => _loading = true);
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('admin_config')
-          .doc('dev_settings')
-          .get();
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('admin_config')
+              .doc('dev_settings')
+              .get();
       if (doc.exists && mounted) {
         setState(() {
           _testLoginEnabled = doc.data()?['testLoginEnabled'] == true;
@@ -1563,6 +1616,260 @@ class _AdminSettingsTabState extends State<_AdminSettingsTab> {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 지오코딩 사용량 + 비용 + 킬스위치 섹션
+// ═══════════════════════════════════════════════════════════════════════
+class _GeocodingSection extends StatelessWidget {
+  final Map<String, int> geoCounts;
+  final bool isLoading;
+  final bool isGeocodingEnabled;
+  final NumberFormat fmt;
+  final void Function(bool) onToggle;
+
+  const _GeocodingSection({
+    required this.geoCounts,
+    required this.isLoading,
+    required this.isGeocodingEnabled,
+    required this.fmt,
+    required this.onToggle,
+  });
+
+  // 단가 (원/건, USD→KRW 1400 환율 기준 보수적 추정)
+  // Google Geocoding API: $5/1K → ₩7/건
+  // Google Places Text Search Legacy: $32/1K → ₩45/건
+  // Naver Geocoding: ₩4/건 (3K/일 무료 초과분)
+  // Naver Reverse Geocoding: ₩4/건 (1K/일 무료 초과분)
+  static const double _wonGFwd = 7.0;
+  static const double _wonGPlace = 45.0;
+  static const double _wonNFwd = 4.0;
+  static const double _wonNRev = 4.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final gFwd = geoCounts['google_fwd'] ?? 0;
+    final gPlace = geoCounts['google_place'] ?? 0;
+    final nFwd = geoCounts['naver_fwd'] ?? 0;
+    final nRev = geoCounts['naver_rev'] ?? 0;
+
+    final costGFwd = gFwd * _wonGFwd;
+    final costGPlace = gPlace * _wonGPlace;
+    final costNFwd = nFwd * _wonNFwd;
+    final costNRev = nRev * _wonNRev;
+    final costGoogle = costGFwd + costGPlace;
+    final costNaver = costNFwd + costNRev;
+    final costTotal = costGoogle + costNaver;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isGeocodingEnabled ? Colors.white : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 헤더 + 킬스위치
+          Row(
+            children: [
+              const Icon(Icons.api, color: Colors.purple, size: 22),
+              const SizedBox(width: 8),
+              const Text(
+                '지오코딩 API',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              const Spacer(),
+              Switch(
+                value: isGeocodingEnabled,
+                onChanged: onToggle,
+                activeThumbColor: Colors.purple,
+              ),
+              Text(
+                isGeocodingEnabled ? '활성' : '차단',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isGeocodingEnabled ? Colors.green : Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            isGeocodingEnabled
+                ? '주소/장소 검색 활성 — Google/Naver API 호출됨'
+                : '🚫 모든 유료 지오코딩 차단됨 — OSM Nominatim 폴백 사용',
+            style: TextStyle(
+              fontSize: 11,
+              color: isGeocodingEnabled ? Colors.grey : Colors.red,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (isLoading)
+            const Center(child: CircularProgressIndicator(strokeWidth: 2))
+          else ...[
+            _GeoRow(
+              label: 'Google Geocoding',
+              count: gFwd,
+              cost: costGFwd,
+              color: const Color(0xFF4285F4),
+              fmt: fmt,
+              unit: '\$5/1K → ₩7/건',
+            ),
+            _GeoRow(
+              label: 'Google Places Search',
+              count: gPlace,
+              cost: costGPlace,
+              color: const Color(0xFF4285F4),
+              fmt: fmt,
+              unit: '\$32/1K → ₩45/건',
+            ),
+            _GeoRow(
+              label: 'Naver Geocoding',
+              count: nFwd,
+              cost: costNFwd,
+              color: const Color(0xFF03C75A),
+              fmt: fmt,
+              unit: '₩4/건 (3K/일 초과분)',
+            ),
+            _GeoRow(
+              label: 'Naver Reverse Geocoding',
+              count: nRev,
+              cost: costNRev,
+              color: const Color(0xFF03C75A),
+              fmt: fmt,
+              unit: '₩4/건 (1K/일 초과분)',
+            ),
+            const Divider(height: 20),
+            _CostSummaryRow(
+              label: 'Google 합계',
+              cost: costGoogle,
+              color: const Color(0xFF4285F4),
+              fmt: fmt,
+            ),
+            _CostSummaryRow(
+              label: 'Naver 합계',
+              cost: costNaver,
+              color: const Color(0xFF03C75A),
+              fmt: fmt,
+            ),
+            const SizedBox(height: 4),
+            _CostSummaryRow(
+              label: '🧾 전체 추정 비용',
+              cost: costTotal,
+              color: Colors.red.shade700,
+              fmt: fmt,
+              bold: true,
+            ),
+          ],
+          const SizedBox(height: 8),
+          Text(
+            '※ 이 기기에서 발생한 단순 카운트 × 단가 추정치 (실제 청구액과 차이 있을 수 있음)',
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GeoRow extends StatelessWidget {
+  final String label;
+  final int count;
+  final double cost;
+  final Color color;
+  final NumberFormat fmt;
+  final String unit;
+  const _GeoRow({
+    required this.label,
+    required this.count,
+    required this.cost,
+    required this.color,
+    required this.fmt,
+    required this.unit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Container(width: 4, height: 28, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(fontSize: 13)),
+                Text(
+                  unit,
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            '${fmt.format(count)}건',
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 80,
+            child: Text(
+              '₩${fmt.format(cost.round())}',
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+                color: cost > 0 ? Colors.red.shade700 : Colors.grey,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CostSummaryRow extends StatelessWidget {
+  final String label;
+  final double cost;
+  final Color color;
+  final NumberFormat fmt;
+  final bool bold;
+  const _CostSummaryRow({
+    required this.label,
+    required this.cost,
+    required this.color,
+    required this.fmt,
+    this.bold = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final style = TextStyle(
+      fontSize: bold ? 14 : 12,
+      fontWeight: bold ? FontWeight.bold : FontWeight.w500,
+      color: color,
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: style)),
+          Text(
+            '₩${fmt.format(cost.round())}',
+            style: style.copyWith(fontFamily: 'monospace'),
+          ),
+        ],
+      ),
     );
   }
 }

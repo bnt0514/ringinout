@@ -230,7 +230,6 @@ class _EditPlacePageState extends State<EditPlacePage> {
                   onMapReady: (controller) {
                     _mapController = controller;
                     MapUsageService.onMapLoaded(controller.provider.name);
-                    MapUsageService.incrementFreeUserOpenCount();
                     _mapController?.updateCamera(_selectedLatLng, zoom: 16);
                     _updateMarker();
                   },

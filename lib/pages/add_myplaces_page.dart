@@ -164,12 +164,22 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
   Future<void> _reverseGeocode(UnifiedLatLng pos) async {
     try {
       final mapService = context.read<MapProviderService>();
+      final plan = await SubscriptionService.getCurrentPlan();
+      final isFree = plan == SubscriptionPlan.free;
       String? address;
       if (mapService.isNaver) {
-        address = await NaverGeocodingService.reverseGeocode(
-          pos.latitude,
-          pos.longitude,
-        );
+        // Naver Reverse Geocoding은 NCP 유료 — 무료 플랜은 OSM 폴백
+        if (isFree) {
+          address = await OsmGeocodingService.reverseGeocode(
+            pos.latitude,
+            pos.longitude,
+          );
+        } else {
+          address = await NaverGeocodingService.reverseGeocode(
+            pos.latitude,
+            pos.longitude,
+          );
+        }
       } else if (mapService.isOsm) {
         address = await OsmGeocodingService.reverseGeocode(
           pos.latitude,
@@ -177,8 +187,11 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
         );
       } else {
         // 구글맵 역지오코딩은 비용 발생(Geocoding API 과금)으로 비활성화
-        // 지도 탭 시 주소 표시 없이 좌표만 사용
-        address = null;
+        // 무료/유료 모두 OSM 폴백 사용 (좌표 탭 시 주소 표시용)
+        address = await OsmGeocodingService.reverseGeocode(
+          pos.latitude,
+          pos.longitude,
+        );
       }
       if (address != null) {
         setState(() {
@@ -200,6 +213,25 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
     _updateMarker();
   }
 
+  /// OSM Nominatim 폴백 — 무료 플랜 주소 검색용 (Naver/Google searchAddress 대신)
+  /// 결과가 있으면 최상위 1건을 GeocodingResult로 변환
+  Future<GeocodingResult?> _osmFallbackSearchAddress(String query) async {
+    try {
+      final results = await OsmGeocodingService.search(query);
+      if (results.isEmpty) return null;
+      final top = results.first;
+      return GeocodingResult(
+        lat: top.lat,
+        lng: top.lng,
+        roadAddress: top.displayName,
+        jibunAddress: top.displayName,
+      );
+    } catch (e) {
+      debugPrint('❌ OSM 폴백 주소 검색 실패: $e');
+      return null;
+    }
+  }
+
   /// 주소 + 장소명 통합 검색
   Future<void> _performSearch(String query) async {
     if (query.trim().isEmpty) return;
@@ -212,18 +244,26 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
 
     try {
       final mapService = context.read<MapProviderService>();
+      final plan = await SubscriptionService.getCurrentPlan();
+      final isFree = plan == SubscriptionPlan.free;
 
       // 1️⃣ 장소명 검색 — 현재 위치 기준
       List<LocalSearchResult> placeResults;
       GeocodingResult? geoResult;
 
       if (mapService.isNaver) {
+        // Naver Local Search는 무료 (Naver Developer Center, 25K/일)
         placeResults = await NaverGeocodingService.searchPlace(
           query,
           lat: _currentLat,
           lng: _currentLng,
         );
-        geoResult = await NaverGeocodingService.searchAddress(query);
+        // Naver Geocoding은 유료 (NCP) — 무료 플랜에서는 OSM 폴백
+        if (isFree) {
+          geoResult = await _osmFallbackSearchAddress(query);
+        } else {
+          geoResult = await NaverGeocodingService.searchAddress(query);
+        }
       } else if (mapService.isOsm) {
         // OSM: 무료 — 제한 없음
         final osmResults = await OsmGeocodingService.search(query);
@@ -242,18 +282,18 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                 .toList();
         geoResult = null;
       } else {
-        // Google: Places Text Search는 유료 플랜만 허용
-        final plan = await SubscriptionService.getCurrentPlan();
-        if (plan == SubscriptionPlan.free) {
-          placeResults = []; // Places Text Search ($32/1K) 차단
+        // Google: Places Text Search ($32/1K) 와 Geocoding ($5/1K) 모두 유료
+        if (isFree) {
+          placeResults = []; // Places Text Search 차단
+          geoResult = await _osmFallbackSearchAddress(query); // OSM 폴백
         } else {
           placeResults = await GoogleGeocodingService.searchPlace(
             query,
             lat: _currentLat,
             lng: _currentLng,
           );
+          geoResult = await GoogleGeocodingService.searchAddress(query);
         }
-        geoResult = await GoogleGeocodingService.searchAddress(query);
       }
 
       final combinedResults = <LocalSearchResult>[];
@@ -523,7 +563,6 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                     _mapController = controller;
                     // 사용량 트래킹
                     MapUsageService.onMapLoaded(controller.provider.name);
-                    MapUsageService.incrementFreeUserOpenCount();
                     // 맵 전환 후 위치 복원
                     if (_selectedLatLng != null) {
                       _mapController?.updateCamera(_selectedLatLng!, zoom: 16);

@@ -502,50 +502,25 @@ class SmartLocationManager private constructor(private val context: Context) {
     }
 
     /**
-     * Flutter 엔진 재연결 시 보류된 이벤트 전달 MainActivity.configureFlutterEngine()에서 flutterChannel 설정 후 호출
+     * Flutter 엔진 재연결 시 호출됨. 보류된 지오펜스 이벤트는 전달하지 않고 즉시 폐기.
+     *
+     * 보류 이벤트는 앱이 꺼져 있거나 채널이 없던 동안 쌓인 과거 이벤트이므로,
+     * 재전달 시 오작동(잘못된 알람)을 일으킨다.
+     * - 실시간 이벤트는 Flutter 재연결 후 Init Guard가 처리.
+     * - 과거 보류 이벤트는 전부 stale → 무조건 드롭.
      */
     fun deliverPendingGeofenceEvents() {
         try {
             val pendingJson = prefs.getString(KEY_PENDING_EVENTS, "[]")
             val pendingArray = JSONArray(pendingJson)
 
+            // 보류 이벤트 큐 즉시 초기화 (전달하지 않음)
+            prefs.edit().remove(KEY_PENDING_EVENTS).apply()
+
             if (pendingArray.length() == 0) {
                 Log.d(TAG, "📬 보류 지오펜스 이벤트 없음")
             } else {
-                Log.d(TAG, "📬 보류 지오펜스 이벤트 ${pendingArray.length()}개 전달 시작")
-
-                val totalEvents = pendingArray.length()
-                val mainHandler = Handler(Looper.getMainLooper())
-                for (i in 0 until totalEvents) {
-                    val event = pendingArray.getJSONObject(i)
-                    val isLast = (i == totalEvents - 1)
-                    mainHandler.postDelayed(
-                            {
-                                try {
-                                    flutterChannel?.invokeMethod(
-                                            "onNativeSignal",
-                                            mapOf(
-                                                    "type" to "geofence",
-                                                    "placeId" to event.getString("placeId"),
-                                                    "placeName" to event.getString("placeName"),
-                                                    "isEnter" to event.getBoolean("isEnter"),
-                                                    "timestamp" to event.getLong("timestamp"),
-                                                    "wasPending" to true
-                                            )
-                                    )
-                                    Log.d(TAG, "✅ 보류 이벤트 전달: ${event.getString("placeName")}")
-                                } catch (e: Exception) {
-                                    Log.e(TAG, "❌ 보류 이벤트 전달 실패: ${e.message}")
-                                }
-                                // ✅ 마지막 이벤트 전달 후 보류 목록 삭제 (조기 삭제 방지)
-                                if (isLast) {
-                                    prefs.edit().remove(KEY_PENDING_EVENTS).apply()
-                                    Log.d(TAG, "🗑️ 보류 지오펜스 이벤트 목록 초기화")
-                                }
-                            },
-                            (i * 500L) + 1000L // 1초 후부터 0.5초 간격
-                    )
-                }
+                Log.d(TAG, "🗑️ 보류 지오펜스 이벤트 ${pendingArray.length()}개 전부 폐기 (stale — 재전달 금지)")
             }
 
             // ✅ Wi-Fi 보류 이벤트도 전달

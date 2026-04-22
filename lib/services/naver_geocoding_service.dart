@@ -4,6 +4,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
+import 'package:ringinout/config/app_config.dart';
+import 'package:ringinout/services/map_usage_service.dart';
 import 'package:ringinout/utils/geocoding_cache.dart';
 
 class NaverGeocodingService {
@@ -20,8 +22,13 @@ class NaverGeocodingService {
 
   /// 주소 → 좌표 변환 (Geocoding)
   static Future<GeocodingResult?> searchAddress(String query) async {
+    if (!AppConfig.isGeocodingEnabled) {
+      debugPrint('🚫 [NaverGeocode] 지오코딩 킬스위치 활성 — searchAddress 스킵');
+      return null;
+    }
     try {
       debugPrint('🔍 지오코딩 검색 시작: $query');
+      await MapUsageService.trackGeocodingCall('naver_fwd');
       final encodedQuery = Uri.encodeComponent(query);
       final url = Uri.parse(
         'https://maps.apigw.ntruss.com/map-geocode/v2/geocode?query=$encodedQuery',
@@ -70,15 +77,19 @@ class NaverGeocodingService {
 
   /// 좌표 → 주소 변환 (Reverse Geocoding)
   static Future<String?> reverseGeocode(double lat, double lng) async {
+    if (!AppConfig.isGeocodingEnabled) {
+      debugPrint('🚫 [NaverGeocode] 지오코딩 킬스위치 활성 — reverseGeocode 스킵');
+      return null;
+    }
     // 온디바이스 캐시 확인
     final cached = _cache.get(lat, lng);
     if (cached != null) {
       debugPrint('📦 [NaverGeocode] cache hit');
       return cached;
     }
-
     try {
       debugPrint('🔄 역지오코딩 시작: ($lat, $lng)');
+      await MapUsageService.trackGeocodingCall('naver_rev');
       final url = Uri.parse(
         'https://maps.apigw.ntruss.com/map-reversegeocode/v2/gc'
         '?coords=$lng,$lat'
@@ -111,7 +122,7 @@ class NaverGeocodingService {
           if (result['name'] == 'roadaddr' && land != null) {
             final area1 = region['area1']['name'] ?? ''; // 시/도
             final area2 = region['area2']['name'] ?? ''; // 구/군
-            final area3 = region['area3']['name'] ?? ''; // 동
+            // area3(동)은 도로명 주소에서 불필요하여 제외
             final roadName = land['name'] ?? '';
             final number1 = land['number1'] ?? '';
             final number2 = land['number2'] ?? '';

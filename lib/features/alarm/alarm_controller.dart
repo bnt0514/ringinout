@@ -79,6 +79,18 @@ class AlarmController extends ChangeNotifier {
 
     if (alarmId is String) {
       await HiveHelper.updateLocationAlarmById(alarmId, alarm);
+
+      // ✅ 알람 수정 시 잔류 차단 플래그 초기화
+      // - alarm_disabled_: 이전에 알람이 울리고 종료 버튼 눌렀을 때 설정됨
+      // - alarm_triggered_date_: 당일 재트리거 방지용 기록
+      // 사용자가 저장하는 행위 자체가 알람을 새로 활성화하겠다는 의도이므로 삭제
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('alarm_disabled_$alarmId');
+        await prefs.remove('alarm_triggered_date_$alarmId');
+      } catch (e) {
+        print('⚠️ 알람 플래그 초기화 실패: $e');
+      }
     } else {
       await HiveHelper.updateLocationAlarm(index, alarm);
     }
@@ -177,13 +189,13 @@ class AlarmController extends ChangeNotifier {
 
   Future<void> _refreshMonitoring() async {
     try {
-      // ✅ 네이티브 SmartLocationService 즉시 업데이트
-      await SmartLocationService.updatePlaces();
-      print('🎯 AlarmController: SmartLocationService 장소 업데이트 완료');
-
-      await SmartLocationMonitor.startSmartMonitoring();
+      // ✅ Flutter LMS + 네이티브 지오펜스 동시 갱신
+      // startSmartMonitoring 대신 updatePlaces만 호출:
+      // LMS가 이미 실행 중이면 재시작 없이 장소/알람 목록만 갱신
+      await SmartLocationMonitor.updatePlaces();
+      print('🎯 AlarmController: 장소 업데이트 완료 (Flutter LMS + 네이티브)');
     } catch (e) {
-      print('⚠️ 스마트 모니터링 재시작 실패: $e');
+      print('⚠️ 모니터링 업데이트 실패: $e');
     }
   }
 

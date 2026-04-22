@@ -178,10 +178,12 @@ class BillingService extends ChangeNotifier {
 
   SubscriptionPlan _parsePlan(String? planString) {
     switch (planString) {
+      case 'plus':
       case 'basic':
-        return SubscriptionPlan.basic;
+        return SubscriptionPlan.plus;
+      case 'pro':
       case 'premium':
-        return SubscriptionPlan.premium;
+        return SubscriptionPlan.pro;
       case 'special':
         return SubscriptionPlan.special;
       default:

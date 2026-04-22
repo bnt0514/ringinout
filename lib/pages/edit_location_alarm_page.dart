@@ -6,7 +6,7 @@ import 'package:ringinout/services/app_localizations.dart';
 // Package imports:
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/location_monitor_service.dart'; // ✅ Heartbeat 전송용
-import 'package:ringinout/services/smart_location_service.dart'; // ✅ 네이티브 서비스 연동
+import 'package:ringinout/services/smart_location_monitor.dart'; // ✅ Flutter LMS + 네이티브 동시 갱신
 import 'package:ringinout/widgets/false_trigger_info_tile.dart';
 
 class EditLocationAlarmPage extends StatefulWidget {
@@ -774,16 +774,15 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
                                 }
 
                                 // ✅ 백그라운드에서 서비스 업데이트 (화면 이탈 후 처리)
-                                SmartLocationService.updatePlaces()
+                                // Flutter LMS + 네이티브 지오펜스 동시 갱신
+                                SmartLocationMonitor.updatePlaces()
                                     .then((_) {
                                       print(
-                                        '🎯 SmartLocationService 장소 업데이트 완료',
+                                        '🎯 알람 수정 후 장소 업데이트 완료 (Flutter LMS + 네이티브)',
                                       );
                                     })
                                     .catchError((e) {
-                                      print(
-                                        '⚠️ SmartLocationService 업데이트 실패: $e',
-                                      );
+                                      print('⚠️ 장소 업데이트 실패: $e');
                                     });
                                 LocationMonitorService.sendWatchdogHeartbeat()
                                     .then((_) {

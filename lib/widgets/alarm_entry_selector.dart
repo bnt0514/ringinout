@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 
 import 'package:ringinout/services/app_localizations.dart';
 import 'package:ringinout/services/map_provider_service.dart';
+import 'package:ringinout/services/map_usage_service.dart';
 import 'package:ringinout/widgets/unified_map_widget.dart';
 import 'package:ringinout/widgets/map_toggle_button.dart';
 
@@ -200,6 +201,8 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                     _mapController = controller;
                     _isMapReady = true;
                   });
+                  // 지도 오픈 카운트 증가 (무료 플랜 월 한도 / 분석)
+                  MapUsageService.onMapLoaded(controller.provider.name);
                   // 맵 전환 후 위치 복원
                   final target = _selectedLatLng ?? _currentLatLng;
                   if (target != null) {

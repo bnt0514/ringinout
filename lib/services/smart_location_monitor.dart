@@ -37,15 +37,15 @@ class SmartLocationMonitor {
   /// 모니터링 시작 (유일한 진입점)
   static Future<void> startSmartMonitoring() async {
     try {
-      print('[SLM] 🧠 스마트 모니터링 시작');
+      AppLogBuffer.record('SLM', '🧠 스마트 모니터링 시작');
 
       await BackgroundServiceManager.initialize();
 
       final activeAlarms = await _getActiveAlarmsCount();
-      print('[SLM] 🎯 활성 알람 $activeAlarms개 발견');
+      AppLogBuffer.record('SLM', '🎯 활성 알람 ${activeAlarms}개 발견');
 
       if (activeAlarms == 0) {
-        print('[SLM] 📭 활성 알람이 없어 모니터링 중단');
+        AppLogBuffer.record('SLM', '📭 활성 알람이 없어 모니터링 중단');
         final locationService = LocationMonitorService();
         await locationService.stopMonitoring();
         return;
@@ -53,15 +53,22 @@ class SmartLocationMonitor {
 
       // 백그라운드 서비스 시작
       if (!await BackgroundServiceManager.isRunning()) {
-        print('[SLM] 🚀 백그라운드 서비스 시작');
+        AppLogBuffer.record('SLM', '🚀 백그라운드 서비스 시작');
         await BackgroundServiceManager.startService();
+      } else {
+        AppLogBuffer.record('SLM', '✅ 백그라운드 서비스 이미 실행 중');
       }
 
       // LocationMonitorService 시작
       _locationService = LocationMonitorService();
+      AppLogBuffer.record('SLM', '📡 LMS.startBackgroundMonitoring() 호출');
       await _locationService!.startBackgroundMonitoring((type, alarm) {
-        print('[SLM] 🚨 알람 트리거: ${alarm['name']} ($type)');
+        AppLogBuffer.record('SLM', '🚨 알람 트리거: ${alarm["name"]} ($type)');
       });
+      AppLogBuffer.record(
+        'SLM',
+        '✅ LMS 시작 완료. isRunning=${_locationService!.isRunning}',
+      );
 
       // 네이티브 지오펜스 이벤트 수신 설정
       _setupNativeSignalListener();
@@ -72,9 +79,9 @@ class SmartLocationMonitor {
       // 서비스 유지보수 타이머 (30분)
       _startServiceMaintenance();
 
-      print('[SLM] ✅ 스마트 모니터링 가동 완료 — 지오펜스 이벤트 대기 중');
+      AppLogBuffer.record('SLM', '✅ 스마트 모니터링 가동 완료 — 지오펜스 이벤트 대기 중');
     } catch (e) {
-      print('[SLM] ❌ 스마트 모니터링 시작 실패: $e');
+      AppLogBuffer.record('SLM', '❌ 스마트 모니터링 시작 실패: $e');
     }
   }
 
@@ -101,16 +108,31 @@ class SmartLocationMonitor {
           final placeId = args['placeId'] as String? ?? '';
           final isEnter = args['isEnter'] as bool? ?? true;
 
-          print('[SLM] 📡 지오펜스: $placeId (${isEnter ? "ENTER" : "EXIT"})');
+          AppLogBuffer.record(
+            'SLM',
+            '📡 지오펜스 수신: $placeId (${isEnter ? "ENTER" : "EXIT"})',
+          );
 
           // v2: LMS에 직접 전달 (isOuter 제거)
           if (_locationService != null) {
+            AppLogBuffer.record(
+              'SLM',
+              '→ LMS.onGeofenceEvent() 전달 (isRunning=${_locationService!.isRunning})',
+            );
             _locationService!.onGeofenceEvent(placeId, isEnter);
+          } else {
+            AppLogBuffer.record(
+              'SLM',
+              '⚠️ _locationService==null — 지오펜스 이벤트 드롭!',
+            );
           }
         } else if (type == 'activityTransition') {
           final isMoving = args['isMoving'] as bool? ?? false;
 
-          print('[SLM] 🚶 ActivityTransition: ${isMoving ? "이동 시작" : "정지"}');
+          AppLogBuffer.record(
+            'SLM',
+            '🚶 ActivityTransition: ${isMoving ? "이동 시작" : "정지"}',
+          );
 
           // v2: LMS에 ActivityTransition 전달
           if (_locationService != null) {
@@ -120,7 +142,10 @@ class SmartLocationMonitor {
           final placeId = args['placeId'] as String? ?? '';
           final isEnter = args['isEnter'] as bool? ?? true;
 
-          print('[SLM] 📶 Wi-Fi: $placeId (${isEnter ? "ENTER" : "EXIT"})');
+          AppLogBuffer.record(
+            'SLM',
+            '📶 Wi-Fi: $placeId (${isEnter ? "ENTER" : "EXIT"})',
+          );
 
           if (_locationService != null) {
             _locationService!.onWifiEvent(placeId, isEnter);
@@ -128,7 +153,10 @@ class SmartLocationMonitor {
         } else if (type == 'wifiHardware') {
           final isEnabled = args['isEnabled'] as bool? ?? true;
 
-          print('[SLM] 📶 Wi-Fi 하드웨어: ${isEnabled ? "ON" : "OFF"}');
+          AppLogBuffer.record(
+            'SLM',
+            '📶 Wi-Fi 하드웨어: ${isEnabled ? "ON" : "OFF"}',
+          );
 
           if (_locationService != null) {
             _locationService!.onWifiHardwareChanged(isEnabled);
@@ -138,7 +166,10 @@ class SmartLocationMonitor {
           final placeId = args['placeId'] as String? ?? '';
           final isEnter = args['isEnter'] as bool? ?? true;
 
-          print('[SLM] 🔵 Bluetooth: $placeId (${isEnter ? "ENTER" : "EXIT"})');
+          AppLogBuffer.record(
+            'SLM',
+            '🔵 Bluetooth: $placeId (${isEnter ? "ENTER" : "EXIT"})',
+          );
 
           if (_locationService != null) {
             _locationService!.onBluetoothEvent(placeId, isEnter);
@@ -151,7 +182,6 @@ class SmartLocationMonitor {
 
           final btLog =
               '🔵 BT ${isConnected ? "연결" : "해제"}: $deviceName ($macAddress)';
-          print('[SLM] $btLog');
           AppLogBuffer.record('BT', btLog);
 
           if (_locationService != null) {
@@ -164,8 +194,9 @@ class SmartLocationMonitor {
         }
       }
     });
-    print(
-      '[SLM] ✅ v2 네이티브 리스너 설정 완료 (지오펜스 + ActivityTransition + Wi-Fi + Bluetooth)',
+    AppLogBuffer.record(
+      'SLM',
+      '✅ 네이티브 리스너 설정 완료 (지오펜스 + ActivityTransition + Wi-Fi + Bluetooth)',
     );
   }
 
@@ -173,9 +204,13 @@ class SmartLocationMonitor {
   static Future<void> _checkAndMaintainService() async {
     try {
       final activeAlarms = await _getActiveAlarmsCount();
+      AppLogBuffer.record(
+        'SLM',
+        '🔁 30분 서비스 체크: 활성 알람 ${activeAlarms}개, lmsRunning=${_locationService?.isRunning}, lmsNull=${_locationService == null}',
+      );
 
       if (activeAlarms == 0) {
-        print('[SLM] 📭 활성 알람 없음 - 서비스 중단');
+        AppLogBuffer.record('SLM', '📭 활성 알람 없음 - 서비스 중단');
         if (_locationService != null) {
           await _locationService!.stopMonitoring();
         }
@@ -184,7 +219,7 @@ class SmartLocationMonitor {
 
       // 서비스가 죽었으면 재시작
       if (_locationService == null || !_locationService!.isRunning) {
-        print('[SLM] 🔄 LocationMonitorService 재시작');
+        AppLogBuffer.record('SLM', '🔄 LMS 죽어있음 — 재시작');
 
         if (!await BackgroundServiceManager.isRunning()) {
           await BackgroundServiceManager.startService();
@@ -192,14 +227,19 @@ class SmartLocationMonitor {
 
         _locationService = LocationMonitorService();
         await _locationService!.startBackgroundMonitoring((type, alarm) {
-          print('[SLM] 🚨 알람 트리거 (복구): ${alarm['name']} ($type)');
+          AppLogBuffer.record(
+            'SLM',
+            '🚨 알람 트리거 (복구): ${alarm["name"]} ($type)',
+          );
         });
 
         // ★ 복구 시에도 네이티브 지오펜스 재등록
         await _registerNativeGeofences();
+      } else {
+        AppLogBuffer.record('SLM', '✅ LMS 정상 실행 중');
       }
     } catch (e) {
-      print('[SLM] ❌ 서비스 체크 실패: $e');
+      AppLogBuffer.record('SLM', '❌ 서비스 체크 실패: $e');
     }
   }
 
@@ -208,11 +248,13 @@ class SmartLocationMonitor {
     try {
       if (HiveHelper.isInitialized) {
         final alarms = HiveHelper.getLocationAlarms();
-        return alarms.where((alarm) => alarm['enabled'] == true).length;
+        final count = alarms.where((alarm) => alarm['enabled'] == true).length;
+        return count;
       }
+      AppLogBuffer.record('SLM', '⚠️ _getActiveAlarmsCount: HiveHelper 미초기화');
       return 0;
     } catch (e) {
-      print('[SLM] ❌ 활성 알람 개수 확인 실패: $e');
+      AppLogBuffer.record('SLM', '❌ 활성 알람 개수 확인 실패: $e');
       return 0;
     }
   }
@@ -221,7 +263,7 @@ class SmartLocationMonitor {
 
   static Future<void> stopMonitoring() async {
     try {
-      print('[SLM] 🛑 모니터링 중단');
+      AppLogBuffer.record('SLM', '🛑 모니터링 중단');
 
       _serviceCheckTimer?.cancel();
       _serviceCheckTimer = null;
@@ -231,9 +273,9 @@ class SmartLocationMonitor {
         _locationService = null;
       }
 
-      print('[SLM] ✅ 모니터링 완전 중단');
+      AppLogBuffer.record('SLM', '✅ 모니터링 완전 중단');
     } catch (e) {
-      print('[SLM] ❌ 모니터링 중단 실패: $e');
+      AppLogBuffer.record('SLM', '❌ 모니터링 중단 실패: $e');
     }
   }
 
@@ -254,10 +296,10 @@ class SmartLocationMonitor {
     try {
       if (_locationService != null) {
         await _locationService!.resetPlaceState(placeName);
-        print('[SLM] ✅ 장소 상태 초기화: $placeName');
+        AppLogBuffer.record('SLM', '✅ 장소 상태 초기화: $placeName');
       }
     } catch (e) {
-      print('[SLM] ❌ 장소 상태 초기화 실패: $e');
+      AppLogBuffer.record('SLM', '❌ 장소 상태 초기화 실패: $e');
     }
   }
 
@@ -266,8 +308,12 @@ class SmartLocationMonitor {
   static Future<void> _registerNativeGeofences() async {
     try {
       final places = _buildNativePlacesList();
+      AppLogBuffer.record(
+        'SLM',
+        '📋 _buildNativePlacesList 결과: ${places.length}개 → ${places.map((p) => p["name"] ?? p["id"]).toList()}',
+      );
       if (places.isEmpty) {
-        print('[SLM] 💭 등록할 네이티브 장소 없음');
+        AppLogBuffer.record('SLM', '🔴 등록할 네이티브 장소 없음! 지오펜스 미등록 — 알람 동작 불가');
         return;
       }
       final deviceAlarmMacs = _buildDeviceAlarmMacList();
@@ -275,11 +321,12 @@ class SmartLocationMonitor {
         'places': places,
         'deviceAlarmMacs': deviceAlarmMacs,
       });
-      print(
-        '[SLM] ✅ 네이티브 지오펜스 등록 완료 (${places.length}개) — 독립 BT 기기: ${deviceAlarmMacs.length}개',
+      AppLogBuffer.record(
+        'SLM',
+        '✅ 네이티브 지오펜스 등록 완료 (${places.length}개) — BT 기기: ${deviceAlarmMacs.length}개',
       );
     } catch (e) {
-      print('[SLM] ⚠️ 네이티브 지오펜스 등록 실패 (앱 포그라운드 아닐 수 있음): $e');
+      AppLogBuffer.record('SLM', '⚠️ 네이티브 지오펜스 등록 실패: $e');
     }
   }
 
@@ -298,11 +345,12 @@ class SmartLocationMonitor {
         'places': places,
         'deviceAlarmMacs': deviceAlarmMacs,
       });
-      print(
-        '[SLM] ✅ 네이티브 지오펜스 재등록 완료 (${places.length}개, BT 기기: ${deviceAlarmMacs.length}개)',
+      AppLogBuffer.record(
+        'SLM',
+        '✅ 네이티브 지오펜스 재등록 완료 (${places.length}개, BT 기기: ${deviceAlarmMacs.length}개)',
       );
     } catch (e) {
-      print('[SLM] ⚠️ 네이티브 지오펜스 업데이트 실패 (앱 포그라운드 아닐 수 있음): $e');
+      AppLogBuffer.record('SLM', '⚠️ 네이티브 지오펜스 업데이트 실패: $e');
     }
   }
 
@@ -311,11 +359,14 @@ class SmartLocationMonitor {
   ///   (ENTER+EXIT 모두 감시). id는 저장된 placeId를 사용한다.
   static List<Map<String, dynamic>> _buildNativePlacesList() {
     try {
-      final alarms =
-          HiveHelper.getLocationAlarms()
-              .where((a) => a['enabled'] == true)
-              .toList();
+      final allAlarms = HiveHelper.getLocationAlarms();
+      final alarms = allAlarms.where((a) => a['enabled'] == true).toList();
       final places = HiveHelper.getSavedLocations();
+
+      AppLogBuffer.record(
+        'SLM',
+        '🔍 _buildNativePlacesList: 전체 알람=${allAlarms.length}, 활성=${alarms.length}, 장소=${places.length}',
+      );
 
       final result = <Map<String, dynamic>>[];
       final seen = <String>{};
@@ -325,6 +376,10 @@ class SmartLocationMonitor {
         final alarmPlaceId = alarm['placeId']?.toString();
         if ((placeName == null || placeName.isEmpty) &&
             (alarmPlaceId == null || alarmPlaceId.isEmpty)) {
+          AppLogBuffer.record(
+            'SLM',
+            '⚠️ 알람 [${alarm["name"]}] placeName/placeId 모두 없음 — 스킵',
+          );
           continue;
         }
 
@@ -336,7 +391,13 @@ class SmartLocationMonitor {
               p['name'] == placeName,
           orElse: () => <String, dynamic>{},
         );
-        if (place.isEmpty) continue;
+        if (place.isEmpty) {
+          AppLogBuffer.record(
+            'SLM',
+            '🔴 알람 [${alarm["name"]}] 장소 매칭 실패! alarmPlaceId=$alarmPlaceId, placeName=$placeName',
+          );
+          continue;
+        }
 
         final nativePlaceId =
             place['id']?.toString() ?? alarmPlaceId ?? placeName ?? '';
@@ -348,6 +409,10 @@ class SmartLocationMonitor {
         if (lat == null || lng == null) continue;
 
         seen.add(nativePlaceId);
+        AppLogBuffer.record(
+          'SLM',
+          '✅ 장소 추가: ${place["name"]} (id=$nativePlaceId)',
+        );
         result.add({
           'id': nativePlaceId,
           'name': place['name'] ?? placeName,
@@ -387,7 +452,7 @@ class SmartLocationMonitor {
       }
       return result;
     } catch (e) {
-      print('[SLM] ❌ _buildNativePlacesList 실패: $e');
+      AppLogBuffer.record('SLM', '❌ _buildNativePlacesList 실패: $e');
       return [];
     }
   }

@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:ringinout/services/billing_service.dart';
 import 'package:ringinout/services/hive_helper.dart';
 
-enum SubscriptionPlan { free, basic, premium, special }
+enum SubscriptionPlan { free, plus, pro, special }
 
 /// SubscriptionService - 구독 플랜 관리 (서버 기반)
 ///
@@ -51,9 +51,9 @@ class SubscriptionService {
     switch (plan) {
       case SubscriptionPlan.free:
         return 2;
-      case SubscriptionPlan.basic:
+      case SubscriptionPlan.plus:
         return 5;
-      case SubscriptionPlan.premium:
+      case SubscriptionPlan.pro:
       case SubscriptionPlan.special:
         return null;
     }
@@ -64,21 +64,27 @@ class SubscriptionService {
     switch (plan) {
       case SubscriptionPlan.free:
         return 4;
-      case SubscriptionPlan.basic:
+      case SubscriptionPlan.plus:
         return 10;
-      case SubscriptionPlan.premium:
+      case SubscriptionPlan.pro:
       case SubscriptionPlan.special:
         return null;
     }
   }
 
   /// 맵 오픈 월별 제한 횟수
+  /// - free: 20 (네이버/구글 합산, OSM 무제한)
+  /// - plus: 50 (네이버/구글 합산)
+  /// - pro: 500 (공정 사용 정책 — 어뷰즈 방지)
+  /// - special: null (개발자, 무제한)
   static int? mapOpenMonthlyLimit(SubscriptionPlan plan) {
     switch (plan) {
       case SubscriptionPlan.free:
         return 20;
-      case SubscriptionPlan.basic:
-      case SubscriptionPlan.premium:
+      case SubscriptionPlan.plus:
+        return 50;
+      case SubscriptionPlan.pro:
+        return 500;
       case SubscriptionPlan.special:
         return null;
     }
@@ -92,8 +98,8 @@ class SubscriptionService {
   }
 
   static bool isAdFree(SubscriptionPlan plan) {
-    return plan == SubscriptionPlan.basic ||
-        plan == SubscriptionPlan.premium ||
+    return plan == SubscriptionPlan.plus ||
+        plan == SubscriptionPlan.pro ||
         plan == SubscriptionPlan.special;
   }
 

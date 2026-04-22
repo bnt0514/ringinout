@@ -37,10 +37,10 @@ class SubscriptionLimitDialog {
     switch (plan) {
       case SubscriptionPlan.free:
         return 'Free';
-      case SubscriptionPlan.basic:
-        return 'Basic';
-      case SubscriptionPlan.premium:
-        return 'Premium';
+      case SubscriptionPlan.plus:
+        return 'Plus';
+      case SubscriptionPlan.pro:
+        return 'Pro';
       case SubscriptionPlan.special:
         return 'Special';
     }

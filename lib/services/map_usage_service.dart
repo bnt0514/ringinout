@@ -1,11 +1,11 @@
 // lib/services/map_usage_service.dart
 //
-// 지도 사용량 추적 서비스
+// 지도 + 지오코딩 사용량 추적 서비스
 //
 // - 기기 로컬(SharedPreferences)에 provider별 월간 카운트 저장
 // - 주 1회 Firestore map_usage/{yyyy-MM} 에 increment 업로드
 // - Firestore admin_config/map_settings 읽어서 킬스위치 적용
-// - 무료 유저 월 15회 지도 오픈 제한
+// - 플랜별 지도 오픈 한도 적용 (free=20, plus=50, pro=500)
 // - 전체 사용량이 무료 한도 95% 도달 시 자동 차단
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -65,7 +65,17 @@ const _kLastUploadKey = 'map_last_upload_date';
 const _kFreeOpensPrefix = 'map_free_opens_';
 const _kForceUploadCheckedKey = 'map_force_upload_checked';
 
-/// 무료 유저 월 네이버/구글 맵 오픈 허용 횟수 (OSM은 무제한)
+// 지오코딩 호출 추적 키 (월별, 이 기기 발생분)
+// geo_gfwd = Google forward, geo_gplace = Google place search
+// geo_nfwd = Naver forward, geo_nrev = Naver reverse
+const _kGeoGoogleFwd = 'geo_gfwd_'; // + month
+const _kGeoGooglePlace = 'geo_gplace_'; // + month
+const _kGeoNaverFwd = 'geo_nfwd_'; // + month
+const _kGeoNaverRev = 'geo_nrev_'; // + month
+
+/// 이전호환용 상수 — 실제 제한은 SubscriptionService.mapOpenMonthlyLimit 사용
+/// (free=20, plus=50, pro=500, special=null)
+@Deprecated('Use SubscriptionService.mapOpenMonthlyLimit(plan) instead')
 const int kFreeMapOpenLimit = 20;
 
 class MapUsageService {
@@ -82,21 +92,29 @@ class MapUsageService {
     final prefs = await SharedPreferences.getInstance();
     final month = _currentMonth();
 
-    // 로컬 카운트 증가
+    // 로컬 카운트 증가 (분석용)
     final key = '$_kLocalPrefix${provider}_$month';
     final current = prefs.getInt(key) ?? 0;
     await prefs.setInt(key, current + 1);
 
     debugPrint('🗺️ [MapUsage] $provider +1 → ${current + 1} ($month)');
 
+    // 무료 유저 오픈 카운트 증가 (제한용)
+    await incrementFreeUserOpenCount(provider: provider);
+
     // 주 1회 업로드 체크
     await _maybeUploadToFirestore(prefs);
   }
 
   // ──────────────────────────────────────────────
-  // 무료 유저: 이번 달 지도 오픈 횟수 반환
+  // 이번 달 지도 오픈 횟수 반환 (플랜 무관)
   // ──────────────────────────────────────────────
   static Future<int> getFreeUserOpenCount() async {
+    return getMapOpenCount();
+  }
+
+  /// 이번 달 지도 오픈 횟수 반환 (모든 플랜 공통 카운터)
+  static Future<int> getMapOpenCount() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return 0;
     final prefs = await SharedPreferences.getInstance();
@@ -104,32 +122,38 @@ class MapUsageService {
     return prefs.getInt(key) ?? 0;
   }
 
-  /// 무료 유저가 해당 provider로 지도를 열 수 있는지 확인
+  /// 해당 provider로 지도를 열 수 있는지 확인 (모든 플랜 공통)
   /// OSM은 항상 true (비용 없음)
-  static Future<bool> canFreeUserOpenMap({String provider = 'naver'}) async {
-    if (provider == 'osm') return true; // OSM은 무료, 제한 없음
+  static Future<bool> canOpenMap({String provider = 'naver'}) async {
+    if (provider == 'osm') return true;
     final plan = await SubscriptionService.getCurrentPlan();
-    if (plan != SubscriptionPlan.free) return true; // 유료는 제한 없음
-    final count = await getFreeUserOpenCount();
-    return count < kFreeMapOpenLimit;
+    final limit = SubscriptionService.mapOpenMonthlyLimit(plan);
+    if (limit == null) return true; // special = 무제한
+    final count = await getMapOpenCount();
+    return count < limit;
   }
 
-  /// 무료 유저 지도 오픈 카운트 증가 (네이버/구글 지도 로드 시 호출, OSM 제외)
+  /// 이전 호환용 — canOpenMap으로 대체
+  static Future<bool> canFreeUserOpenMap({String provider = 'naver'}) =>
+      canOpenMap(provider: provider);
+
+  /// 지도 오픈 카운트 증가 (OSM 제외, 모든 유료 플랜 포함)
   static Future<void> incrementFreeUserOpenCount({
     String provider = 'naver',
   }) async {
-    if (provider == 'osm') return; // OSM은 카운트 없음
+    if (provider == 'osm') return;
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
     final plan = await SubscriptionService.getCurrentPlan();
-    if (plan != SubscriptionPlan.free) return;
+    final limit = SubscriptionService.mapOpenMonthlyLimit(plan);
+    if (limit == null) return; // special users: 카운트 불필요
 
     final prefs = await SharedPreferences.getInstance();
     final key = '$_kFreeOpensPrefix${uid}_${_currentMonth()}';
     final current = prefs.getInt(key) ?? 0;
     await prefs.setInt(key, current + 1);
     debugPrint(
-      '🗺️ [FreeLimit] 무료 오픈 ${current + 1}/$kFreeMapOpenLimit (provider: $provider)',
+      '🗺️ [PlanLimit] ${plan.name} 오픈 ${current + 1}/$limit (provider: $provider)',
     );
   }
 
@@ -193,10 +217,16 @@ class MapUsageService {
       final data = doc.data() ?? {};
       AppConfig.isGoogleMapsEnabled = data['google_enabled'] as bool? ?? true;
       AppConfig.isNaverMapsEnabled = data['naver_enabled'] as bool? ?? true;
+      AppConfig.isGeocodingEnabled = data['geocoding_enabled'] as bool? ?? true;
+      // 맵이 꺼지면 지오코딩도 자동 차단
+      if (!AppConfig.isGoogleMapsEnabled && !AppConfig.isNaverMapsEnabled) {
+        AppConfig.isGeocodingEnabled = false;
+      }
 
       debugPrint(
         '🗺️ [MapSettings] Google=${AppConfig.isGoogleMapsEnabled}, '
-        'Naver=${AppConfig.isNaverMapsEnabled}',
+        'Naver=${AppConfig.isNaverMapsEnabled}, '
+        'Geocoding=${AppConfig.isGeocodingEnabled}',
       );
     } catch (e) {
       debugPrint('⚠️ [MapSettings] 설정 로드 실패 (기본값 사용): $e');
@@ -214,6 +244,48 @@ class MapUsageService {
     if (provider == 'naver') AppConfig.isNaverMapsEnabled = enabled;
 
     debugPrint('🗺️ [Admin] $provider enabled=$enabled');
+  }
+
+  // Admin: 지오코딩 킬스위치 (지도 킬 시 자동 차단, 단독 차단도 가능)
+  static Future<void> setGeocodingEnabled(bool enabled) async {
+    await FirebaseFirestore.instance
+        .collection('admin_config')
+        .doc('map_settings')
+        .set({'geocoding_enabled': enabled}, SetOptions(merge: true));
+    AppConfig.isGeocodingEnabled = enabled;
+    debugPrint('🗺️ [Admin] geocoding enabled=$enabled');
+  }
+
+  // ──────────────────────────────────────────────
+  // 지오코딩 호출 추적 (SharedPreferences 월별 카운터)
+  // ──────────────────────────────────────────────
+
+  /// 지오코딩 API 호출 시 기록 (provider: google_fwd / google_place / naver_fwd / naver_rev)
+  static Future<void> trackGeocodingCall(String type) async {
+    final month = _currentMonth();
+    final prefs = await SharedPreferences.getInstance();
+    final key = switch (type) {
+      'google_fwd' => '$_kGeoGoogleFwd$month',
+      'google_place' => '$_kGeoGooglePlace$month',
+      'naver_fwd' => '$_kGeoNaverFwd$month',
+      'naver_rev' => '$_kGeoNaverRev$month',
+      _ => null,
+    };
+    if (key == null) return;
+    final cur = prefs.getInt(key) ?? 0;
+    await prefs.setInt(key, cur + 1);
+  }
+
+  /// 이번 달 지오코딩 로컬 카운트 전체 조회
+  static Future<Map<String, int>> getLocalGeocodingCounts() async {
+    final month = _currentMonth();
+    final prefs = await SharedPreferences.getInstance();
+    return {
+      'google_fwd': prefs.getInt('$_kGeoGoogleFwd$month') ?? 0,
+      'google_place': prefs.getInt('$_kGeoGooglePlace$month') ?? 0,
+      'naver_fwd': prefs.getInt('$_kGeoNaverFwd$month') ?? 0,
+      'naver_rev': prefs.getInt('$_kGeoNaverRev$month') ?? 0,
+    };
   }
 
   // ──────────────────────────────────────────────
@@ -248,7 +320,19 @@ class MapUsageService {
       final naver = prefs.getInt('${_kLocalPrefix}naver_$month') ?? 0;
       final osm = prefs.getInt('${_kLocalPrefix}osm_$month') ?? 0;
 
-      if (google == 0 && naver == 0 && osm == 0) {
+      // 지오코딩 카운트
+      final geoGFwd = prefs.getInt('$_kGeoGoogleFwd$month') ?? 0;
+      final geoGPlace = prefs.getInt('$_kGeoGooglePlace$month') ?? 0;
+      final geoNFwd = prefs.getInt('$_kGeoNaverFwd$month') ?? 0;
+      final geoNRev = prefs.getInt('$_kGeoNaverRev$month') ?? 0;
+
+      if (google == 0 &&
+          naver == 0 &&
+          osm == 0 &&
+          geoGFwd == 0 &&
+          geoGPlace == 0 &&
+          geoNFwd == 0 &&
+          geoNRev == 0) {
         debugPrint('🗺️ [MapUsage] 업로드할 데이터 없음 — 스킵');
         return;
       }
@@ -273,6 +357,10 @@ class MapUsageService {
         'google': google,
         'naver': naver,
         'osm': osm,
+        'geo_google_fwd': geoGFwd,
+        'geo_google_place': geoGPlace,
+        'geo_naver_fwd': geoNFwd,
+        'geo_naver_rev': geoNRev,
         'uid': uid,
         'last_updated': FieldValue.serverTimestamp(),
       });
@@ -281,6 +369,10 @@ class MapUsageService {
         'google': google,
         'naver': naver,
         'osm': osm,
+        'geo_google_fwd': geoGFwd,
+        'geo_google_place': geoGPlace,
+        'geo_naver_fwd': geoNFwd,
+        'geo_naver_rev': geoNRev,
         'uid': uid,
         'month': month,
         'last_updated': FieldValue.serverTimestamp(),

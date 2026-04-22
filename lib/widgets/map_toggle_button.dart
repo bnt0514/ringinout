@@ -73,12 +73,12 @@ class MapToggleButton extends StatelessWidget {
       return;
     }
 
-    // 네이버(한국)/구글(해외) 전환 시: 무료 플랜 여부 체크
+    // 네이버(한국)/구글(해외) 전환 시: 모든 유료 플랜에도 월 한도 적용 (special 제외)
     final plan = await SubscriptionService.getCurrentPlan();
-    if (plan == SubscriptionPlan.free) {
-      final canOpen = await MapUsageService.canFreeUserOpenMap(
-        provider: p.name,
-      );
+    final limit = SubscriptionService.mapOpenMonthlyLimit(plan);
+    if (limit != null) {
+      // free=20, plus=50, pro=500. special(=null)은 통과
+      final canOpen = await MapUsageService.canOpenMap(provider: p.name);
       if (!context.mounted) return;
 
       final l10n = AppLocalizations.of(context);
@@ -92,7 +92,7 @@ class MapToggleButton extends StatelessWidget {
                 title: Text(l10n.get('map_free_limit_exceeded_title')),
                 content: Text(
                   l10n.getWithArgs('map_free_limit_exceeded_body', {
-                    'limit': '$kFreeMapOpenLimit',
+                    'limit': '$limit',
                   }),
                 ),
                 actions: [
@@ -107,11 +107,10 @@ class MapToggleButton extends StatelessWidget {
       }
 
       // 한도 내: 차감 안내
-      final openCount = await MapUsageService.getFreeUserOpenCount();
-      final remaining = kFreeMapOpenLimit - openCount;
+      final openCount = await MapUsageService.getMapOpenCount();
+      final remaining = limit - openCount;
       if (!context.mounted) return;
 
-      // 한국: ko 로케일 키가 이미 "네이버" 기반, 해외: Google 기반
       final confirmTitle = l10n.get('map_switch_confirm_title');
 
       final confirmed = await showDialog<bool>(
@@ -121,7 +120,7 @@ class MapToggleButton extends StatelessWidget {
               title: Text(confirmTitle),
               content: Text(
                 l10n.getWithArgs('map_switch_confirm_body', {
-                  'limit': '$kFreeMapOpenLimit',
+                  'limit': '$limit',
                   'remaining': '$remaining',
                 }),
               ),
@@ -139,9 +138,6 @@ class MapToggleButton extends StatelessWidget {
       );
 
       if (confirmed != true) return;
-
-      // 카운트 차감
-      await MapUsageService.incrementFreeUserOpenCount(provider: p.name);
     }
 
     if (!context.mounted) return;

@@ -5,4 +5,8 @@ class AppConfig {
   static bool isGoogleMapsEnabled = true;
   static bool isNaverMapsEnabled = true;
   // OSM은 항상 활성화 (폴백용, 비용 없음)
+
+  // 지오코딩 킬스위치 (맵 킬 시 자동으로 함께 차단됨)
+  // false → 유료 Geocoding API 호출 차단, OSM Nominatim으로 폴백
+  static bool isGeocodingEnabled = true;
 }

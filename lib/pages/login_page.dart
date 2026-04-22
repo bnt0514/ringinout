@@ -144,10 +144,11 @@ class _LoginPageState extends State<LoginPage> {
       _devTapCount = 0;
       // Firestore에서 테스트 로그인 허용 여부 확인
       try {
-        final doc = await FirebaseFirestore.instance
-            .collection('admin_config')
-            .doc('dev_settings')
-            .get();
+        final doc =
+            await FirebaseFirestore.instance
+                .collection('admin_config')
+                .doc('dev_settings')
+                .get();
         final enabled = doc.data()?['testLoginEnabled'] == true;
         if (enabled && mounted) {
           setState(() {
@@ -162,8 +163,10 @@ class _LoginPageState extends State<LoginPage> {
   // 테스트 계정 로그인 (Remote Config 기반 - Functions 불필요)
   Color _planColor(String plan) {
     switch (plan) {
+      case 'plus':
       case 'basic':
         return Colors.blue;
+      case 'pro':
       case 'premium':
         return Colors.purple;
       case 'special':
@@ -331,8 +334,8 @@ class _LoginPageState extends State<LoginPage> {
                               children: [
                                 for (final plan in [
                                   'free',
-                                  'basic',
-                                  'premium',
+                                  'plus',
+                                  'pro',
                                   'special',
                                 ])
                                   Expanded(

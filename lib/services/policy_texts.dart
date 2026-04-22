@@ -25,11 +25,26 @@ String _getSubscriptionPolicyKo({required bool isBeta}) {
   buffer.writeln();
   buffer.writeln('2. 구독 상품 및 제공 범위');
   buffer.writeln(
-    '- Free: 장소 2개, 등록 알람 4개, 맵 오픈 월 15회, 알람 종료 후 광고 시청 (하루 최대 3회)',
+    '- Free: 장소 2개, 등록 알람 4개, 지도 로드 월 최대 20회, 알람 종료 후 광고 시청 (하루 최대 3회)',
   );
-  buffer.writeln('- Plus: 장소 5개, 등록 알람 10개, 맵 오픈 월 50회 (광고 제거 포함)');
-  buffer.writeln('- Pro: 장소/알람/맵 오픈 무제한 (광고 제거 포함)');
-  buffer.writeln('- 자동 구독(매월 자동 결제) 등록 시 월 구독료 15% 할인이 적용됩니다.');
+  buffer.writeln('- Plus: 장소 5개, 등록 알람 10개, 지도 로드 월 최대 50회 (광고 제거 포함)');
+  buffer.writeln('- Pro: 장소/알람 무제한, 지도 로드 월 최대 500회 (공정 사용 정책 적용, 광고 제거 포함)');
+  buffer.writeln(
+    '- 자동 구독(매월 자동 결제) 등록 시 월 구독료 할인이 적용될 수 있으며, 자세한 조건은 Google Play 상품 설명을 따릅니다.',
+  );
+  buffer.writeln();
+  buffer.writeln('2-1. 지도 서비스 제공 조건 (중요)');
+  buffer.writeln(
+    '- 지도 기능은 와부 지도 API(네이버 클라우드 플랫폼, 구글 플랫폼, OpenStreetMap 등)를 이용하며,',
+  );
+  buffer.writeln('  외부 API 제공자의 정책/요금체계/섬드움/쿠터 등에 의존합니다.');
+  buffer.writeln('- 명시된 월 지도 로드 횟수(Free 20회 등)는 일반적인 제공 목표이며 보장되지 않습니다.');
+  buffer.writeln('- 서버 되는 외부 API 비용 급증, 이상 사용 감지, 서비스 운영 안정성 확보 등을 위해');
+  buffer.writeln('  무료 이용자 혹은 전체 이용자의 지도 기능이 예고 없이 일시 제한되거나 중단될 수 있습니다.');
+  buffer.writeln(
+    '- 이는 공정 사용 정책(Fair Use Policy) 및 서비스 안정 운영을 위한 조치이며, 해당 사유로 인한 환불은 제한될 수 있습니다.',
+  );
+  buffer.writeln('- 제한이 발생한 경우에도 OpenStreetMap 기반 대체 지도는 계속 제공될 수 있습니다.');
   buffer.writeln();
   buffer.writeln('3. GPS 위치 기반 서비스 안내');
   buffer.writeln('- 본 서비스는 GPS 위치 정보를 활용한 알람 서비스입니다.');
@@ -72,7 +87,7 @@ String _getSubscriptionPolicyKo({required bool isBeta}) {
   buffer.writeln();
   buffer.writeln('7. 광고');
   buffer.writeln('- Free 플랜은 장소 등록/알람 생성 시 광고가 노출될 수 있습니다.');
-  buffer.writeln('- Basic/Premium 플랜은 광고가 제거됩니다.');
+  buffer.writeln('- Plus/Pro 플랜은 광고가 제거됩니다.');
   buffer.writeln();
   buffer.writeln('8. 서비스 이용 제한');
   buffer.writeln('- 서비스 안정성 보호를 위해 버그 리포트 및 건의사항 전송은 30분 간격, 하루 최대 3회로 제한됩니다.');
@@ -154,14 +169,33 @@ String _getSubscriptionPolicyEn({required bool isBeta}) {
   b.writeln();
   b.writeln('2. Plans & Coverage');
   b.writeln(
-    '- Free: 2 places, 4 registered alarms, 15 map opens/month, ads after alarm dismissal (up to 3/day)',
+    '- Free: 2 places, 4 registered alarms, up to 20 map opens/month, ads after alarm dismissal (up to 3/day)',
   );
   b.writeln(
-    '- Plus: 5 places, 10 registered alarms, 50 map opens/month (ad-free)',
+    '- Plus: 5 places, 10 registered alarms, up to 50 map opens/month (ad-free)',
   );
-  b.writeln('- Pro: Unlimited places/alarms/map opens (ad-free)');
   b.writeln(
-    '- Auto-subscription (monthly auto-renewal) receives a 15% discount.',
+    '- Pro: Unlimited places/alarms, up to 500 map opens/month (fair use policy applies, ad-free)',
+  );
+  b.writeln(
+    '- Discounts may apply for auto-renewing subscriptions; see Google Play product details for exact pricing.',
+  );
+  b.writeln();
+  b.writeln('2-1. Map Service Provision Conditions (Important)');
+  b.writeln(
+    '- Map features depend on third-party APIs (Naver Cloud Platform, Google Cloud Platform, OpenStreetMap, etc.) and are subject to those providers\' policies, pricing, downtime, and quotas.',
+  );
+  b.writeln(
+    '- The monthly map-open counts above (e.g. Free 20) are general targets, not guaranteed availability.',
+  );
+  b.writeln(
+    '- To protect service stability against sudden third-party API cost spikes, abuse, or operational issues, map features for free or all users may be temporarily limited or suspended without prior notice.',
+  );
+  b.writeln(
+    '- This is a Fair Use Policy and operational safeguard. Refunds caused by such limitations may be restricted.',
+  );
+  b.writeln(
+    '- OpenStreetMap-based fallback maps may continue to be available even when paid map providers are limited.',
   );
   b.writeln();
   b.writeln('3. GPS Location-Based Service Notice');
@@ -230,7 +264,7 @@ String _getSubscriptionPolicyEn({required bool isBeta}) {
   b.writeln();
   b.writeln('7. Ads');
   b.writeln('- Free plan may show ads when adding places/alarms.');
-  b.writeln('- Basic/Premium plans are ad-free.');
+  b.writeln('- Plus/Pro plans are ad-free.');
   b.writeln();
   b.writeln('8. Usage Restrictions');
   b.writeln(
@@ -323,10 +357,21 @@ String _getSubscriptionPolicyJa({required bool isBeta}) {
   b.writeln('- 本サービスは位置ベースのアラーム機能を提供し、一部の機能は有料サブスクリプションが必要です。');
   b.writeln();
   b.writeln('2. プランと提供範囲');
-  b.writeln('- Free: 場所2個、登録アラーム4個、マップ表示月15回、アラーム終了後に広告視聴（1日最大3回）');
-  b.writeln('- Plus: 場所5個、登録アラーム10個、マップ表示月50回（広告なし）');
-  b.writeln('- Pro: 場所/アラーム/マップ表示無制限（広告なし）');
-  b.writeln('- 自動購読（毎月自動決済）登録時、月額料金15%割引が適用されます。');
+  b.writeln('- Free: 場所2個、登録アラーム4個、マップ読み込み月最大20回、アラーム終了後に広告視聴（1日最大3回）');
+  b.writeln('- Plus: 場所5個、登録アラーム10個、マップ読み込み月最大50回（広告なし）');
+  b.writeln('- Pro: 場所/アラーム無制限、マップ読み込み月最大500回（公正利用ポリシー適用、広告なし）');
+  b.writeln('- 自動購読設定時に割引が適用される場合があり、詳細はGoogle Playの商品説明に従います。');
+  b.writeln();
+  b.writeln('2-1. マップサービス提供条件（重要）');
+  b.writeln(
+    '- マップ機能は外部API（ネイバークラウド、Google Cloud、OpenStreetMap等）に依存し、それらのポリシー、料金体系、サービス状況に左右されます。',
+  );
+  b.writeln('- 上記の月間マップ表示回数（Free 20回等）は一般的な提供目標であり、保証されるものではありません。');
+  b.writeln(
+    '- 外部API費用の急増、不正利用、サービス運営の安定性確保のため、無料ユーザーや全ユーザーのマップ機能が予告なく一時的に制限・停止される場合があります。',
+  );
+  b.writeln('- これは公正利用ポリシーとサービス安定運営のための措置であり、これによる返金は制限される場合があります。');
+  b.writeln('- OpenStreetMapベースの代替マップは、有料マップ提供者が制限されている間も提供される場合があります。');
   b.writeln();
   b.writeln('3. GPS位置情報サービスのご案内');
   b.writeln('- 本サービスはGPS位置情報を利用したアラームサービスです。');
@@ -362,7 +407,7 @@ String _getSubscriptionPolicyJa({required bool isBeta}) {
   b.writeln();
   b.writeln('7. 広告');
   b.writeln('- Freeプランでは場所登録/アラーム作成時に広告が表示される場合があります。');
-  b.writeln('- Basic/Premiumプランは広告なしです。');
+  b.writeln('- Plus/Proプランは広告なしです。');
   b.writeln();
   b.writeln('8. 利用制限');
   b.writeln('- サービスの安定性を保護するため、バグレポートおよびフィードバックの送信は30分間隔、1日最大3回までに制限されています。');
@@ -425,10 +470,17 @@ String _getSubscriptionPolicyZh({required bool isBeta}) {
   b.writeln('- 本服务提供基于位置的闹钟功能，部分功能需要付费订阅。');
   b.writeln();
   b.writeln('2. 方案与范围');
-  b.writeln('- Free: 2个地点，4个闹钟，每月15次地图打开，闹钟结束后观看广告（每天最多3次）');
-  b.writeln('- Plus: 5个地点，10个闹钟，每月50次地图打开（无广告）');
-  b.writeln('- Pro: 无限地点/闹钟/地图打开（无广告）');
-  b.writeln('- 注册自动订阅（每月自动付款）可享受月费15%折扣。');
+  b.writeln('- Free: 2个地点，4个闹钟，每月最多20次地图打开，闹钟结束后观看广告（每天最多3次）');
+  b.writeln('- Plus: 5个地点，10个闹钟，每月最多50次地图打开（无广告）');
+  b.writeln('- Pro: 无限地点/闹钟，每月最多500次地图打开（适用公平使用政策，无广告）');
+  b.writeln('- 自动续费订阅可能享受折扣，具体价格以Google Play商品说明为准。');
+  b.writeln();
+  b.writeln('2-1. 地图服务提供条件（重要）');
+  b.writeln('- 地图功能依赖于第三方API（骑营云、谷歌云、OpenStreetMap等），受其政策、价格、可用性和配额影响。');
+  b.writeln('- 上述每月地图打开次数（如Free 20次）为一般提供目标，并非保证。');
+  b.writeln('- 为应对第三方API费用突增、滥用、运营稳定性问题，免费用户或全体用户的地图功能可能被临时限制或暂停，恨不另行通知。');
+  b.writeln('- 此为公平使用政策及服务稳定运营措施，由此产生的退款可能受限。');
+  b.writeln('- OpenStreetMap基础的备用地图可能在付费地图受限期间仍然提供。');
   b.writeln();
   b.writeln('3. GPS位置服务说明');
   b.writeln('- 本服务利用GPS位置信息提供闹钟服务。');
@@ -460,7 +512,7 @@ String _getSubscriptionPolicyZh({required bool isBeta}) {
   b.writeln();
   b.writeln('7. 广告');
   b.writeln('- Free方案可能在添加地点/闹钟时显示广告。');
-  b.writeln('- Basic/Premium方案无广告。');
+  b.writeln('- Plus/Pro方案无广告。');
   b.writeln();
   b.writeln('8. 使用限制');
   b.writeln('- 为保护服务稳定性，错误报告和反馈每30分钟可发送一次，每天最多3次。');

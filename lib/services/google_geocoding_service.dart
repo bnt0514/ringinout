@@ -4,6 +4,8 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:ringinout/config/app_config.dart';
+import 'package:ringinout/services/map_usage_service.dart';
 import 'package:ringinout/services/naver_geocoding_service.dart';
 import 'package:ringinout/utils/geocoding_cache.dart';
 
@@ -66,8 +68,13 @@ class GoogleGeocodingService {
     double? lat,
     double? lng,
   }) async {
+    if (!AppConfig.isGeocodingEnabled) {
+      debugPrint('🚫 [GoogleGeocode] 지오코딩 킬스위치 활성 — searchPlace 스킵');
+      return [];
+    }
     try {
       debugPrint('🔍 Google 장소 검색 시작: $query');
+      await MapUsageService.trackGeocodingCall('google_place');
 
       String urlStr =
           'https://maps.googleapis.com/maps/api/place/textsearch/json'
@@ -124,8 +131,13 @@ class GoogleGeocodingService {
 
   /// 주소 → 좌표 변환 (Geocoding)
   static Future<GeocodingResult?> searchAddress(String query) async {
+    if (!AppConfig.isGeocodingEnabled) {
+      debugPrint('🚫 [GoogleGeocode] 지오코딩 킬스위치 활성 — searchAddress 스킵');
+      return null;
+    }
     try {
       debugPrint('🔍 Google 지오코딩 검색 시작: $query');
+      await MapUsageService.trackGeocodingCall('google_fwd');
       final url = Uri.parse(
         'https://maps.googleapis.com/maps/api/geocode/json'
         '?address=${Uri.encodeComponent(query)}'

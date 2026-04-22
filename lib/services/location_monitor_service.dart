@@ -219,17 +219,17 @@ class LocationMonitorService {
       return;
     }
 
-    final activeAlarms = await _getActiveAlarms();
+    // 지오펜스 등록은 요일/날짜 무관하게 enabled 알람 전체 대상
+    // (알람 발동 여부는 이벤트 수신 시점에 요일 필터 적용)
+    final activeAlarms = await _getActiveAlarms(forRegistration: true);
     if (activeAlarms.isEmpty) {
       _log('📭 활성화된 알람 없음');
       return;
     }
-
-    _trackedPlaceNames =
-        activeAlarms
-            .map((a) => (a['place'] ?? a['locationName'] ?? '') as String)
-            .where((n) => n.isNotEmpty)
-            .toSet();
+    activeAlarms
+        .map((a) => (a['place'] ?? a['locationName'] ?? '') as String)
+        .where((n) => n.isNotEmpty)
+        .toSet();
 
     _log('🚀 v3 시작 (${activeAlarms.length}개 알람, 장소: $_trackedPlaceNames)');
 
@@ -238,9 +238,9 @@ class LocationMonitorService {
     await _initializePlaceStates(activeAlarms);
     await _pruneStaleStates(activeAlarms);
 
-    // Init Guard: 5초간 ENTER 억제
-    _initGuardUntil = DateTime.now().add(const Duration(seconds: 5));
-    _log('🛡️ Init Guard ON (5초)');
+    // Init Guard: 10초간 ENTER/EXIT 억제 (Android GeofencingClient 버퍼 이벤트 방어)
+    _initGuardUntil = DateTime.now().add(const Duration(seconds: 10));
+    _log('🛡️ Init Guard ON (10초)');
 
     _startSnoozeChecker(onTrigger);
     _startWatchdogHeartbeat();
@@ -285,7 +285,12 @@ class LocationMonitorService {
   /// 네이티브 지오펜스 이벤트 수신 (유일한 진입점)
   /// ★ placeId = 저장된 장소 ID. 같은 장소의 여러 알람 상태를 함께 동기화한다.
   void onGeofenceEvent(String placeId, bool isEnter) {
-    if (!_isRunning) return;
+    if (!_isRunning) {
+      _log(
+        '🔴 onGeofenceEvent 수신: $placeId (${isEnter ? "ENTER" : "EXIT"}) — 그러나 _isRunning=false → 이벤트 드롭!',
+      );
+      return;
+    }
 
     _log('📡 지오펜스: $placeId ${isEnter ? "ENTER" : "EXIT"}');
 
@@ -413,6 +418,12 @@ class LocationMonitorService {
   // ─── EXIT 처리 ───
 
   void _handleGeofenceExit(String placeId, List<String> alarmIds) {
+    // Init Guard 체크 — 시작 직후 burst 이벤트로 인한 잘못된 EXIT 알람 방어
+    if (_initGuardUntil != null && DateTime.now().isBefore(_initGuardUntil!)) {
+      _log('🛡️ Init Guard — EXIT 무시: $placeId');
+      return;
+    }
+
     final currentState = _getAggregatePlaceState(alarmIds);
 
     if (currentState == PlaceState.outside) {
@@ -1832,7 +1843,11 @@ class LocationMonitorService {
   // ═══════════════════════════════════════════════════════════
 
   @pragma('vm:entry-point')
-  Future<List<Map<String, dynamic>>> _getActiveAlarms() async {
+  Future<List<Map<String, dynamic>>> _getActiveAlarms({
+    bool forRegistration = false,
+  }) async {
+    // forRegistration=true: 지오펜스 등록 목적 → 요일/날짜 필터 없이 enabled 전체
+    // forRegistration=false: 알람 발동 목적 → 오늘 요일/날짜 필터 적용
     try {
       if (!HiveHelper.isInitialized) {
         await HiveHelper.init();
@@ -1840,6 +1855,12 @@ class LocationMonitorService {
       }
 
       if (HiveHelper.isInitialized) {
+        if (forRegistration) {
+          return HiveHelper.getLocationAlarms()
+              .where((a) => a['enabled'] == true)
+              .map((a) => Map<String, dynamic>.from(a))
+              .toList();
+        }
         return HiveHelper.getActiveAlarmsForMonitoring();
       }
 
@@ -2485,7 +2506,7 @@ class LocationMonitorService {
       _log('📍 신규 알람 ${newAlarms.length}개 초기 상태 설정 완료');
 
       // Init Guard: 지오펜스 재등록에 의한 INITIAL_TRIGGER 방어
-      _initGuardUntil = DateTime.now().add(const Duration(seconds: 5));
+      _initGuardUntil = DateTime.now().add(const Duration(seconds: 10));
       _log('🛡️ Init Guard ON (장소 업데이트 — 5초)');
     }
 

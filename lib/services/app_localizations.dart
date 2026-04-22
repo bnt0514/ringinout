@@ -402,6 +402,10 @@ class AppLocalizations {
       'subscription_per_month': '/ month',
       'subscription_policy': 'Subscription Policy',
       'subscription_refund_policy': 'Refund Policy',
+      'subscription_price_tbd': 'Pricing TBD',
+      'subscription_pro_fair_use':
+          'Fair use policy: up to 500 map opens per month to prevent abuse.',
+      'subscription_map_opens_500': '500 map opens/month',
 
       // 알람 추가/편집 페이지 추가 키
       'plan_upgrade_needed': 'Plan upgrade needed',
@@ -1103,6 +1107,10 @@ class AppLocalizations {
       'subscription_per_month': '/ 월',
       'subscription_policy': '구독 정책',
       'subscription_refund_policy': '환불 정책',
+      'subscription_price_tbd': '가격 추후 안내',
+      'subscription_pro_fair_use':
+          '공정 사용 정책: 어뷰즈 방지를 위해 월 최대 500회 지도 열기 한도가 있습니다.',
+      'subscription_map_opens_500': '맵 오픈 월 500회',
 
       // 알람 추가/편집 페이지 추가 키
       'plan_upgrade_needed': '플랜 업그레이드 필요',
@@ -1788,6 +1796,9 @@ class AppLocalizations {
       'subscription_per_month': '/ 月',
       'subscription_policy': 'サブスクリプションポリシー',
       'subscription_refund_policy': '返金ポリシー',
+      'subscription_price_tbd': '価格は後日お知らせ',
+      'subscription_pro_fair_use': '公正利用ポリシー: 不正利用防止のため月最大500回のマップ表示制限があります。',
+      'subscription_map_opens_500': 'マップ表示月500回',
 
       // 알람 추가/편집 페이지 추가 키
       'plan_upgrade_needed': 'プランのアップグレードが必要',
@@ -2464,6 +2475,9 @@ class AppLocalizations {
       'subscription_per_month': '/ 月',
       'subscription_policy': '订阅政策',
       'subscription_refund_policy': '退款政策',
+      'subscription_price_tbd': '价格待定',
+      'subscription_pro_fair_use': '公平使用政策: 为防止滥用, 每月最多500次地图打开。',
+      'subscription_map_opens_500': '每月500次地图打开',
 
       // 알람 추가/편집 페이지 추가 키
       'plan_upgrade_needed': '套餐升级需要',
@@ -2767,6 +2781,7 @@ class AppLocalizations {
     },
 
     'de': {
+      // Allgemein
       'app_name': 'Ringinout',
       'save': 'Speichern',
       'cancel': 'Abbrechen',
@@ -2780,27 +2795,48 @@ class AppLocalizations {
       'error': 'Fehler',
       'success': 'Erfolg',
       'loading': 'Laden...',
+
+      // Navigation
       'nav_alarm': 'Standort',
       'nav_my_places': 'Meine Orte',
       'nav_voice': 'Sprache',
       'nav_gps': 'GPS',
+
+      // Seitentitel
       'page_title_alarm': 'Standort-Alarm',
       'page_title_gps': 'GPS',
       'page_title_places': 'Meine Orte',
       'page_title_voice': 'Spracherkennung',
       'page_title_subscription': 'Abonnement',
+
+      // Tabs
       'tab_location_alarm': 'Standort-Alarm',
       'tab_device_alarm': 'Geräte-Alarm',
       'tab_my_places': 'Meine Orte',
       'tab_my_devices': 'Meine Geräte',
       'page_title_my_devices': 'Meine Geräte',
       'page_title_device_alarm': 'Geräte-Alarm',
+
+      // Auswahlmodus
       'select_all': 'Alle auswählen',
       'delete_selected': 'Löschen',
+
+      // Alarmseite
       'alarm_title': 'Ringinout Alarm',
       'location_alarm': 'Standort-Alarm',
+      'basic_alarm': 'Basis-Alarm',
+      'basic_alarm_page': 'Basis-Alarm Seite',
+      'sort_options': 'Sortieroptionen',
+      'sort_by_time': 'Nach Alarmzeit',
+      'sort_custom': 'Eigene Reihenfolge',
+      'sort_place_asc': 'Ort (A → Z)',
+      'sort_place_desc': 'Ort (Z → A)',
+      'sort_name_asc': 'Alarmname (A → Z)',
+      'sort_name_desc': 'Alarmname (Z → A)',
       'no_alarms': 'Noch keine Alarme',
       'add_alarm_hint': 'Fügen Sie einen Standort-Alarm hinzu!',
+
+      // Ortsverwaltung
       'my_places': 'Meine Orte',
       'add_place': 'Ort hinzufügen',
       'edit_place': 'Ort bearbeiten',
@@ -2811,21 +2847,29 @@ class AppLocalizations {
       'no_places': 'Keine gespeicherten Orte',
       'no_places_desc':
           'Tippen Sie auf die Schaltfläche, um Ihren ersten Ort hinzuzufügen.',
+      'add_place_btn': 'Ort hinzufügen',
+      'add_place_hint': 'Fügen Sie Ihre Lieblingsorte hinzu!',
       'search_address': 'Adresse suchen',
       'current_location': 'Aktueller Standort',
       'radius': 'Radius',
       'custom': 'Benutzerdefiniert',
+      'custom_radius': 'Benutzerdefinierter Radius',
+
+      // Alarm hinzufügen/bearbeiten
       'add_location_alarm': 'Standort-Alarm hinzufügen',
       'edit_location_alarm': 'Standort-Alarm bearbeiten',
       'alarm_sound': 'Alarmton',
       'vibration': 'Vibration',
       'snooze': 'Schlummern',
       'alarm_enabled': 'Alarm aktiviert',
+      'entry_exit': 'Betreten/Verlassen',
       'on_entry': 'Beim Betreten',
       'on_exit': 'Beim Verlassen',
       'both': 'Beides',
       'alarm_saved': '✅ Alarm gespeichert',
       'alarm_deleted': '🗑 Alarm gelöscht',
+
+      // Einstellungen
       'settings': 'Einstellungen',
       'language': 'Sprache',
       'language_select': 'Sprache auswählen',
@@ -2841,13 +2885,111 @@ class AppLocalizations {
       'logged_out': 'Abgemeldet',
       'delete_account': 'Konto löschen',
       'delete_account_subtitle': 'Alle Daten dauerhaft löschen',
+      'delete_account_warning':
+          'Alle Ihre Daten einschließlich Alarmeinstellungen, Standortdaten und Kontoinformationen werden dauerhaft gelöscht.\n\nDiese Aktion kann nicht rückgängig gemacht werden und Ihre Daten können nicht wiederhergestellt werden.',
+      'delete_account_confirm': 'Löschen',
+      'delete_account_final_title': 'Letzte Bestätigung',
+      'delete_account_final_warning':
+          'Sind Sie absolut sicher?\nIhr Konto und alle zugehörigen Daten werden sofort dauerhaft gelöscht.',
+      'delete_account_final_confirm': 'Endgültig löschen',
+      'delete_account_failed':
+          '❌ Kontolöschung fehlgeschlagen. Bitte versuchen Sie es erneut.',
       'feedback': 'Feedback senden',
       'feedback_title': 'Feedback senden',
       'feedback_hint': 'Geben Sie Ihr Feedback oder Vorschläge ein',
       'feedback_sent': '✅ Feedback gesendet. Vielen Dank!',
       'app_info': 'App-Info',
+
+      // Anmeldeseite
+      'login_app_description':
+          'Standortbasierte Alarm-App.\nWerden Sie benachrichtigt, wenn Sie ankommen oder einen Ort verlassen!',
+      'login_data_security_title': 'Datensicherheitsversprechen',
+      'login_data_security_content':
+          'Nur Ihre verschlüsselte Kontokennung und Ihr Zahlungsstatus werden auf unseren Servern gespeichert. Standort- und persönliche Daten werden nur auf Ihrem Gerät verarbeitet.',
+      'login_data_deletion_warning':
+          'Alle gespeicherten Orte und Alarmeinstellungen werden beim Deinstallieren der App gelöscht.',
+      'login_continue_with_google': 'Mit Google fortfahren',
+      'login_cancelled': 'Anmeldung abgebrochen',
+      'login_not_supported':
+          'Google-Anmeldung wird auf diesem Gerät nicht unterstützt',
       'version': 'Version',
+      'location_based_alarm': 'Standortbasierte Alarm-App',
       'privacy_policy': 'Datenschutzrichtlinie',
+
+      // Datenschutzrichtlinie
+      'privacy_policy_title': 'Datenschutzrichtlinie',
+      'privacy_last_updated': 'Zuletzt aktualisiert: Januar 2026',
+      'privacy_section_1_title': '1. Informationen, die wir erheben',
+      'privacy_section_1_content':
+          'Ringinout erhebt keine personenbezogenen Daten.\n\n'
+          '• Standortdaten: Werden nur auf Ihrem Gerät für die Alarmfunktion verarbeitet. Werden nicht an externe Server gesendet.\n\n'
+          '• Kontoinformationen: Bei der Anmeldung mit Google wird Ihre E-Mail in eine anonymisierte zufällige ID umgewandelt. Die Original-E-Mail wird nicht gespeichert.',
+      'privacy_section_2_title': '2. Zweck der anonymisierten ID',
+      'privacy_section_2_content':
+          'Die anonymisierte ID wird ausschließlich zur Überprüfung des Premium-Abonnementstatus verwendet. '
+          'Diese ID kann nicht zur Identifizierung oder Verfolgung von Personen verwendet werden.',
+      'privacy_section_3_title': '3. Datenspeicherung',
+      'privacy_section_3_content':
+          'Alle Alarm- und Standortdaten werden nur auf Ihrem Gerät gespeichert '
+          'und nicht an externe Server übertragen.',
+      'privacy_section_4_title': '4. Weitergabe an Dritte',
+      'privacy_section_4_content':
+          'Ringinout gibt keine Benutzerdaten an Dritte weiter.',
+      'privacy_section_5_title': '5. Kontakt',
+      'privacy_section_5_content':
+          'Bei datenschutzbezogenen Anfragen nutzen Sie bitte die Funktion \'Feedback senden\' in der App.',
+
+      // Berechtigungen
+      'permission_required': 'Berechtigung erforderlich',
+      'location_permission': 'Standortberechtigung',
+      'notification_permission': 'Benachrichtigungsberechtigung',
+      'background_permission': 'Hintergrund-Standortberechtigung',
+      'background_location_desc':
+          'Erkennt Ihren Standort auch wenn die App nicht verwendet wird.',
+      'overlay_permission': 'Über anderen Apps anzeigen',
+      'overlay_permission_desc': 'Erforderlich für Vollbild-Alarme.',
+      'grant_permission': 'Berechtigung erteilen',
+      'allow': 'Erlauben',
+      'permission_settings': 'Berechtigungseinstellungen',
+      'setup_complete': 'Einrichtung abgeschlossen! 🎉',
+      'grant_all_permissions': 'Bitte alle Berechtigungen erteilen',
+      'setup_later': 'Später einrichten',
+      'location_permission_desc':
+          'Erforderlich zur Erkennung von Alarmstandorten.',
+      'battery_opt_warning_title': 'Batterieoptimierung nicht ausgeschlossen',
+      'battery_opt_warning_desc':
+          'Dieser Hinweis erscheint, weil die Batterieoptimierungsausnahme derzeit deaktiviert ist. '
+          'Die App kann weiterhin funktionieren, aber Alarme können auf einigen Geräten verzögert oder verpasst werden. '
+          'Wir empfehlen, diese App von der Batterieoptimierung auszuschließen.',
+
+      // GPS-Seite
+      'gps_title': 'GPS',
+      'geofence_service_status': 'Geofence-Dienststatus',
+      'status_running': '✅ Läuft',
+      'status_stopped': '❌ Gestoppt',
+      'status': 'Status',
+      'last_event': 'Letztes Ereignis',
+      'last_event_none': 'Keines',
+      'settings_interval':
+          'Einstellungen: {interval}s Intervall, {accuracy}m Genauigkeit',
+      'geofence_status_debug': 'Geofence-Status (Debug)',
+      'no_saved_places': 'Keine gespeicherten Orte',
+      'distance': 'Entfernung',
+      'radius_label': 'Radius',
+      'no_location_info': 'Keine Standortinfo',
+      'latitude': 'Breitengrad',
+      'longitude': 'Längengrad',
+      'updated': 'Aktualisiert',
+      'active_alarm_distance': 'Aktive Alarm-Entfernungen',
+      'no_active_alarms': 'Keine aktiven Alarme oder keine Standortinfo',
+      'alarm': 'Alarm',
+      'place_unknown': 'Unbekannter Ort',
+      'cannot_calculate_distance': 'Entfernung kann nicht berechnet werden',
+      'location_permission_required': 'Standortberechtigung ist erforderlich.',
+      'inside': 'Innerhalb',
+      'outside': 'Außerhalb',
+
+      // Wochentage
       'sun': 'So',
       'mon': 'Mo',
       'tue': 'Di',
@@ -2856,9 +2998,22 @@ class AppLocalizations {
       'fri': 'Fr',
       'sat': 'Sa',
       'every_week': 'Jeden {days}',
+      'first_entry_after_set': 'Erstes Betreten nach Alarmeinstellung',
+      'first_exit_after_set': 'Erstes Verlassen nach Alarmeinstellung',
+      'no_selection': 'Keine Auswahl',
+
+      // Feiertagseinstellungen
       'holiday_settings': 'Feiertagseinstellungen',
+      'turn_off_on_holidays':
+          'An Ersatz-/vorübergehenden Feiertagen ausschalten',
+      'turn_on_on_holidays':
+          'An Ersatz-/vorübergehenden Feiertagen einschalten',
+
+      // Feiertagsland
       'holiday_country': 'Feiertagsland',
       'holiday_country_auto': 'Auto',
+      'holiday_country_auto_detected': 'Auto (Erkannt: {country})',
+      'holiday_country_auto_detecting': 'Auto (Erkennung...)',
       'country_KR': 'Südkorea',
       'country_US': 'Vereinigte Staaten',
       'country_JP': 'Japan',
@@ -2877,47 +3032,499 @@ class AppLocalizations {
       'country_SE': 'Schweden',
       'country_PL': 'Polen',
       'country_GB': 'Großbritannien',
+
+      // Alarm-Gruppierung
+      'alarm_count': '{count} Alarme',
+      'alarm_count_one': '1 Alarm',
+      'other_places': 'Sonstige',
+
+      // Standort-Alarm hinzufügen
+      'add_new_location_alarm': 'Neuen Standort-Alarm hinzufügen',
+      'done': 'Fertig',
+      'alarm_name': 'Alarmname',
+      'no_name': 'Kein Name',
+      'select_place': 'Ort auswählen',
+      'alarm_on_entry': 'Alarm beim Betreten',
+      'alarm_on_exit': 'Alarm beim Verlassen',
+
+      // Spracherkennung
       'voice_input': 'Spracheingabe',
       'voice_listening': 'Höre zu...',
       'voice_not_recognized': 'Sprache nicht erkannt',
       'tap_to_speak': 'Tippen zum Sprechen',
+      'select_location_on_map': 'Standort auf der Karte auswählen',
+
+      // Alarmbildschirm
       'dismiss': 'Beenden',
+      'snooze_minutes': '{minutes} Min. schlummern',
       'alarm_ringing': 'Alarm klingelt!',
+
+      // Batterie-Info
+      'battery_info_text_prefix':
+          'Aktive Alarme starten automatisch neu, wenn die App geschlossen wird.\nFür zuverlässige Alarme ',
+      'battery_info_text_action': 'von Batterieoptimierung ausschließen',
+      'battery_info_text_suffix': '.',
+      'battery_opt_exclude': 'Von Batterieoptimierung ausschließen',
+      'no_saved_alarms': 'Keine gespeicherten Alarme.',
+      'no_saved_alarms_desc':
+          'Tippen Sie auf die Schaltfläche, um Ihren ersten Alarm hinzuzufügen.',
+
+      // Willkommen
       'get_started': 'Loslegen',
-      'done': 'Fertig',
-      'alarm_name': 'Alarmname',
-      'select_place': 'Ort auswählen',
-      'alarm_on_entry_label': 'Alarm beim Betreten',
-      'alarm_on_exit_label': 'Alarm beim Verlassen',
+
+      // Sprachseite
+      'voice_main_title': 'Alarme per Sprache registrieren',
+      'voice_example_phrase':
+          '"Benachrichtige mich, wenn ich bei der Arbeit ankomme"',
+      'voice_tap_to_start': 'Tippen zum Starten',
+      'voice_widget_title': 'Widget zum Startbildschirm hinzufügen',
+      'voice_widget_subtitle': 'Spracherkennung per Widget-Tippen starten!',
+      'voice_widget_guide_title': 'Startbildschirm-Widget hinzufügen',
+      'voice_widget_guide_subtitle': 'Sprachalarme schneller starten!',
+      'voice_widget_step1':
+          'Lange auf freie Stelle auf dem Startbildschirm drücken',
+      'voice_widget_step2': '"Widgets"-Menü auswählen',
+      'voice_widget_step3': '"ringinout" oder "Sprach-Alarm" suchen',
+      'voice_widget_step4': 'Widget auf den Startbildschirm ziehen',
+      'voice_widget_tip':
+          'Mit einem Widget können Sie Sprachalarme\ndirekt vom Startbildschirm starten, ohne die App zu öffnen!',
+      'voice_widget_got_it': 'Verstanden!',
+      'voice_tip_title': '💡 Beispiele zur Spracherkennung',
+      'voice_tip_examples':
+          '• "Benachrichtige mich, wenn ich montags bei der Arbeit ankomme"\n'
+          '  → Jeden Montag, beim Betreten\n'
+          '• "Warne mich, wenn ich am 12. April das Haus verlasse"\n'
+          '  → Nur am 12. April, beim Verlassen\n'
+          '• "Klingeln, wenn ich montags nach 18 Uhr nach Hause komme"\n'
+          '  → Jeden Montag, nach 18:00, beim Betreten\n'
+          '• "Erinnere mich, wenn ich am 13. März um 9 Uhr das Haus verlasse"\n'
+          '  → 13. März, nach 9:00, beim Verlassen',
+      'voice_tip_note':
+          'Wochentage, Daten & Uhrzeiten werden automatisch festgelegt\n(GPS-Geofence kann innerhalb von ±Sekunden der Grenze auslösen)',
+      // Sprach-Tabs
+      'voice_tab_location': 'Standort-Sprache',
+      'voice_tab_device': 'Geräte-Sprache',
+      'voice_device_main_title': 'Gerätealarme per Sprache registrieren',
+      'voice_device_example_phrase':
+          '"Benachrichtige mich, wenn Galaxy Buds verbunden werden"',
+      'voice_device_tip_title': '💡 Geräte-Sprachbeispiele',
+      'voice_device_tip_examples':
+          '• "Benachrichtige mich, wenn Galaxy Buds montags verbunden werden"\n'
+          '  → Jeden Montag, bei Verbindung\n'
+          '• "Warne mich, wenn Kopfhörer am 12. April getrennt werden"\n'
+          '  → Nur am 12. April, bei Trennung\n'
+          '• "Klingeln, wenn Buds montags nach 18 Uhr verbunden werden"\n'
+          '  → Jeden Montag, nach 18:00, bei Verbindung\n'
+          '• "Sage mir, wenn die Uhr am 13. März um 9 Uhr getrennt wird"\n'
+          '  → 13. März, nach 9:00, bei Trennung',
+      'voice_device_tip_note':
+          'Wochentage, Daten & Uhrzeiten werden automatisch festgelegt\n(Bluetooth-Statusänderungen werden in Echtzeit erkannt)',
+      'voice_first_visit_title': '💡 Profi-Tipp!',
+      'voice_first_visit_desc':
+          'Fügen Sie ein Widget zu Ihrem Startbildschirm hinzu,\num Sprachalarme zu starten,\nohne die App zu öffnen!',
+      'voice_first_visit_btn': 'Erfahren Sie, wie Sie ein Widget hinzufügen',
+      'voice_first_visit_later': 'Vielleicht später',
+
+      // Abonnement
+      'subscription_tab': 'Abonnement',
+      'gps_tab': 'GPS',
+      // GPS-Seite
+      'gps_current_location': 'Aktueller Standort',
+      'gps_latitude': 'Breitengrad',
+      'gps_longitude': 'Längengrad',
+      'gps_accuracy': 'Genauigkeit',
+      'gps_accuracy_good': 'Gut',
+      'gps_accuracy_fair': 'Mittel',
+      'gps_accuracy_poor': 'Schlecht',
+      'gps_updated_at': 'Aktualisiert',
+      'gps_no_location': 'Keine Standortdaten',
+      'gps_alarm_status': 'Standort-Alarmstatus',
+      'gps_stopped': 'Gestoppt',
+      'gps_inside': 'Innerhalb',
+      'gps_outside': 'Außerhalb',
+      'gps_moving': 'In Bewegung',
+      'gps_alarms': 'Alarme',
+      'gps_place_status': 'Ortstatus',
+      'gps_place_status_refresh_tooltip': 'Ortstatus aktualisieren',
+      'gps_no_tracked_places': 'Keine verfolgten Orte',
+      'gps_place_status_updated': '{count} Ort(e) Status aktualisiert',
+      'gps_entry': 'Betreten',
+      'gps_exit': 'Verlassen',
+      'gps_bug_report': 'Fehlerbericht',
+      'gps_bug_report_sending': 'Wird gesendet...',
+      'gps_bug_report_title': 'Fehlerbericht',
+      'gps_refresh_tooltip': 'GPS aktualisieren',
+      'subscription_current_plan': 'Aktueller Plan',
+      'subscription_expires': 'Läuft ab: {date}',
+      'subscription_free_plan': 'Kostenloser Plan',
+      'subscription_unlimited': 'Unbegrenzt',
+      'subscription_places_n': '{n} Orte',
+      'subscription_alarms_n': '{n} aktive Alarme',
+      'subscription_places_unlimited': 'Unbegrenzte Orte',
+      'subscription_alarms_unlimited': 'Unbegrenzte Alarme',
+      'subscription_map_opens_50': '50 Kartenöffnungen/Monat',
+      'subscription_map_opens_unlimited': 'Unbegrenzte Kartenöffnungen',
+      'subscription_no_ads': 'Keine Werbung',
+      'subscription_all_unlimited': 'Alle Funktionen unbegrenzt',
+      'subscription_dev_plan': 'Entwicklerplan - alle Funktionen unbegrenzt',
+      'subscription_subscribe': 'Abonnieren',
+      'subscription_in_use': 'In Verwendung',
+      'subscription_recommended': 'Empfohlen',
+      'subscription_coming_soon': 'Abonnement-Funktion kommt bald.',
+      'subscription_beta_notice':
+          'Kostenpflichtige Pläne sind während der Beta nicht verfügbar. Sie werden nach Ende der Beta verfügbar sein.',
+      'subscription_per_month': '/ Monat',
+      'subscription_policy': 'Abonnementrichtlinie',
+      'subscription_refund_policy': 'Rückerstattungsrichtlinie',
+      'subscription_price_tbd': 'Preis folgt',
+      'subscription_pro_fair_use':
+          'Fair-Use-Richtlinie: max. 500 Kartenöffnungen pro Monat zur Missbrauchsprävention.',
+      'subscription_map_opens_500': '500 Kartenöffnungen/Monat',
+
+      // Alarm hinzufügen/bearbeiten - zusätzliche Schlüssel
+      'plan_upgrade_needed': 'Plan-Upgrade erforderlich',
+      'add_alarm_tooltip': 'Alarm hinzufügen',
       'entry_trigger': 'Betreten',
       'exit_trigger': 'Verlassen',
+      'entry_exit_trigger': 'Betreten/Verlassen',
       'am_label': 'VM',
       'pm_label': 'NM',
+      'hour_suffix': ':',
+      'min_suffix': '',
+      'after_suffix': ' danach',
+      'first_trigger_immediate': 'Alarm beim ersten {trigger}',
+      'first_trigger_condition': '{conditions} erstes {trigger}',
+      'monthly_date': '{month}/{day}({weekday})',
+      'weekly_prefix': 'Jeden {days}',
+      'listening_prompt': '🎙️ Höre zu... Sprechen Sie jetzt!',
+      'done_btn': 'Fertig',
+      'alarm_name_label': 'Alarmname',
+      'no_name_label': 'Kein Name',
+      'select_place_label': 'Ort auswählen',
+      'alarm_on_entry_label': 'Alarm beim Betreten',
+      'alarm_on_exit_label': 'Alarm beim Verlassen',
+      'boundary_warning':
+          'In der Nähe der Geofence-Grenze kann der Alarm mehrfach klingeln, wenn Sie sich dort aufhalten oder hin und her bewegen. '
+          'Verwenden Sie die "Schlummern"-Taste, um den Alarm zu verzögern.',
+      'condition_settings': 'Bedingungseinstellungen (Optional)',
+      'condition_hint':
+          'Ohne Bedingungen klingelt der Alarm beim ersten Betreten/Verlassen nach dem Speichern.',
+      'no_date_set': 'Kein Datum festgelegt',
+      'time_condition_hint': 'Zeitbedingung (optional)',
+      'time_after': '⏰ {time} danach',
+      'holidays_off': 'An Feiertagen aus',
+      'holidays_sub_on': 'An Ersatz-/vorübergehenden Feiertagen ein',
+      'alarm_sound_label': 'Alarmton',
+      'alarm_sound_default': 'Geräte-Standardalarmton',
+      'alarm_sound_unchangeable': 'Kann nicht geändert werden',
       'save_btn': 'Speichern',
       'delete_btn': 'Löschen',
+      'edit_alarm_title': 'Standort-Alarm bearbeiten',
+      'select_place_hint': 'Ort auswählen',
+      'select_place_required': 'Bitte wählen Sie einen Ort',
+      'alarm_save_failed': 'Alarm konnte nicht gespeichert werden: {error}',
+
+      // Ort hinzufügen
+      'address_search_result': 'Adresssuchergebnisse',
+      'save_place_title': 'Ort speichern',
+      'place_name_label': 'Ortsname',
+      'place_name_hint': 'z.B. Zuhause, Büro, Fitnessstudio',
+      'radius_display': 'Radius: {radius}m',
+      'radius_shown_on_map': '(Wird als Kreis auf der Karte angezeigt)',
       'cancel_btn': 'Abbrechen',
-      'subscription_free_plan': 'Kostenloser Plan',
-      'subscription_coming_soon': 'Abonnement-Funktion kommt bald.',
+      'save_place_btn': 'Speichern',
+      'place_saved_msg': '✅ Ort gespeichert',
+      'select_on_map': 'Standort auf der Karte auswählen',
+      'move_to_current': 'Zum aktuellen Standort bewegen',
+      'search_hint': 'Adresse oder Ortsname (z.B. Starbucks)',
+      'no_search_result': 'Keine Suchergebnisse',
+      'address_label': 'Adresse: {address}',
+      'radius_label_prefix': 'Radius: ',
+      'custom_input': 'Benutzerdefiniert',
+      'save_location_btn': 'Standort speichern',
+      'signal_warning':
+          '📍 Radius-Einrichtungshilfe\n'
+          '• In GPS-instabilen Zonen (Untergrund, hohe Gebäude, signalblockierte Bereiche) können Fehlauslösungen auftreten.\n'
+          '  Für einmalige Fehlauslösungen tippen Sie auf die Taste "⚡ Fehlauslösung", um sie schnell zu verwerfen.\n'
+          '• Wenn Sie sich in der Nähe einer Zonengrenze aufhalten, kann der Alarm auch nach dem Tippen auf Fehlauslösung weiter klingeln.\n'
+          '  Deaktivieren Sie in diesem Fall den Alarm und aktivieren Sie ihn bei Bedarf wieder.\n'
+          '• Wenn Fehlauslösungen häufig auftreten, versuchen Sie, den Radius um jeweils 10m zu vergrößern.',
+      'radius_guide_btn': '📍 Radius-Einrichtungshilfe  —  Unbedingt lesen!!',
+      'radius_guide_dialog_body':
+          '📍 GPS-Genauigkeitsgrenzen\n'
+          'GPS kann Ihren Standort nur schätzen. Selbst im Freien ist mit einer Fehlertoleranz'
+          ' von mehreren bis zehn Metern zu rechnen. Dies ist eine inhärente GPS-Einschränkung.\n\n'
+          '📡 GPS-Signalspitzen\n'
+          'In GPS-instabilen Umgebungen (Untergrund, hohe Gebäude, signalblockierte Zonen)'
+          ' kann der Radiuserkennungsfehler zunehmen. Selbst wenn Sie sich tatsächlich innerhalb des Radius befinden,'
+          ' kann GPS Sie vorübergehend als außerhalb lesen — oder umgekehrt.\n'
+          'Verwenden Sie in diesen Fällen die Taste "\u26a1 Fehlauslösung".'
+          ' Wenn dasselbe Problem wiederholt auftritt, versuchen Sie, Ihren Radius um jeweils 10m zu vergrößern.\n\n'
+          '💡 Wenn Sie sich in der Nähe der konfigurierten Radiusgrenze aufhalten oder bewegen müssen\n'
+          'Selbst nach dem Tippen auf Fehlauslösung kann der Alarm weiter klingeln.'
+          ' Deaktivieren Sie in diesem Fall den Alarm und aktivieren Sie ihn bei Bedarf wieder.\n'
+          '("Standby"-Modus — wird bei Nachfrage in Betracht gezogen: automatische Reaktivierung nach einer festgelegten Dauer)',
+      'radius_input_range': '30m ~ 500m (10m-Schritte)',
+
+      // Nutzungsbedingungen
+      'terms_agreement_title': 'Nutzungsbedingungen (Erforderlich)',
+      'terms_agree_text':
+          'Ich habe die Nutzungsbedingungen und die Rückerstattungs-/Abonnementrichtlinie gelesen und stimme zu.',
+      'terms_agree_btn': 'Zustimmen und fortfahren',
+      'terms_disagree_btn': 'Ablehnen (App schließen)',
+      'terms_save_failed':
+          'Speichern der Bedingungen fehlgeschlagen. Bitte versuchen Sie es erneut.',
+
+      // Alarmton
+      'alarm_sound_setting_title': 'Alarmton-Einstellungen',
+      'alarm_disabled_label': 'Alarm deaktiviert',
+
+      // add_alarm_page
+      'add_alarm_new_title': 'Neuen Alarm hinzufügen',
+      'edit_alarm_modify_title': 'Standort-Alarm bearbeiten',
+      'location_fixed_text': 'Dieser Alarm ist an diesen Ort gebunden',
+      'no_place_label': 'Kein Ort',
+      'required_fields_msg': 'Bitte füllen Sie alle Pflichtfelder aus.',
+      'holidays_dialog_title': 'Ersatz-/vorübergehende Feiertagseinstellungen',
+      'holidays_sub_off': 'An Ersatz-/vorübergehenden Feiertagen ebenfalls aus',
+
+      // my_places_page
+      'delete_confirm_title': 'Löschen bestätigen',
+      'delete_locked_msg': 'Diesen gesperrten Ort löschen?',
+      'delete_place_msg': 'Möchten Sie diesen Ort wirklich löschen?',
+      'linked_alarm_delete_warning':
+          '⚠️ {count} verknüpfte(r) Alarm(e) werden ebenfalls gelöscht.',
+      'edit_places_menu': 'Ort bearbeiten',
+      'add_alarm_menu': 'Neuen Alarm hinzufügen',
+      'add_place_tooltip': 'Neuen Ort hinzufügen',
+
+      // show_alarm_popup_page
+      'alarm_end_confirm': 'Alarm beenden?',
+      'no_label': 'Nein',
+      'yes_label': 'Ja',
+      'snooze_btn': 'Schlummern',
+      'alarm_stop_btn': 'Alarm stoppen',
+
+      // Schlummer-/Vibrationseinstellungen
+      'snooze_setting_title': 'Schlummereinstellungen',
+      'vibration_setting_title': 'Vibrationseinstellungen',
+
+      // Berechtigung
+      'permission_setting_title': 'Berechtigungseinstellungen',
+      'permission_allow': 'Erlauben',
+      'battery_opt_title': 'Batterieoptimierung deaktivieren',
+      'battery_opt_msg':
+          'Damit Alarme im Hintergrund ordnungsgemäß funktionieren, muss die Batterieoptimierung deaktiviert werden.\nGehen Sie zu den Einstellungen und suchen Sie "Batterieoptimierung" und setzen Sie Ringinout auf "Nicht optimiert".',
+      'open_settings_btn': 'Einstellungen öffnen',
+      'later_btn': 'Später',
+
+      // Abonnementverwaltung
+      'subscription_mgmt_title': 'Abonnementverwaltung',
+      'subscription_policy_btn': 'Abonnementrichtlinie',
+      'refund_policy_btn': 'Rückerstattungsrichtlinie',
+      'auto_renew_msg': 'Automatisch nach Google Play-Richtlinien verlängert.',
+      'agree_auto_pay': 'Ich stimme der automatischen Zahlung zu.',
+      'agree_policy':
+          'Ich habe die Abonnement-/Rückerstattungsrichtlinie geprüft.',
+      'start_auto_subscription': 'Automatisches Abonnement starten',
+      'current_plan': 'Aktueller Plan',
+      'cancel_subscription': 'Kündigen',
+      'subscribe_btn': 'Abonnieren',
+      'auto_subscribe_btn': 'Automatisch abonnieren',
+      'beta_no_paid_plans':
+          'Kostenpflichtige Pläne sind während der Beta nicht verfügbar. Sie werden nach Ende der Beta verfügbar sein.',
+      'places_5': '5 Orte',
+      'active_alarms_10': '10 aktive Alarme',
+      'ad_free_included': 'Werbefrei inklusive',
+      'places_alarms_unlimited': 'Unbegrenzte Orte/Alarme',
+      'ad_remove_title': 'Werbung entfernen',
+      'in_app_ad_remove': 'In-App-Werbung entfernen',
+      'price_loading': 'Preis wird geladen',
+      'duration_1month': '1 Monat',
+      'duration_3months': '3 Monate',
+      'duration_6months': '6 Monate',
+      'duration_12months': '12 Monate',
+      'discount_5': '5% Rabatt',
+      'discount_10': '10% Rabatt',
+      'discount_20': '20% Rabatt',
+      'expiry_date_none': 'Ablauf: -',
+      'expiry_date_format': 'Ablauf: {date}',
+      'beta_sub_activate_later':
+          'Abonnements werden nach Ende der Beta aktiviert.',
+
+      // Abonnement-Limitdialog
+      'place_limit_title': 'Ort-Registrierungslimit',
+      'place_limit_msg':
+          'Im {plan}-Plan können Sie bis zu {limit} Orte registrieren.\nBitte löschen Sie bestehende Orte oder upgraden Sie.',
+      'alarm_limit_title': 'Alarm-Registrierungslimit',
+      'alarm_limit_msg':
+          'Im {plan}-Plan können Sie bis zu {limit} aktive Alarme einrichten.\nBitte löschen Sie bestehende Alarme oder upgraden Sie.',
+      'close_btn': 'Schließen',
+
+      // Standortauswahl
+      'place_name_input_title': 'Ortsnamen eingeben',
+      'radius_default_info': 'Radius: 100m (kann später geändert werden)',
+      'location_select_title': 'Standort auswählen',
+      'fetching_location': 'Aktueller Standort wird abgerufen...',
+      'location_saved': '📍 Standort gespeichert!',
+
+      // Anmeldung zusätzlich
+      'dev_test_mode': 'Entwickler-Testmodus',
+      'test_login_failed': 'Test-Anmeldung fehlgeschlagen: {error}',
+
+      // Kartenwechsel
+      'switch_to_google': 'Zu Google Maps wechseln',
+      'switch_to_naver': 'Zu Naver Map wechseln',
+
+      // Kostenloser Plan Kartenlimit
+      'map_free_limit_exceeded_title': 'Kostenloser Plan Limit',
+      'map_free_limit_exceeded_body':
+          'Sie haben alle {limit} Google Maps-Öffnungen diesen Monat verbraucht.\n\n'
+          'OSM ist immer kostenlos verfügbar.\n'
+          'Upgraden Sie auf einen kostenpflichtigen Plan für unbegrenzten Zugang.',
+      'map_switch_confirm_title': 'Zu Google Maps wechseln',
+      'map_switch_confirm_body':
+          'Der kostenlose Plan erlaubt {limit} Google Maps-Öffnungen pro Monat.\n\n'
+          'Verbleibend: {remaining}/{limit}\n\n'
+          'Der Wechsel zu Google Maps verbraucht 1 Guthaben.\n'
+          'OSM ist immer kostenlos und unbegrenzt.',
+      'map_switch_btn_cancel': 'Abbrechen',
+      'map_switch_btn_confirm': 'Wechseln',
+
+      // Fehlauslösung / Alarmbildschirm
       'btn_snooze': 'Schlummern',
       'btn_dismiss': 'Alarm beenden',
       'btn_false_trigger': 'Fehlauslösung',
       'false_trigger_hint': 'Durch GPS-Fehler ausgelöst',
+      'snooze_time_title': 'Schlummerdauer',
+      'snooze_min': '{m} Min.',
+
+      // Fehlauslösungs-Info
+      'false_trigger_info_title': '⚡ Was ist Fehlauslösung?',
+      'false_trigger_info_subtitle':
+          'Alarm aktiv halten, wenn durch GPS-Fehler ausgelöst',
+      'false_trigger_dialog_title': 'Was ist Fehlauslösung?',
+      'false_trigger_dialog_body':
+          'Wenn der Alarm klingelt, erscheint eine "⚡ Fehlauslösung"-Taste'
+          ' neben "Schlummern" und "Alarm beenden".\n\n'
+          'Wenn Sie auf "⚡ Fehlauslösung" tippen:\n'
+          '  • Klingelton/Vibration stoppt sofort\n'
+          '  • Der Alarm bleibt aktiv (wird nicht deaktiviert)\n'
+          '  • Der Alarm kann erneut von vorne auslösen\n\n'
+          '📍 GPS-Genauigkeitsgrenzen\n'
+          'GPS kann Ihren Standort nur schätzen.'
+          ' Selbst im Freien gibt es immer eine Fehlertoleranz von mehreren bis zehn Metern.'
+          ' Dies kann dazu führen, dass der Alarm etwas zu früh oder zu spät auslöst.\n\n'
+          '📡 GPS-Signalspitzen\n'
+          'In GPS-instabilen Umgebungen (Untergrund, hohe Gebäude, signalblockierte Zonen)'
+          ' kann der Radiuserkennungsfehler zunehmen. Selbst wenn Sie sich tatsächlich innerhalb des Radius befinden,'
+          ' kann GPS Sie vorübergehend als außerhalb lesen — oder umgekehrt.\n'
+          'Verwenden Sie in diesen Fällen die "⚡ Fehlauslösung"-Taste.'
+          ' Wenn dasselbe Problem wiederholt auftritt, versuchen Sie, Ihren Radius um jeweils 10m zu vergrößern.\n\n'
+          '💡 Wenn Sie sich in der Nähe der konfigurierten Radiusgrenze aufhalten oder bewegen müssen\n'
+          'Selbst nach dem Tippen auf Fehlauslösung kann der Alarm weiter klingeln.'
+          ' Deaktivieren Sie in diesem Fall den Alarm und aktivieren Sie ihn bei Bedarf wieder.\n'
+          '("Standby"-Modus — wird bei Nachfrage in Betracht gezogen: automatische Reaktivierung nach einer festgelegten Dauer)',
+      'false_trigger_dialog_ok': 'Verstanden',
+
+      // Bluetooth-Geräte-Alarm — unbeabsichtigte Auslösung
+      'bt_false_trigger_info_title': '⚡ Unbeabsichtigter Alarm?',
+      'bt_false_trigger_info_subtitle':
+          'Alarm ohne Ihre Absicht ausgelöst? Hier erfahren Sie, was zu tun ist',
+      'bt_false_trigger_dialog_title': 'Unbeabsichtigter Alarm?',
+      'bt_false_trigger_dialog_body':
+          'Bluetooth-Alarme werden ausgelöst, wenn eine Verbindung oder Trennung\n'
+          '15 Sekunden oder länger dauert. Das ist beabsichtigt — aber das Leben\n'
+          'läuft nicht immer wie geplant.\n\n'
+          'Wenn der Alarm ausgelöst wird, tippen Sie auf "⚡ Fehlauslösung", um den Klingelton zu stoppen\n'
+          'und den Alarm für das nächste Mal aktiv zu halten.\n\n'
+          '💡 Tipp: Verwenden Sie Wochentag- oder Zeitbedingungen, um unerwünschte\n'
+          'Auslösungen zu anderen Tageszeiten erheblich zu reduzieren.',
+      'bt_bonded_devices_title': 'Gekoppelte Bluetooth-Geräte',
+      'bt_refresh_tooltip': 'Geräteliste aktualisieren',
+      'bt_selector_description':
+          'Wählen Sie gekoppelte Bluetooth-Geräte zur Erkennung für diesen Ort aus.',
+      'bt_permission_needed':
+          'Bluetooth-Berechtigung ist erforderlich.\nBitte erlauben Sie den Bluetooth-Zugriff in den Einstellungen.',
+      'bt_no_bonded_devices': 'Keine gekoppelten Bluetooth-Geräte gefunden.',
+      'bt_selected_count': '{count} Gerät(e) ausgewählt',
+      'bt_device_retained': 'Zuvor gespeichert (derzeit nicht gekoppelt)',
+      'bt_devices_label': 'Bluetooth-Geräte',
+      'bt_none_selected': 'Keine ausgewählt',
+      'bt_count_selected': '{count} ausgewählt',
+
+      // Geräte-Alarm
       'device_alarm_empty': 'Keine Geräte-Alarme',
+      'device_alarm_empty_desc':
+          'Fügen Sie einen Bluetooth-Gerätealarm hinzu,\num benachrichtigt zu werden, wenn ein Gerät verbunden oder getrennt wird.',
       'device_alarm_add': 'Geräte-Alarm hinzufügen',
+      'device_alarm_delete_confirm': 'Diesen Gerätealarm löschen?',
+      'device_alarm_select_device': 'Gerät auswählen',
+      'device_alarm_name_label': 'Alarmname',
+      'device_alarm_name_hint': 'Alarmnamen eingeben',
+      'device_alarm_trigger_label': 'Auslösen wenn',
       'device_trigger_connect': 'Verbunden',
       'device_trigger_disconnect': 'Getrennt',
-      'login_app_description':
-          'Standortbasierte Alarm-App.\nWerden Sie benachrichtigt, wenn Sie ankommen oder einen Ort verlassen!',
-      'login_continue_with_google': 'Mit Google fortfahren',
-      'permission_required': 'Berechtigung erforderlich',
-      'location_permission': 'Standortberechtigung',
-      'notification_permission': 'Benachrichtigungsberechtigung',
-      'grant_permission': 'Berechtigung erteilen',
-      'allow': 'Erlauben',
-      'setup_complete': 'Einrichtung abgeschlossen! 🎉',
+
+      // Meine Geräte
+      'my_devices_empty': 'Keine registrierten Geräte',
+      'my_devices_empty_desc':
+          'Bluetooth-Geräte, die an Orte oder\nGerätealarme gebunden sind, werden hier angezeigt.',
+      'my_devices_source_place': 'Ort',
+      'my_devices_source_alarm': 'Alarm',
+      'my_devices_add': 'Gerät hinzufügen',
+      'my_devices_add_title': 'Bluetooth-Gerät hinzufügen',
+      'my_devices_custom_name_label': 'Eigener Name',
+      'my_devices_custom_name_hint':
+          'Geben Sie einen leicht merkbaren Namen ein',
+      'my_devices_original_name': 'Bluetooth-Name',
+      'my_devices_edit_name': 'Name bearbeiten',
+      'edit_device_menu': 'Gerät bearbeiten',
+      'add_device_alarm_menu': 'Neuen Alarm hinzufügen',
+      'my_devices_delete_confirm': 'Dieses Gerät entfernen?',
+      'my_devices_source_manual': 'Manuell',
+
+      // Alarm hinzufügen (feste untere Leiste)
+      'add_alarm_btn': 'Alarm hinzufügen',
+      'add_device_alarm_btn': 'Alarm hinzufügen',
+
+      // Gerätealarmseite
+      'device_alarm_page_title': 'Geräte-Alarm hinzufügen',
+      'device_alarm_edit_title': 'Geräte-Alarm bearbeiten',
+      'add_new_device_alarm': 'Neuen Geräte-Alarm hinzufügen',
+      'select_device_label': 'Gerät auswählen',
+      'alarm_on_connect_label': 'Alarm bei Verbindung',
+      'alarm_on_disconnect_label': 'Alarm bei Trennung',
+      'device_condition_hint':
+          'Ohne Bedingungen wird der Alarm bei der ersten Verbindung/Trennung ausgelöst.',
+      'device_alarm_voice_section': 'Spracherkennung',
+      'device_alarm_voice_msg_label': 'Sprachnachricht',
+      'device_alarm_voice_msg_hint':
+          'Nachricht, die bei Alarmauslösung angesagt wird',
+      'device_alarm_voice_enabled': 'Sprachbenachrichtigung aktivieren',
+      'device_alarm_sound_section': 'Alarmton',
+      'device_alarm_save_success': 'Geräte-Alarm gespeichert',
+
+      // WLAN
+      'wifi_networks_label': 'WLAN-Netzwerke',
+      'wifi_none_selected': 'Keine ausgewählt',
+      'wifi_count_selected': '{count} ausgewählt',
+      'wifi_rescan_tooltip': 'Erneut scannen',
+      'wifi_description':
+          'Verwenden Sie die WLAN-Verbindung für genauere Standorterkennung.',
+      'wifi_disabled': 'WLAN ist ausgeschaltet',
+      'wifi_disabled_detail':
+          'WLAN ist ausgeschaltet. Bitte aktivieren Sie WLAN und versuchen Sie es erneut.',
+      'wifi_scan_failed': 'WLAN-Scan fehlgeschlagen',
+      'wifi_no_networks': 'Keine WLAN-Netzwerke erkannt.',
+      'wifi_networks_selected': '{count} Netzwerk(e) ausgewählt',
+      'wifi_hidden_network': '(Verstecktes Netzwerk)',
+      'wifi_currently_connected': 'Derzeit verbunden',
+      'wifi_previously_saved': 'Zuvor gespeichert (derzeit nicht erkannt)',
     },
 
     'fr': {
+      // Commun
       'app_name': 'Ringinout',
       'save': 'Enregistrer',
       'cancel': 'Annuler',
@@ -2931,27 +3538,48 @@ class AppLocalizations {
       'error': 'Erreur',
       'success': 'Succès',
       'loading': 'Chargement...',
+
+      // Navigation
       'nav_alarm': 'Alarme',
       'nav_my_places': 'Mes lieux',
       'nav_voice': 'Voix',
       'nav_gps': 'GPS',
+
+      // Titres de page
       'page_title_alarm': 'Alarme de lieu',
       'page_title_gps': 'GPS',
       'page_title_places': 'Mes lieux',
       'page_title_voice': 'Reconnaissance vocale',
       'page_title_subscription': 'Abonnement',
+
+      // Onglets
       'tab_location_alarm': 'Alarme de lieu',
       'tab_device_alarm': 'Alarme appareil',
       'tab_my_places': 'Mes lieux',
       'tab_my_devices': 'Mes appareils',
       'page_title_my_devices': 'Mes appareils',
       'page_title_device_alarm': 'Alarme appareil',
+
+      // Mode sélection
       'select_all': 'Tout sélectionner',
       'delete_selected': 'Supprimer',
+
+      // Page d'alarme
       'alarm_title': 'Alarme Ringinout',
       'location_alarm': 'Alarme de lieu',
+      'basic_alarm': 'Alarme basique',
+      'basic_alarm_page': 'Page d\'alarme basique',
+      'sort_options': 'Options de tri',
+      'sort_by_time': 'Par heure d\'alarme',
+      'sort_custom': 'Ordre personnalisé',
+      'sort_place_asc': 'Lieu (A → Z)',
+      'sort_place_desc': 'Lieu (Z → A)',
+      'sort_name_asc': 'Nom d\'alarme (A → Z)',
+      'sort_name_desc': 'Nom d\'alarme (Z → A)',
       'no_alarms': 'Aucune alarme',
       'add_alarm_hint': 'Ajoutez une alarme de lieu !',
+
+      // Gestion des lieux
       'my_places': 'Mes lieux',
       'add_place': 'Ajouter un lieu',
       'edit_place': 'Modifier le lieu',
@@ -2962,21 +3590,29 @@ class AppLocalizations {
       'no_places': 'Aucun lieu enregistré',
       'no_places_desc':
           'Appuyez sur le bouton pour ajouter votre premier lieu.',
+      'add_place_btn': 'Ajouter un lieu',
+      'add_place_hint': 'Ajoutez vos lieux favoris !',
       'search_address': 'Rechercher une adresse',
       'current_location': 'Position actuelle',
       'radius': 'Rayon',
       'custom': 'Personnalisé',
+      'custom_radius': 'Rayon personnalisé',
+
+      // Ajout/modification d'alarme
       'add_location_alarm': 'Ajouter alarme de lieu',
       'edit_location_alarm': 'Modifier alarme de lieu',
       'alarm_sound': 'Son d\'alarme',
       'vibration': 'Vibration',
       'snooze': 'Répéter',
       'alarm_enabled': 'Alarme activée',
+      'entry_exit': 'Entrée/Sortie',
       'on_entry': 'À l\'entrée',
       'on_exit': 'À la sortie',
       'both': 'Les deux',
       'alarm_saved': '✅ Alarme enregistrée',
       'alarm_deleted': '🗑 Alarme supprimée',
+
+      // Paramètres
       'settings': 'Paramètres',
       'language': 'Langue',
       'language_select': 'Sélectionner la langue',
@@ -2992,13 +3628,113 @@ class AppLocalizations {
       'logged_out': 'Déconnecté',
       'delete_account': 'Supprimer le compte',
       'delete_account_subtitle': 'Supprimer définitivement toutes les données',
+      'delete_account_warning':
+          'Toutes vos données, y compris les paramètres d\'alarme, les données de localisation et les informations de compte, seront définitivement supprimées.\n\nCette action est irréversible et vos données ne pourront pas être récupérées.',
+      'delete_account_confirm': 'Supprimer',
+      'delete_account_final_title': 'Confirmation finale',
+      'delete_account_final_warning':
+          'Êtes-vous absolument sûr ?\nVotre compte et toutes les données associées seront immédiatement supprimés définitivement.',
+      'delete_account_final_confirm': 'Supprimer définitivement',
+      'delete_account_failed':
+          '❌ Échec de la suppression du compte. Veuillez réessayer.',
       'feedback': 'Envoyer un commentaire',
       'feedback_title': 'Envoyer un commentaire',
       'feedback_hint': 'Entrez vos commentaires ou suggestions',
       'feedback_sent': '✅ Commentaire envoyé. Merci !',
       'app_info': 'Info app',
+
+      // Page de connexion
+      'login_app_description':
+          'Application d\'alarme basée sur la localisation.\nSoyez notifié quand vous arrivez ou quittez un lieu !',
+      'login_data_security_title': 'Promesse de sécurité des données',
+      'login_data_security_content':
+          'Seuls votre identifiant de compte chiffré et votre statut de paiement sont stockés sur nos serveurs. Les informations de localisation et personnelles sont traitées uniquement sur votre appareil.',
+      'login_data_deletion_warning':
+          'Tous les lieux enregistrés et les paramètres d\'alarme seront supprimés lors de la désinstallation de l\'application.',
+      'login_continue_with_google': 'Continuer avec Google',
+      'login_cancelled': 'Connexion annulée',
+      'login_not_supported':
+          'La connexion Google n\'est pas prise en charge sur cet appareil',
       'version': 'Version',
+      'location_based_alarm': 'Application d\'alarme basée sur la localisation',
       'privacy_policy': 'Politique de confidentialité',
+
+      // Politique de confidentialité
+      'privacy_policy_title': 'Politique de confidentialité',
+      'privacy_last_updated': 'Dernière mise à jour : janvier 2026',
+      'privacy_section_1_title': '1. Informations que nous collectons',
+      'privacy_section_1_content':
+          'Ringinout ne collecte pas d\'informations personnelles.\n\n'
+          '• Données de localisation : Traitées uniquement sur votre appareil pour la fonctionnalité d\'alarme. Non envoyées à des serveurs externes.\n\n'
+          '• Informations de compte : Lors de la connexion avec Google, votre e-mail est converti en un identifiant aléatoire anonymisé. L\'e-mail original n\'est pas stocké.',
+      'privacy_section_2_title': '2. Objectif de l\'identifiant anonymisé',
+      'privacy_section_2_content':
+          'L\'identifiant anonymisé est utilisé uniquement pour vérifier le statut d\'abonnement premium. '
+          'Cet identifiant ne peut pas être utilisé pour identifier ou suivre des individus.',
+      'privacy_section_3_title': '3. Stockage des données',
+      'privacy_section_3_content':
+          'Toutes les données d\'alarme et de localisation sont stockées uniquement sur votre appareil '
+          'et ne sont pas transmises à des serveurs externes.',
+      'privacy_section_4_title': '4. Partage avec des tiers',
+      'privacy_section_4_content':
+          'Ringinout ne partage aucune information utilisateur avec des tiers.',
+      'privacy_section_5_title': '5. Contact',
+      'privacy_section_5_content':
+          'Pour les demandes liées à la confidentialité, veuillez utiliser la fonction \'Envoyer un commentaire\' dans l\'application.',
+
+      // Autorisations
+      'permission_required': 'Autorisation requise',
+      'location_permission': 'Autorisation de localisation',
+      'notification_permission': 'Autorisation de notification',
+      'background_permission': 'Autorisation de localisation en arrière-plan',
+      'background_location_desc':
+          'Détecte votre position même lorsque l\'application n\'est pas utilisée.',
+      'overlay_permission': 'Afficher par-dessus d\'autres applications',
+      'overlay_permission_desc':
+          'Requis pour afficher les alarmes en plein écran.',
+      'grant_permission': 'Accorder l\'autorisation',
+      'allow': 'Autoriser',
+      'permission_settings': 'Paramètres d\'autorisation',
+      'setup_complete': 'Configuration terminée ! 🎉',
+      'grant_all_permissions': 'Veuillez accorder toutes les autorisations',
+      'setup_later': 'Configurer plus tard',
+      'location_permission_desc':
+          'Requis pour détecter les emplacements d\'alarme.',
+      'battery_opt_warning_title': 'Optimisation de batterie non exclue',
+      'battery_opt_warning_desc':
+          'Cet avis apparaît car l\'exclusion de l\'optimisation de batterie est actuellement désactivée. '
+          'L\'application peut continuer à fonctionner, mais les alarmes peuvent être retardées ou manquées sur certains appareils. '
+          'Nous recommandons d\'exclure cette application de l\'optimisation de batterie.',
+
+      // Page GPS
+      'gps_title': 'GPS',
+      'geofence_service_status': 'État du service Geofence',
+      'status_running': '✅ En cours',
+      'status_stopped': '❌ Arrêté',
+      'status': 'État',
+      'last_event': 'Dernier événement',
+      'last_event_none': 'Aucun',
+      'settings_interval':
+          'Paramètres : intervalle {interval}s, précision {accuracy}m',
+      'geofence_status_debug': 'État Geofence (Debug)',
+      'no_saved_places': 'Aucun lieu enregistré',
+      'distance': 'Distance',
+      'radius_label': 'Rayon',
+      'no_location_info': 'Aucune info de localisation',
+      'latitude': 'Latitude',
+      'longitude': 'Longitude',
+      'updated': 'Mis à jour',
+      'active_alarm_distance': 'Distances des alarmes actives',
+      'no_active_alarms': 'Aucune alarme active ou aucune info de localisation',
+      'alarm': 'Alarme',
+      'place_unknown': 'Lieu inconnu',
+      'cannot_calculate_distance': 'Impossible de calculer la distance',
+      'location_permission_required':
+          'L\'autorisation de localisation est requise.',
+      'inside': 'À l\'intérieur',
+      'outside': 'À l\'extérieur',
+
+      // Jours de la semaine
       'sun': 'Dim',
       'mon': 'Lun',
       'tue': 'Mar',
@@ -3007,9 +3743,22 @@ class AppLocalizations {
       'fri': 'Ven',
       'sat': 'Sam',
       'every_week': 'Chaque {days}',
+      'first_entry_after_set': 'Première entrée après le réglage de l\'alarme',
+      'first_exit_after_set': 'Première sortie après le réglage de l\'alarme',
+      'no_selection': 'Aucune sélection',
+
+      // Paramètres des jours fériés
       'holiday_settings': 'Paramètres des jours fériés',
+      'turn_off_on_holidays':
+          'Désactiver les jours fériés de substitution/temporaires',
+      'turn_on_on_holidays':
+          'Activer les jours fériés de substitution/temporaires',
+
+      // Pays des jours fériés
       'holiday_country': 'Pays des jours fériés',
       'holiday_country_auto': 'Auto',
+      'holiday_country_auto_detected': 'Auto (Détecté : {country})',
+      'holiday_country_auto_detecting': 'Auto (Détection...)',
       'country_KR': 'Corée du Sud',
       'country_US': 'États-Unis',
       'country_JP': 'Japon',
@@ -3028,47 +3777,505 @@ class AppLocalizations {
       'country_SE': 'Suède',
       'country_PL': 'Pologne',
       'country_GB': 'Royaume-Uni',
+
+      // Groupement d'alarmes
+      'alarm_count': '{count} alarmes',
+      'alarm_count_one': '1 alarme',
+      'other_places': 'Autres',
+
+      // Ajout d'alarme de lieu
+      'add_new_location_alarm': 'Ajouter une nouvelle alarme de lieu',
+      'done': 'Terminé',
+      'alarm_name': 'Nom de l\'alarme',
+      'no_name': 'Sans nom',
+      'select_place': 'Sélectionner un lieu',
+      'alarm_on_entry': 'Alarme à l\'entrée',
+      'alarm_on_exit': 'Alarme à la sortie',
+
+      // Reconnaissance vocale
       'voice_input': 'Saisie vocale',
       'voice_listening': 'Écoute...',
       'voice_not_recognized': 'Voix non reconnue',
       'tap_to_speak': 'Appuyez pour parler',
+      'select_location_on_map': 'Sélectionner un lieu sur la carte',
+
+      // Écran d'alarme
       'dismiss': 'Fermer',
+      'snooze_minutes': 'Répéter {minutes} min',
       'alarm_ringing': 'Alarme en cours !',
+
+      // Info batterie
+      'battery_info_text_prefix':
+          'Les alarmes actives redémarrent automatiquement à la fermeture de l\'application.\nPour des alarmes fiables, ',
+      'battery_info_text_action': 'exclure de l\'optimisation de batterie',
+      'battery_info_text_suffix': '.',
+      'battery_opt_exclude': 'Exclure de l\'optimisation de batterie',
+      'no_saved_alarms': 'Aucune alarme enregistrée.',
+      'no_saved_alarms_desc':
+          'Appuyez sur le bouton pour ajouter votre première alarme.',
+
+      // Bienvenue
       'get_started': 'Commencer',
-      'done': 'Terminé',
-      'alarm_name': 'Nom de l\'alarme',
-      'select_place': 'Sélectionner un lieu',
-      'alarm_on_entry_label': 'Alarme à l\'entrée',
-      'alarm_on_exit_label': 'Alarme à la sortie',
+
+      // Page vocale
+      'voice_main_title': 'Enregistrer des alarmes par la voix',
+      'voice_example_phrase': '"Prévenez-moi quand j\'arrive au travail"',
+      'voice_tap_to_start': 'Appuyez pour commencer',
+      'voice_widget_title': 'Ajouter un widget à l\'écran d\'accueil',
+      'voice_widget_subtitle':
+          'Lancez la reconnaissance vocale d\'un simple toucher !',
+      'voice_widget_guide_title': 'Ajouter un widget à l\'écran d\'accueil',
+      'voice_widget_guide_subtitle':
+          'Lancez les alarmes vocales plus rapidement !',
+      'voice_widget_step1':
+          'Appui long sur un espace vide de l\'écran d\'accueil',
+      'voice_widget_step2': 'Sélectionnez le menu "Widgets"',
+      'voice_widget_step3': 'Cherchez "ringinout" ou "Alarme vocale"',
+      'voice_widget_step4': 'Glissez le widget sur l\'écran d\'accueil',
+      'voice_widget_tip':
+          'Avec un widget, vous pouvez lancer des alarmes vocales\ndirectement depuis votre écran d\'accueil sans ouvrir l\'application !',
+      'voice_widget_got_it': 'Compris !',
+      'voice_tip_title': '💡 Exemples de reconnaissance vocale',
+      'voice_tip_examples':
+          '• "Prévenez-moi quand j\'arrive au travail le lundi"\n'
+          '  → Chaque lundi, à l\'entrée\n'
+          '• "Alertez-moi quand je quitte la maison le 12 avril"\n'
+          '  → Le 12 avril uniquement, à la sortie\n'
+          '• "Sonnez quand je rentre à la maison après 18h le lundi"\n'
+          '  → Chaque lundi, après 18:00, à l\'entrée\n'
+          '• "Rappelez-moi quand je quitte la maison à 9h le 13 mars"\n'
+          '  → Le 13 mars, après 9:00, à la sortie',
+      'voice_tip_note':
+          'Jours, dates et heures sont définis automatiquement\n(Le geofence GPS peut se déclencher dans un délai de ±secondes à la limite)',
+      // Onglets vocaux
+      'voice_tab_location': 'Voix lieu',
+      'voice_tab_device': 'Voix appareil',
+      'voice_device_main_title':
+          'Enregistrer des alarmes d\'appareil par la voix',
+      'voice_device_example_phrase':
+          '"Prévenez-moi quand les Galaxy Buds se connectent"',
+      'voice_device_tip_title': '💡 Exemples vocaux d\'appareil',
+      'voice_device_tip_examples':
+          '• "Prévenez-moi quand les Galaxy Buds se connectent le lundi"\n'
+          '  → Chaque lundi, à la connexion\n'
+          '• "Alertez-moi quand les écouteurs se déconnectent le 12 avril"\n'
+          '  → Le 12 avril uniquement, à la déconnexion\n'
+          '• "Sonnez quand les Buds se connectent après 18h le lundi"\n'
+          '  → Chaque lundi, après 18:00, à la connexion\n'
+          '• "Dites-moi quand la montre se déconnecte à 9h le 13 mars"\n'
+          '  → Le 13 mars, après 9:00, à la déconnexion',
+      'voice_device_tip_note':
+          'Jours, dates et heures sont définis automatiquement\n(Les changements d\'état Bluetooth sont détectés en temps réel)',
+      'voice_first_visit_title': '💡 Astuce pro !',
+      'voice_first_visit_desc':
+          'Ajoutez un widget à votre écran d\'accueil\npour lancer des alarmes vocales\nsans ouvrir l\'application !',
+      'voice_first_visit_btn': 'Voir comment ajouter un widget',
+      'voice_first_visit_later': 'Peut-être plus tard',
+
+      // Abonnement
+      'subscription_tab': 'Abonnement',
+      'gps_tab': 'GPS',
+      // Page GPS
+      'gps_current_location': 'Position actuelle',
+      'gps_latitude': 'Latitude',
+      'gps_longitude': 'Longitude',
+      'gps_accuracy': 'Précision',
+      'gps_accuracy_good': 'Bonne',
+      'gps_accuracy_fair': 'Moyenne',
+      'gps_accuracy_poor': 'Mauvaise',
+      'gps_updated_at': 'Mis à jour',
+      'gps_no_location': 'Aucune donnée de localisation',
+      'gps_alarm_status': 'État de l\'alarme de lieu',
+      'gps_stopped': 'Arrêté',
+      'gps_inside': 'À l\'intérieur',
+      'gps_outside': 'À l\'extérieur',
+      'gps_moving': 'En mouvement',
+      'gps_alarms': 'Alarmes',
+      'gps_place_status': 'État du lieu',
+      'gps_place_status_refresh_tooltip': 'Actualiser l\'état du lieu',
+      'gps_no_tracked_places': 'Aucun lieu suivi',
+      'gps_place_status_updated': '{count} lieu(x) état actualisé',
+      'gps_entry': 'Entrée',
+      'gps_exit': 'Sortie',
+      'gps_bug_report': 'Rapport de bug',
+      'gps_bug_report_sending': 'Envoi...',
+      'gps_bug_report_title': 'Rapport de bug',
+      'gps_refresh_tooltip': 'Actualiser GPS',
+      'subscription_current_plan': 'Plan actuel',
+      'subscription_expires': 'Expire : {date}',
+      'subscription_free_plan': 'Plan gratuit',
+      'subscription_unlimited': 'Illimité',
+      'subscription_places_n': '{n} lieux',
+      'subscription_alarms_n': '{n} alarmes actives',
+      'subscription_places_unlimited': 'Lieux illimités',
+      'subscription_alarms_unlimited': 'Alarmes illimitées',
+      'subscription_map_opens_50': '50 ouvertures de carte/mois',
+      'subscription_map_opens_unlimited': 'Ouvertures de carte illimitées',
+      'subscription_no_ads': 'Sans publicité',
+      'subscription_all_unlimited': 'Toutes les fonctionnalités illimitées',
+      'subscription_dev_plan':
+          'Plan développeur - toutes les fonctionnalités illimitées',
+      'subscription_subscribe': 'S\'abonner',
+      'subscription_in_use': 'En cours d\'utilisation',
+      'subscription_recommended': 'Recommandé',
+      'subscription_coming_soon': 'Fonction d\'abonnement bientôt disponible.',
+      'subscription_beta_notice':
+          'Les plans payants ne sont pas disponibles pendant la bêta. Ils seront disponibles après la fin de la bêta.',
+      'subscription_per_month': '/ mois',
+      'subscription_policy': 'Politique d\'abonnement',
+      'subscription_refund_policy': 'Politique de remboursement',
+      'subscription_price_tbd': 'Tarif à venir',
+      'subscription_pro_fair_use':
+          'Politique d\'usage équitable : jusqu\'à 500 ouvertures de carte par mois pour prévenir les abus.',
+      'subscription_map_opens_500': '500 ouvertures de carte/mois',
+
+      // Clés supplémentaires ajout/modification d'alarme
+      'plan_upgrade_needed': 'Mise à niveau du plan nécessaire',
+      'add_alarm_tooltip': 'Ajouter une alarme',
       'entry_trigger': 'Entrée',
       'exit_trigger': 'Sortie',
+      'entry_exit_trigger': 'Entrée/Sortie',
       'am_label': 'Matin',
       'pm_label': 'Après-midi',
+      'hour_suffix': ':',
+      'min_suffix': '',
+      'after_suffix': ' après',
+      'first_trigger_immediate': 'Alarme au premier {trigger}',
+      'first_trigger_condition': '{conditions} premier {trigger}',
+      'monthly_date': '{month}/{day}({weekday})',
+      'weekly_prefix': 'Chaque {days}',
+      'listening_prompt': '🎙️ Écoute... Parlez maintenant !',
+      'done_btn': 'Terminé',
+      'alarm_name_label': 'Nom de l\'alarme',
+      'no_name_label': 'Sans nom',
+      'select_place_label': 'Sélectionner un lieu',
+      'alarm_on_entry_label': 'Alarme à l\'entrée',
+      'alarm_on_exit_label': 'Alarme à la sortie',
+      'boundary_warning':
+          'Près de la limite du geofence, l\'alarme peut sonner plusieurs fois si vous restez ou faites des allers-retours. '
+          'Utilisez le bouton "Répéter" pour retarder l\'alarme.',
+      'condition_settings': 'Paramètres de condition (Optionnel)',
+      'condition_hint':
+          'Sans conditions, l\'alarme sonne à la première entrée/sortie après l\'enregistrement.',
+      'no_date_set': 'Aucune date définie',
+      'time_condition_hint': 'Condition horaire (optionnel)',
+      'time_after': '⏰ {time} après',
+      'holidays_off': 'Désactivé les jours fériés',
+      'holidays_sub_on': 'Activé les jours fériés de substitution/temporaires',
+      'alarm_sound_label': 'Son d\'alarme',
+      'alarm_sound_default': 'Son d\'alarme par défaut de l\'appareil',
+      'alarm_sound_unchangeable': 'Ne peut pas être modifié',
       'save_btn': 'Enregistrer',
       'delete_btn': 'Supprimer',
+      'edit_alarm_title': 'Modifier l\'alarme de lieu',
+      'select_place_hint': 'Sélectionner un lieu',
+      'select_place_required': 'Veuillez sélectionner un lieu',
+      'alarm_save_failed': 'Échec de l\'enregistrement de l\'alarme : {error}',
+
+      // Page d'ajout de lieu
+      'address_search_result': 'Résultats de recherche d\'adresse',
+      'save_place_title': 'Enregistrer le lieu',
+      'place_name_label': 'Nom du lieu',
+      'place_name_hint': 'ex. Maison, Bureau, Salle de sport',
+      'radius_display': 'Rayon : {radius}m',
+      'radius_shown_on_map': '(Affiché en cercle sur la carte)',
       'cancel_btn': 'Annuler',
-      'subscription_free_plan': 'Plan gratuit',
-      'subscription_coming_soon': 'Fonction d\'abonnement bientôt disponible.',
+      'save_place_btn': 'Enregistrer',
+      'place_saved_msg': '✅ Lieu enregistré',
+      'select_on_map': 'Sélectionner un lieu sur la carte',
+      'move_to_current': 'Aller à la position actuelle',
+      'search_hint': 'Adresse ou nom de lieu (ex. Starbucks)',
+      'no_search_result': 'Aucun résultat de recherche',
+      'address_label': 'Adresse : {address}',
+      'radius_label_prefix': 'Rayon : ',
+      'custom_input': 'Personnalisé',
+      'save_location_btn': 'Enregistrer le lieu',
+      'signal_warning':
+          '📍 Guide de configuration du rayon\n'
+          '• Dans les zones instables GPS (souterrain, grands bâtiments, zones sans signal), des faux déclenchements peuvent survenir.\n'
+          '  Pour les faux déclenchements ponctuels, appuyez sur le bouton "⚡ Faux déclenchement" pour les ignorer rapidement.\n'
+          '• Si vous restez près d\'une limite de zone, l\'alarme peut continuer à sonner même après avoir appuyé sur Faux déclenchement.\n'
+          '  Dans ce cas, désactivez l\'alarme et réactivez-la quand nécessaire.\n'
+          '• Si les faux déclenchements sont fréquents, essayez d\'augmenter le rayon de 10m à la fois.',
+      'radius_guide_btn':
+          '📍 Guide de configuration du rayon  —  À lire absolument !!',
+      'radius_guide_dialog_body':
+          '📍 Limites de précision GPS\n'
+          'Le GPS ne peut qu\'estimer votre position. Même en extérieur, attendez-vous à une marge d\'erreur'
+          ' de plusieurs à dizaines de mètres. C\'est une limitation inhérente au GPS.\n\n'
+          '📡 Pics de signal GPS\n'
+          'Dans les environnements GPS instables (souterrain, grands bâtiments, zones sans signal),'
+          ' l\'erreur de détection du rayon peut augmenter. Même si vous êtes réellement à l\'intérieur du rayon,'
+          ' le GPS peut temporairement vous lire comme étant à l\'extérieur — ou vice versa.\n'
+          'Dans ces cas, utilisez le bouton "\u26a1 Faux déclenchement".'
+          ' Si le même problème se répète, essayez d\'augmenter votre rayon de 10m à la fois.\n\n'
+          '💡 Si vous devez rester ou vous déplacer près de la limite de rayon configurée\n'
+          'Même après avoir appuyé sur Faux déclenchement, l\'alarme peut continuer à sonner.'
+          ' Dans ce cas, désactivez l\'alarme et réactivez-la quand nécessaire.\n'
+          '(Mode "Veille" — à l\'étude si demandé : réactivation automatique après une durée définie)',
+      'radius_input_range': '30m ~ 500m (incréments de 10m)',
+
+      // Page des conditions
+      'terms_agreement_title': 'Accord des conditions (Requis)',
+      'terms_agree_text':
+          'J\'ai lu et j\'accepte les Conditions d\'utilisation et la Politique de remboursement/abonnement.',
+      'terms_agree_btn': 'Accepter et continuer',
+      'terms_disagree_btn': 'Refuser (Fermer l\'application)',
+      'terms_save_failed':
+          'Échec de l\'enregistrement des conditions. Veuillez réessayer.',
+
+      // Son d'alarme
+      'alarm_sound_setting_title': 'Paramètres du son d\'alarme',
+      'alarm_disabled_label': 'Alarme désactivée',
+
+      // add_alarm_page
+      'add_alarm_new_title': 'Ajouter une nouvelle alarme',
+      'edit_alarm_modify_title': 'Modifier l\'alarme de lieu',
+      'location_fixed_text': 'Cette alarme est liée à ce lieu',
+      'no_place_label': 'Aucun lieu',
+      'required_fields_msg': 'Veuillez remplir tous les champs obligatoires.',
+      'holidays_dialog_title':
+          'Paramètres des jours fériés de substitution/temporaires',
+      'holidays_sub_off':
+          'Désactivé les jours fériés de substitution/temporaires aussi',
+
+      // my_places_page
+      'delete_confirm_title': 'Confirmer la suppression',
+      'delete_locked_msg': 'Supprimer ce lieu verrouillé ?',
+      'delete_place_msg': 'Êtes-vous sûr de vouloir supprimer ce lieu ?',
+      'linked_alarm_delete_warning':
+          '⚠️ {count} alarme(s) liée(s) seront également supprimées.',
+      'edit_places_menu': 'Modifier le lieu',
+      'add_alarm_menu': 'Ajouter une nouvelle alarme',
+      'add_place_tooltip': 'Ajouter un nouveau lieu',
+
+      // show_alarm_popup_page
+      'alarm_end_confirm': 'Arrêter l\'alarme ?',
+      'no_label': 'Non',
+      'yes_label': 'Oui',
+      'snooze_btn': 'Répéter',
+      'alarm_stop_btn': 'Arrêter l\'alarme',
+
+      // Paramètres snooze/vibration
+      'snooze_setting_title': 'Paramètres de répétition',
+      'vibration_setting_title': 'Paramètres de vibration',
+
+      // Autorisation
+      'permission_setting_title': 'Paramètres d\'autorisation',
+      'permission_allow': 'Autoriser',
+      'battery_opt_title': 'Désactiver l\'optimisation de batterie',
+      'battery_opt_msg':
+          'Pour que les alarmes fonctionnent correctement en arrière-plan, l\'optimisation de batterie doit être désactivée.\nAllez dans les Paramètres, trouvez "Optimisation de batterie" et définissez Ringinout sur "Non optimisé".',
+      'open_settings_btn': 'Ouvrir les paramètres',
+      'later_btn': 'Plus tard',
+
+      // Gestion d'abonnement
+      'subscription_mgmt_title': 'Gestion de l\'abonnement',
+      'subscription_policy_btn': 'Politique d\'abonnement',
+      'refund_policy_btn': 'Politique de remboursement',
+      'auto_renew_msg':
+          'Renouvelé automatiquement selon les politiques de Google Play.',
+      'agree_auto_pay': 'J\'accepte le paiement automatique.',
+      'agree_policy': 'J\'ai examiné la politique d\'abonnement/remboursement.',
+      'start_auto_subscription': 'Démarrer l\'abonnement automatique',
+      'current_plan': 'Plan actuel',
+      'cancel_subscription': 'Annuler',
+      'subscribe_btn': 'S\'abonner',
+      'auto_subscribe_btn': 'Abonnement automatique',
+      'beta_no_paid_plans':
+          'Les plans payants ne sont pas disponibles pendant la bêta. Ils seront disponibles après la fin de la bêta.',
+      'places_5': '5 lieux',
+      'active_alarms_10': '10 alarmes actives',
+      'ad_free_included': 'Sans publicité inclus',
+      'places_alarms_unlimited': 'Lieux/Alarmes illimités',
+      'ad_remove_title': 'Supprimer les publicités',
+      'in_app_ad_remove': 'Suppression des publicités dans l\'application',
+      'price_loading': 'Chargement du prix',
+      'duration_1month': '1 mois',
+      'duration_3months': '3 mois',
+      'duration_6months': '6 mois',
+      'duration_12months': '12 mois',
+      'discount_5': '5% de réduction',
+      'discount_10': '10% de réduction',
+      'discount_20': '20% de réduction',
+      'expiry_date_none': 'Expiration : -',
+      'expiry_date_format': 'Expiration : {date}',
+      'beta_sub_activate_later':
+          'Les abonnements seront activés après la fin de la bêta.',
+
+      // Dialogue de limite d'abonnement
+      'place_limit_title': 'Limite d\'enregistrement de lieux',
+      'place_limit_msg':
+          'Dans le plan {plan}, vous pouvez enregistrer jusqu\'à {limit} lieux.\nVeuillez supprimer des lieux existants ou mettre à niveau.',
+      'alarm_limit_title': 'Limite d\'enregistrement d\'alarmes',
+      'alarm_limit_msg':
+          'Dans le plan {plan}, vous pouvez définir jusqu\'à {limit} alarmes actives.\nVeuillez supprimer des alarmes existantes ou mettre à niveau.',
+      'close_btn': 'Fermer',
+
+      // Sélecteur de lieu
+      'place_name_input_title': 'Entrer le nom du lieu',
+      'radius_default_info': 'Rayon : 100m (peut être modifié plus tard)',
+      'location_select_title': 'Sélectionner un lieu',
+      'fetching_location': 'Récupération de la position actuelle...',
+      'location_saved': '📍 Lieu enregistré !',
+
+      // Connexion supplémentaire
+      'dev_test_mode': 'Mode test développeur',
+      'test_login_failed': 'Échec de la connexion test : {error}',
+
+      // Changement de carte
+      'switch_to_google': 'Passer à Google Maps',
+      'switch_to_naver': 'Passer à Naver Map',
+
+      // Limite de carte plan gratuit
+      'map_free_limit_exceeded_title': 'Limite du plan gratuit',
+      'map_free_limit_exceeded_body':
+          'Vous avez utilisé toutes les {limit} ouvertures Google Maps ce mois-ci.\n\n'
+          'OSM est toujours disponible gratuitement.\n'
+          'Passez à un plan payant pour un accès illimité.',
+      'map_switch_confirm_title': 'Passer à Google Maps',
+      'map_switch_confirm_body':
+          'Le plan gratuit permet {limit} ouvertures Google Maps par mois.\n\n'
+          'Restant : {remaining}/{limit}\n\n'
+          'Passer à Google Maps utilise 1 crédit.\n'
+          'OSM est toujours gratuit et illimité.',
+      'map_switch_btn_cancel': 'Annuler',
+      'map_switch_btn_confirm': 'Passer',
+
+      // Faux déclenchement / Écran d'alarme
       'btn_snooze': 'Répéter',
       'btn_dismiss': 'Arrêter l\'alarme',
       'btn_false_trigger': 'Faux déclenchement',
       'false_trigger_hint': 'Déclenché par erreur GPS',
+      'snooze_time_title': 'Durée de répétition',
+      'snooze_min': '{m} min',
+
+      // Info faux déclenchement
+      'false_trigger_info_title': '⚡ Qu\'est-ce que le faux déclenchement ?',
+      'false_trigger_info_subtitle':
+          'Garder l\'alarme active quand déclenchée par erreur GPS',
+      'false_trigger_dialog_title': 'Qu\'est-ce que le faux déclenchement ?',
+      'false_trigger_dialog_body':
+          'Quand l\'alarme sonne, un bouton "⚡ Faux déclenchement" apparaît'
+          ' à côté de "Répéter" et "Arrêter l\'alarme".\n\n'
+          'Quand vous appuyez sur "⚡ Faux déclenchement" :\n'
+          '  • La sonnerie/vibration s\'arrête immédiatement\n'
+          '  • L\'alarme reste active (non désactivée)\n'
+          '  • L\'alarme peut se déclencher à nouveau\n\n'
+          '📍 Limites de précision GPS\n'
+          'Le GPS ne peut qu\'estimer votre position.'
+          ' Même en extérieur, il y a toujours une marge d\'erreur de plusieurs à dizaines de mètres.'
+          ' Cela peut faire sonner l\'alarme un peu trop tôt ou tard.\n\n'
+          '📡 Pics de signal GPS\n'
+          'Dans les environnements GPS instables (souterrain, grands bâtiments, zones sans signal),'
+          ' l\'erreur de détection du rayon peut augmenter. Même si vous êtes réellement à l\'intérieur du rayon,'
+          ' le GPS peut temporairement vous lire comme étant à l\'extérieur — ou vice versa.\n'
+          'Dans ces cas, utilisez le bouton "⚡ Faux déclenchement".'
+          ' Si le même problème se répète, essayez d\'augmenter votre rayon de 10m à la fois.\n\n'
+          '💡 Si vous devez rester ou vous déplacer près de la limite de rayon configurée\n'
+          'Même après avoir appuyé sur Faux déclenchement, l\'alarme peut continuer à sonner.'
+          ' Dans ce cas, désactivez l\'alarme et réactivez-la quand nécessaire.\n'
+          '(Mode "Veille" — à l\'étude si demandé : réactivation automatique après une durée définie)',
+      'false_trigger_dialog_ok': 'Compris',
+
+      // Alarme Bluetooth — déclenchement non intentionnel
+      'bt_false_trigger_info_title': '⚡ Alarme non intentionnelle ?',
+      'bt_false_trigger_info_subtitle':
+          'L\'alarme s\'est déclenchée sans votre intention ? Voici quoi faire',
+      'bt_false_trigger_dialog_title': 'Alarme non intentionnelle ?',
+      'bt_false_trigger_dialog_body':
+          'Les alarmes Bluetooth se déclenchent quand une connexion ou déconnexion\n'
+          'dure 15 secondes ou plus. C\'est voulu — mais la vie\n'
+          'ne se passe pas toujours comme prévu.\n\n'
+          'Quand l\'alarme se déclenche, appuyez sur "⚡ Faux déclenchement" pour arrêter la sonnerie\n'
+          'tout en gardant l\'alarme active pour la prochaine fois.\n\n'
+          '💡 Astuce : Utilisez des conditions de jour ou d\'heure pour réduire grandement\n'
+          'les déclenchements non souhaités à d\'autres moments de la journée.',
+      'bt_bonded_devices_title': 'Appareils Bluetooth jumelés',
+      'bt_refresh_tooltip': 'Actualiser la liste des appareils',
+      'bt_selector_description':
+          'Sélectionnez les appareils Bluetooth jumelés à détecter pour ce lieu.',
+      'bt_permission_needed':
+          'L\'autorisation Bluetooth est requise.\nVeuillez autoriser l\'accès Bluetooth dans les Paramètres.',
+      'bt_no_bonded_devices': 'Aucun appareil Bluetooth jumelé trouvé.',
+      'bt_selected_count': '{count} appareil(s) sélectionné(s)',
+      'bt_device_retained': 'Précédemment enregistré (non jumelé actuellement)',
+      'bt_devices_label': 'Appareils Bluetooth',
+      'bt_none_selected': 'Aucun sélectionné',
+      'bt_count_selected': '{count} sélectionné(s)',
+
+      // Alarme appareil
       'device_alarm_empty': 'Aucune alarme appareil',
+      'device_alarm_empty_desc':
+          'Ajoutez une alarme d\'appareil Bluetooth pour être notifié\nquand un appareil se connecte ou se déconnecte.',
       'device_alarm_add': 'Ajouter alarme appareil',
+      'device_alarm_delete_confirm': 'Supprimer cette alarme appareil ?',
+      'device_alarm_select_device': 'Sélectionner un appareil',
+      'device_alarm_name_label': 'Nom de l\'alarme',
+      'device_alarm_name_hint': 'Entrez le nom de l\'alarme',
+      'device_alarm_trigger_label': 'Déclencher quand',
       'device_trigger_connect': 'Connecté',
       'device_trigger_disconnect': 'Déconnecté',
-      'login_app_description':
-          'Application d\'alarme basée sur la localisation.\nSoyez notifié quand vous arrivez ou quittez un lieu !',
-      'login_continue_with_google': 'Continuer avec Google',
-      'permission_required': 'Autorisation requise',
-      'location_permission': 'Autorisation de localisation',
-      'notification_permission': 'Autorisation de notification',
-      'grant_permission': 'Accorder l\'autorisation',
-      'allow': 'Autoriser',
-      'setup_complete': 'Configuration terminée ! 🎉',
+
+      // Mes appareils
+      'my_devices_empty': 'Aucun appareil enregistré',
+      'my_devices_empty_desc':
+          'Les appareils Bluetooth enregistrés pour des lieux ou\ndes alarmes d\'appareil apparaîtront ici.',
+      'my_devices_source_place': 'Lieu',
+      'my_devices_source_alarm': 'Alarme',
+      'my_devices_add': 'Ajouter un appareil',
+      'my_devices_add_title': 'Ajouter un appareil Bluetooth',
+      'my_devices_custom_name_label': 'Nom personnalisé',
+      'my_devices_custom_name_hint': 'Entrez un nom facile à retenir',
+      'my_devices_original_name': 'Nom Bluetooth',
+      'my_devices_edit_name': 'Modifier le nom',
+      'edit_device_menu': 'Modifier l\'appareil',
+      'add_device_alarm_menu': 'Ajouter une nouvelle alarme',
+      'my_devices_delete_confirm': 'Supprimer cet appareil ?',
+      'my_devices_source_manual': 'Manuel',
+
+      // Bouton d'ajout d'alarme (barre inférieure fixe)
+      'add_alarm_btn': 'Ajouter une alarme',
+      'add_device_alarm_btn': 'Ajouter une alarme',
+
+      // Page alarme appareil
+      'device_alarm_page_title': 'Ajouter alarme appareil',
+      'device_alarm_edit_title': 'Modifier alarme appareil',
+      'add_new_device_alarm': 'Ajouter une nouvelle alarme appareil',
+      'select_device_label': 'Sélectionner un appareil',
+      'alarm_on_connect_label': 'Alarme à la connexion',
+      'alarm_on_disconnect_label': 'Alarme à la déconnexion',
+      'device_condition_hint':
+          'Sans conditions, l\'alarme se déclenche à la première connexion/déconnexion.',
+      'device_alarm_voice_section': 'Reconnaissance vocale',
+      'device_alarm_voice_msg_label': 'Message vocal',
+      'device_alarm_voice_msg_hint':
+          'Message à annoncer quand l\'alarme se déclenche',
+      'device_alarm_voice_enabled': 'Activer la notification vocale',
+      'device_alarm_sound_section': 'Son d\'alarme',
+      'device_alarm_save_success': 'Alarme appareil enregistrée',
+
+      // Wi-Fi
+      'wifi_networks_label': 'Réseaux Wi-Fi',
+      'wifi_none_selected': 'Aucun sélectionné',
+      'wifi_count_selected': '{count} sélectionné(s)',
+      'wifi_rescan_tooltip': 'Rescanner',
+      'wifi_description':
+          'Utilisez la connexion Wi-Fi pour une détection de localisation plus précise.',
+      'wifi_disabled': 'Le Wi-Fi est désactivé',
+      'wifi_disabled_detail':
+          'Le Wi-Fi est désactivé. Veuillez activer le Wi-Fi et réessayer.',
+      'wifi_scan_failed': 'Échec du scan Wi-Fi',
+      'wifi_no_networks': 'Aucun réseau Wi-Fi détecté.',
+      'wifi_networks_selected': '{count} réseau(x) sélectionné(s)',
+      'wifi_hidden_network': '(Réseau caché)',
+      'wifi_currently_connected': 'Actuellement connecté',
+      'wifi_previously_saved':
+          'Précédemment enregistré (non détecté actuellement)',
     },
 
     'es': {
+      // Común
       'app_name': 'Ringinout',
       'save': 'Guardar',
       'cancel': 'Cancelar',
@@ -3082,27 +4289,48 @@ class AppLocalizations {
       'error': 'Error',
       'success': 'Éxito',
       'loading': 'Cargando...',
+
+      // Navegación
       'nav_alarm': 'Alarma',
       'nav_my_places': 'Mis lugares',
       'nav_voice': 'Voz',
       'nav_gps': 'GPS',
+
+      // Títulos de página
       'page_title_alarm': 'Alarma de ubicación',
       'page_title_gps': 'GPS',
       'page_title_places': 'Mis lugares',
       'page_title_voice': 'Reconocimiento de voz',
       'page_title_subscription': 'Suscripción',
+
+      // Pestañas
       'tab_location_alarm': 'Alarma de ubicación',
       'tab_device_alarm': 'Alarma de dispositivo',
       'tab_my_places': 'Mis lugares',
       'tab_my_devices': 'Mis dispositivos',
       'page_title_my_devices': 'Mis dispositivos',
       'page_title_device_alarm': 'Alarma de dispositivo',
+
+      // Modo de selección
       'select_all': 'Seleccionar todo',
       'delete_selected': 'Eliminar',
+
+      // Página de alarma
       'alarm_title': 'Alarma Ringinout',
       'location_alarm': 'Alarma de ubicación',
+      'basic_alarm': 'Alarma básica',
+      'basic_alarm_page': 'Página de alarma básica',
+      'sort_options': 'Opciones de orden',
+      'sort_by_time': 'Por hora de alarma',
+      'sort_custom': 'Orden personalizado',
+      'sort_place_asc': 'Lugar (A → Z)',
+      'sort_place_desc': 'Lugar (Z → A)',
+      'sort_name_asc': 'Nombre de alarma (A → Z)',
+      'sort_name_desc': 'Nombre de alarma (Z → A)',
       'no_alarms': 'Sin alarmas',
       'add_alarm_hint': '¡Añade una alarma de ubicación!',
+
+      // Gestión de lugares
       'my_places': 'Mis lugares',
       'add_place': 'Añadir lugar',
       'edit_place': 'Editar lugar',
@@ -3112,21 +4340,29 @@ class AppLocalizations {
       'place_deleted': '🗑 Lugar eliminado',
       'no_places': 'Sin lugares guardados',
       'no_places_desc': 'Toque el botón para añadir su primer lugar.',
+      'add_place_btn': 'Añadir lugar',
+      'add_place_hint': '¡Añade tus lugares favoritos!',
       'search_address': 'Buscar dirección',
       'current_location': 'Ubicación actual',
       'radius': 'Radio',
       'custom': 'Personalizado',
+      'custom_radius': 'Radio personalizado',
+
+      // Añadir/editar alarma
       'add_location_alarm': 'Añadir alarma de ubicación',
       'edit_location_alarm': 'Editar alarma de ubicación',
       'alarm_sound': 'Sonido de alarma',
       'vibration': 'Vibración',
       'snooze': 'Posponer',
       'alarm_enabled': 'Alarma activada',
+      'entry_exit': 'Entrada/Salida',
       'on_entry': 'Al entrar',
       'on_exit': 'Al salir',
       'both': 'Ambos',
       'alarm_saved': '✅ Alarma guardada',
       'alarm_deleted': '🗑 Alarma eliminada',
+
+      // Configuración
       'settings': 'Configuración',
       'language': 'Idioma',
       'language_select': 'Seleccionar idioma',
@@ -3142,13 +4378,112 @@ class AppLocalizations {
       'logged_out': 'Sesión cerrada',
       'delete_account': 'Eliminar cuenta',
       'delete_account_subtitle': 'Eliminar permanentemente todos los datos',
+      'delete_account_warning':
+          'Todos sus datos, incluyendo configuraciones de alarma, datos de ubicación e información de cuenta, serán eliminados permanentemente.\n\nEsta acción no se puede deshacer y sus datos no se pueden recuperar.',
+      'delete_account_confirm': 'Eliminar',
+      'delete_account_final_title': 'Confirmación final',
+      'delete_account_final_warning':
+          '¿Está absolutamente seguro?\nSu cuenta y todos los datos asociados serán eliminados permanentemente de inmediato.',
+      'delete_account_final_confirm': 'Eliminar permanentemente',
+      'delete_account_failed':
+          '❌ Error al eliminar la cuenta. Por favor, inténtelo de nuevo.',
       'feedback': 'Enviar comentario',
       'feedback_title': 'Enviar comentario',
       'feedback_hint': 'Ingrese sus comentarios o sugerencias',
       'feedback_sent': '✅ Comentario enviado. ¡Gracias!',
       'app_info': 'Info de la app',
+
+      // Página de inicio de sesión
+      'login_app_description':
+          'Aplicación de alarma basada en ubicación.\n¡Reciba notificaciones al llegar o salir de un lugar!',
+      'login_data_security_title': 'Promesa de seguridad de datos',
+      'login_data_security_content':
+          'Solo su identificador de cuenta cifrado y el estado de pago se almacenan en nuestros servidores. La información de ubicación y personal se procesa solo en su dispositivo.',
+      'login_data_deletion_warning':
+          'Todos los lugares guardados y configuraciones de alarma se eliminarán al desinstalar la aplicación.',
+      'login_continue_with_google': 'Continuar con Google',
+      'login_cancelled': 'Inicio de sesión cancelado',
+      'login_not_supported':
+          'El inicio de sesión con Google no es compatible con este dispositivo',
       'version': 'Versión',
+      'location_based_alarm': 'Aplicación de alarma basada en ubicación',
       'privacy_policy': 'Política de privacidad',
+
+      // Política de privacidad
+      'privacy_policy_title': 'Política de privacidad',
+      'privacy_last_updated': 'Última actualización: enero de 2026',
+      'privacy_section_1_title': '1. Información que recopilamos',
+      'privacy_section_1_content':
+          'Ringinout no recopila información personal.\n\n'
+          '• Datos de ubicación: Se procesan solo en su dispositivo para la función de alarma. No se envían a servidores externos.\n\n'
+          '• Información de cuenta: Al iniciar sesión con Google, su correo electrónico se convierte en un ID aleatorio anonimizado. El correo original no se almacena.',
+      'privacy_section_2_title': '2. Propósito del ID anonimizado',
+      'privacy_section_2_content':
+          'El ID anonimizado se utiliza únicamente para verificar el estado de suscripción premium. '
+          'Este ID no puede utilizarse para identificar o rastrear individuos.',
+      'privacy_section_3_title': '3. Almacenamiento de datos',
+      'privacy_section_3_content':
+          'Todos los datos de alarma y ubicación se almacenan solo en su dispositivo '
+          'y no se transmiten a servidores externos.',
+      'privacy_section_4_title': '4. Compartir con terceros',
+      'privacy_section_4_content':
+          'Ringinout no comparte ninguna información de usuario con terceros.',
+      'privacy_section_5_title': '5. Contacto',
+      'privacy_section_5_content':
+          'Para consultas relacionadas con la privacidad, utilice la función \'Enviar comentario\' en la aplicación.',
+
+      // Permisos
+      'permission_required': 'Permiso requerido',
+      'location_permission': 'Permiso de ubicación',
+      'notification_permission': 'Permiso de notificación',
+      'background_permission': 'Permiso de ubicación en segundo plano',
+      'background_location_desc':
+          'Detecta su ubicación incluso cuando la aplicación no está en uso.',
+      'overlay_permission': 'Mostrar sobre otras aplicaciones',
+      'overlay_permission_desc':
+          'Requerido para mostrar alarmas de pantalla completa.',
+      'grant_permission': 'Conceder permiso',
+      'allow': 'Permitir',
+      'permission_settings': 'Configuración de permisos',
+      'setup_complete': '¡Configuración completada! 🎉',
+      'grant_all_permissions': 'Por favor, conceda todos los permisos',
+      'setup_later': 'Configurar más tarde',
+      'location_permission_desc':
+          'Requerido para detectar ubicaciones de alarma.',
+      'battery_opt_warning_title': 'Optimización de batería no excluida',
+      'battery_opt_warning_desc':
+          'Este aviso aparece porque la exclusión de optimización de batería está actualmente desactivada. '
+          'La aplicación puede seguir funcionando, pero las alarmas pueden retrasarse o perderse en algunos dispositivos. '
+          'Recomendamos excluir esta aplicación de la optimización de batería.',
+
+      // Página GPS
+      'gps_title': 'GPS',
+      'geofence_service_status': 'Estado del servicio Geofence',
+      'status_running': '✅ En ejecución',
+      'status_stopped': '❌ Detenido',
+      'status': 'Estado',
+      'last_event': 'Último evento',
+      'last_event_none': 'Ninguno',
+      'settings_interval':
+          'Configuración: intervalo de {interval}s, precisión de {accuracy}m',
+      'geofence_status_debug': 'Estado Geofence (Debug)',
+      'no_saved_places': 'Sin lugares guardados',
+      'distance': 'Distancia',
+      'radius_label': 'Radio',
+      'no_location_info': 'Sin información de ubicación',
+      'latitude': 'Latitud',
+      'longitude': 'Longitud',
+      'updated': 'Actualizado',
+      'active_alarm_distance': 'Distancias de alarmas activas',
+      'no_active_alarms': 'Sin alarmas activas o sin información de ubicación',
+      'alarm': 'Alarma',
+      'place_unknown': 'Lugar desconocido',
+      'cannot_calculate_distance': 'No se puede calcular la distancia',
+      'location_permission_required': 'Se requiere permiso de ubicación.',
+      'inside': 'Dentro',
+      'outside': 'Fuera',
+
+      // Días de la semana
       'sun': 'Dom',
       'mon': 'Lun',
       'tue': 'Mar',
@@ -3157,9 +4492,21 @@ class AppLocalizations {
       'fri': 'Vie',
       'sat': 'Sáb',
       'every_week': 'Cada {days}',
+      'first_entry_after_set':
+          'Primera entrada después de configurar la alarma',
+      'first_exit_after_set': 'Primera salida después de configurar la alarma',
+      'no_selection': 'Sin selección',
+
+      // Configuración de festivos
       'holiday_settings': 'Configuración de festivos',
+      'turn_off_on_holidays': 'Desactivar en festivos sustitutos/temporales',
+      'turn_on_on_holidays': 'Activar en festivos sustitutos/temporales',
+
+      // País de festivos
       'holiday_country': 'País de festivos',
       'holiday_country_auto': 'Auto',
+      'holiday_country_auto_detected': 'Auto (Detectado: {country})',
+      'holiday_country_auto_detecting': 'Auto (Detectando...)',
       'country_KR': 'Corea del Sur',
       'country_US': 'Estados Unidos',
       'country_JP': 'Japón',
@@ -3178,44 +4525,501 @@ class AppLocalizations {
       'country_SE': 'Suecia',
       'country_PL': 'Polonia',
       'country_GB': 'Reino Unido',
+
+      // Agrupación de alarmas
+      'alarm_count': '{count} alarmas',
+      'alarm_count_one': '1 alarma',
+      'other_places': 'Otros',
+
+      // Añadir alarma de ubicación
+      'add_new_location_alarm': 'Añadir nueva alarma de ubicación',
+      'done': 'Listo',
+      'alarm_name': 'Nombre de alarma',
+      'no_name': 'Sin nombre',
+      'select_place': 'Seleccionar lugar',
+      'alarm_on_entry': 'Alarma al entrar',
+      'alarm_on_exit': 'Alarma al salir',
+
+      // Reconocimiento de voz
       'voice_input': 'Entrada de voz',
       'voice_listening': 'Escuchando...',
       'voice_not_recognized': 'Voz no reconocida',
       'tap_to_speak': 'Toque para hablar',
+      'select_location_on_map': 'Seleccionar ubicación en el mapa',
+
+      // Pantalla de alarma
       'dismiss': 'Cerrar',
+      'snooze_minutes': 'Posponer {minutes} min',
       'alarm_ringing': '¡Alarma sonando!',
+
+      // Info de batería
+      'battery_info_text_prefix':
+          'Las alarmas activas se reinician automáticamente al cerrar la aplicación.\nPara alarmas fiables, ',
+      'battery_info_text_action': 'excluir de la optimización de batería',
+      'battery_info_text_suffix': '.',
+      'battery_opt_exclude': 'Excluir de la optimización de batería',
+      'no_saved_alarms': 'Sin alarmas guardadas.',
+      'no_saved_alarms_desc': 'Toque el botón para añadir su primera alarma.',
+
+      // Bienvenida
       'get_started': 'Comenzar',
-      'done': 'Listo',
-      'alarm_name': 'Nombre de alarma',
-      'select_place': 'Seleccionar lugar',
-      'alarm_on_entry_label': 'Alarma al entrar',
-      'alarm_on_exit_label': 'Alarma al salir',
+
+      // Página de voz
+      'voice_main_title': 'Registrar alarmas por voz',
+      'voice_example_phrase': '"Notifícame cuando llegue al trabajo"',
+      'voice_tap_to_start': 'Toque para comenzar',
+      'voice_widget_title': 'Añadir widget a la pantalla de inicio',
+      'voice_widget_subtitle':
+          '¡Inicie el reconocimiento de voz con un toque en el widget!',
+      'voice_widget_guide_title': 'Añadir widget de pantalla de inicio',
+      'voice_widget_guide_subtitle': '¡Inicie alarmas de voz más rápido!',
+      'voice_widget_step1':
+          'Mantenga presionado un espacio vacío en la pantalla de inicio',
+      'voice_widget_step2': 'Seleccione el menú "Widgets"',
+      'voice_widget_step3': 'Busque "ringinout" o "Alarma de voz"',
+      'voice_widget_step4': 'Arrastre el widget a la pantalla de inicio',
+      'voice_widget_tip':
+          'Con un widget, puede iniciar alarmas de voz\ndirectamente desde su pantalla de inicio sin abrir la aplicación.',
+      'voice_widget_got_it': '¡Entendido!',
+      'voice_tip_title': '💡 Ejemplos de reconocimiento de voz',
+      'voice_tip_examples':
+          '• "Notifícame cuando llegue al trabajo el lunes"\n'
+          '  → Cada lunes, al entrar\n'
+          '• "Alértame cuando salga de casa el 12 de abril"\n'
+          '  → Solo el 12 de abril, al salir\n'
+          '• "Suena cuando llegue a casa después de las 6 el lunes"\n'
+          '  → Cada lunes, después de las 6:00, al entrar\n'
+          '• "Recuérdame cuando salga de casa a las 9 el 13 de marzo"\n'
+          '  → 13 de marzo, después de las 9:00, al salir',
+      'voice_tip_note':
+          'Días, fechas y horas se configuran automáticamente\n(El geofence GPS puede activarse dentro de ±segundos del límite)',
+      // Pestañas de voz
+      'voice_tab_location': 'Voz ubicación',
+      'voice_tab_device': 'Voz dispositivo',
+      'voice_device_main_title': 'Registrar alarmas de dispositivo por voz',
+      'voice_device_example_phrase':
+          '"Notifícame cuando los Galaxy Buds se conecten"',
+      'voice_device_tip_title': '💡 Ejemplos de voz de dispositivo',
+      'voice_device_tip_examples':
+          '• "Notifícame cuando los Galaxy Buds se conecten el lunes"\n'
+          '  → Cada lunes, al conectar\n'
+          '• "Alértame cuando los auriculares se desconecten el 12 de abril"\n'
+          '  → Solo el 12 de abril, al desconectar\n'
+          '• "Suena cuando los Buds se conecten después de las 6 el lunes"\n'
+          '  → Cada lunes, después de las 6:00, al conectar\n'
+          '• "Dime cuando el reloj se desconecte a las 9 el 13 de marzo"\n'
+          '  → 13 de marzo, después de las 9:00, al desconectar',
+      'voice_device_tip_note':
+          'Días, fechas y horas se configuran automáticamente\n(Los cambios de estado Bluetooth se detectan en tiempo real)',
+      'voice_first_visit_title': '💡 ¡Consejo profesional!',
+      'voice_first_visit_desc':
+          'Añada un widget a su pantalla de inicio\npara iniciar alarmas de voz\nsin abrir la aplicación.',
+      'voice_first_visit_btn': 'Ver cómo añadir widget',
+      'voice_first_visit_later': 'Quizás más tarde',
+
+      // Suscripción
+      'subscription_tab': 'Suscripción',
+      'gps_tab': 'GPS',
+      // Página GPS
+      'gps_current_location': 'Ubicación actual',
+      'gps_latitude': 'Latitud',
+      'gps_longitude': 'Longitud',
+      'gps_accuracy': 'Precisión',
+      'gps_accuracy_good': 'Buena',
+      'gps_accuracy_fair': 'Regular',
+      'gps_accuracy_poor': 'Mala',
+      'gps_updated_at': 'Actualizado',
+      'gps_no_location': 'Sin datos de ubicación',
+      'gps_alarm_status': 'Estado de alarma de ubicación',
+      'gps_stopped': 'Detenido',
+      'gps_inside': 'Dentro',
+      'gps_outside': 'Fuera',
+      'gps_moving': 'En movimiento',
+      'gps_alarms': 'Alarmas',
+      'gps_place_status': 'Estado del lugar',
+      'gps_place_status_refresh_tooltip': 'Actualizar estado del lugar',
+      'gps_no_tracked_places': 'Sin lugares rastreados',
+      'gps_place_status_updated': '{count} lugar(es) estado actualizado',
+      'gps_entry': 'Entrada',
+      'gps_exit': 'Salida',
+      'gps_bug_report': 'Informe de error',
+      'gps_bug_report_sending': 'Enviando...',
+      'gps_bug_report_title': 'Informe de error',
+      'gps_refresh_tooltip': 'Actualizar GPS',
+      'subscription_current_plan': 'Plan actual',
+      'subscription_expires': 'Expira: {date}',
+      'subscription_free_plan': 'Plan gratuito',
+      'subscription_unlimited': 'Ilimitado',
+      'subscription_places_n': '{n} lugares',
+      'subscription_alarms_n': '{n} alarmas activas',
+      'subscription_places_unlimited': 'Lugares ilimitados',
+      'subscription_alarms_unlimited': 'Alarmas ilimitadas',
+      'subscription_map_opens_50': '50 aperturas de mapa/mes',
+      'subscription_map_opens_unlimited': 'Aperturas de mapa ilimitadas',
+      'subscription_no_ads': 'Sin anuncios',
+      'subscription_all_unlimited': 'Todas las funciones ilimitadas',
+      'subscription_dev_plan':
+          'Plan de desarrollador - todas las funciones ilimitadas',
+      'subscription_subscribe': 'Suscribirse',
+      'subscription_in_use': 'En uso',
+      'subscription_recommended': 'Recomendado',
+      'subscription_coming_soon': 'Función de suscripción próximamente.',
+      'subscription_beta_notice':
+          'Los planes de pago no están disponibles durante la beta. Estarán disponibles después de que termine la beta.',
+      'subscription_per_month': '/ mes',
+      'subscription_policy': 'Política de suscripción',
+      'subscription_refund_policy': 'Política de reembolso',
+      'subscription_price_tbd': 'Precio por anunciar',
+      'subscription_pro_fair_use':
+          'Política de uso justo: hasta 500 aperturas de mapa al mes para prevenir abusos.',
+      'subscription_map_opens_500': '500 aperturas de mapa/mes',
+
+      // Claves adicionales de añadir/editar alarma
+      'plan_upgrade_needed': 'Se necesita actualizar el plan',
+      'add_alarm_tooltip': 'Añadir alarma',
       'entry_trigger': 'Entrada',
       'exit_trigger': 'Salida',
+      'entry_exit_trigger': 'Entrada/Salida',
       'am_label': 'AM',
       'pm_label': 'PM',
+      'hour_suffix': ':',
+      'min_suffix': '',
+      'after_suffix': ' después',
+      'first_trigger_immediate': 'Alarma en la primera {trigger}',
+      'first_trigger_condition': '{conditions} primera {trigger}',
+      'monthly_date': '{month}/{day}({weekday})',
+      'weekly_prefix': 'Cada {days}',
+      'listening_prompt': '🎙️ Escuchando... ¡Hable ahora!',
+      'done_btn': 'Listo',
+      'alarm_name_label': 'Nombre de alarma',
+      'no_name_label': 'Sin nombre',
+      'select_place_label': 'Seleccionar lugar',
+      'alarm_on_entry_label': 'Alarma al entrar',
+      'alarm_on_exit_label': 'Alarma al salir',
+      'boundary_warning':
+          'Cerca del límite del geofence, la alarma puede sonar varias veces si permanece o se mueve de un lado a otro. '
+          'Use el botón "Posponer" para retrasar la alarma.',
+      'condition_settings': 'Configuración de condiciones (Opcional)',
+      'condition_hint':
+          'Sin condiciones, la alarma suena en la primera entrada/salida después de guardar.',
+      'no_date_set': 'Sin fecha establecida',
+      'time_condition_hint': 'Condición de hora (opcional)',
+      'time_after': '⏰ {time} después',
+      'holidays_off': 'Desactivar en festivos',
+      'holidays_sub_on': 'Activar en festivos sustitutos/temporales',
+      'alarm_sound_label': 'Sonido de alarma',
+      'alarm_sound_default': 'Sonido de alarma predeterminado del dispositivo',
+      'alarm_sound_unchangeable': 'No se puede cambiar',
       'save_btn': 'Guardar',
       'delete_btn': 'Eliminar',
+      'edit_alarm_title': 'Editar alarma de ubicación',
+      'select_place_hint': 'Seleccionar un lugar',
+      'select_place_required': 'Por favor, seleccione un lugar',
+      'alarm_save_failed': 'Error al guardar la alarma: {error}',
+
+      // Página de añadir lugar
+      'address_search_result': 'Resultados de búsqueda de dirección',
+      'save_place_title': 'Guardar lugar',
+      'place_name_label': 'Nombre del lugar',
+      'place_name_hint': 'ej. Casa, Oficina, Gimnasio',
+      'radius_display': 'Radio: {radius}m',
+      'radius_shown_on_map': '(Mostrado como círculo en el mapa)',
       'cancel_btn': 'Cancelar',
-      'subscription_free_plan': 'Plan gratuito',
-      'subscription_coming_soon': 'Función de suscripción próximamente.',
+      'save_place_btn': 'Guardar',
+      'place_saved_msg': '✅ Lugar guardado',
+      'select_on_map': 'Seleccionar ubicación en el mapa',
+      'move_to_current': 'Ir a la ubicación actual',
+      'search_hint': 'Dirección o nombre del lugar (ej. Starbucks)',
+      'no_search_result': 'Sin resultados de búsqueda',
+      'address_label': 'Dirección: {address}',
+      'radius_label_prefix': 'Radio: ',
+      'custom_input': 'Personalizado',
+      'save_location_btn': 'Guardar ubicación',
+      'signal_warning':
+          '📍 Guía de configuración del radio\n'
+          '• En zonas con GPS inestable (subterráneos, edificios altos, áreas sin señal), pueden ocurrir falsos disparos.\n'
+          '  Para falsos disparos puntuales, toque el botón "⚡ Falso disparo" para descartarlos rápidamente.\n'
+          '• Si permanece cerca del límite de una zona, la alarma puede seguir sonando incluso después de tocar Falso disparo.\n'
+          '  En ese caso, desactive la alarma y reactívela cuando sea necesario.\n'
+          '• Si los falsos disparos son frecuentes, intente aumentar el radio de 10m a la vez.',
+      'radius_guide_btn':
+          '📍 Guía de configuración del radio  —  ¡¡Lectura obligatoria!!',
+      'radius_guide_dialog_body':
+          '📍 Límites de precisión GPS\n'
+          'El GPS solo puede estimar su ubicación. Incluso al aire libre, espere un margen de error'
+          ' de varios a decenas de metros. Esta es una limitación inherente del GPS.\n\n'
+          '📡 Picos de señal GPS\n'
+          'En entornos con GPS inestable (subterráneos, edificios altos, zonas sin señal),'
+          ' el error de detección del radio puede aumentar. Incluso cuando realmente está dentro del radio,'
+          ' el GPS puede leerlo temporalmente como fuera — o viceversa.\n'
+          'En estos casos, use el botón "\u26a1 Falso disparo".'
+          ' Si el mismo problema se repite, intente aumentar su radio de 10m a la vez.\n\n'
+          '💡 Si necesita permanecer o moverse cerca del límite del radio configurado\n'
+          'Incluso después de tocar Falso disparo, la alarma puede seguir sonando.'
+          ' En ese caso, desactive la alarma y reactívela cuando sea necesario.\n'
+          '(Modo "Espera" — en consideración si se solicita: reactivación automática después de una duración establecida)',
+      'radius_input_range': '30m ~ 500m (incrementos de 10m)',
+
+      // Página de términos
+      'terms_agreement_title': 'Acuerdo de términos (Requerido)',
+      'terms_agree_text':
+          'He leído y acepto los Términos de servicio y la Política de reembolso/suscripción.',
+      'terms_agree_btn': 'Aceptar y continuar',
+      'terms_disagree_btn': 'Rechazar (Cerrar aplicación)',
+      'terms_save_failed':
+          'Error al guardar los términos. Por favor, inténtelo de nuevo.',
+
+      // Sonido de alarma
+      'alarm_sound_setting_title': 'Configuración de sonido de alarma',
+      'alarm_disabled_label': 'Alarma desactivada',
+
+      // add_alarm_page
+      'add_alarm_new_title': 'Añadir nueva alarma',
+      'edit_alarm_modify_title': 'Editar alarma de ubicación',
+      'location_fixed_text': 'Esta alarma está fijada a este lugar',
+      'no_place_label': 'Sin lugar',
+      'required_fields_msg':
+          'Por favor, complete todos los campos obligatorios.',
+      'holidays_dialog_title':
+          'Configuración de festivos sustitutos/temporales',
+      'holidays_sub_off':
+          'Desactivar en festivos sustitutos/temporales también',
+
+      // my_places_page
+      'delete_confirm_title': 'Confirmar eliminación',
+      'delete_locked_msg': '¿Eliminar esta ubicación bloqueada?',
+      'delete_place_msg': '¿Está seguro de que desea eliminar esta ubicación?',
+      'linked_alarm_delete_warning':
+          '⚠️ {count} alarma(s) vinculada(s) también serán eliminadas.',
+      'edit_places_menu': 'Editar lugar',
+      'add_alarm_menu': 'Añadir nueva alarma',
+      'add_place_tooltip': 'Añadir nueva ubicación',
+
+      // show_alarm_popup_page
+      'alarm_end_confirm': '¿Detener alarma?',
+      'no_label': 'No',
+      'yes_label': 'Sí',
+      'snooze_btn': 'Posponer',
+      'alarm_stop_btn': 'Detener alarma',
+
+      // Configuración de snooze/vibración
+      'snooze_setting_title': 'Configuración de posposición',
+      'vibration_setting_title': 'Configuración de vibración',
+
+      // Permiso
+      'permission_setting_title': 'Configuración de permisos',
+      'permission_allow': 'Permitir',
+      'battery_opt_title': 'Desactivar optimización de batería',
+      'battery_opt_msg':
+          'Para que las alarmas funcionen correctamente en segundo plano, la optimización de batería debe estar desactivada.\nVaya a Configuración, busque "Optimización de batería" y configure Ringinout como "No optimizado".',
+      'open_settings_btn': 'Abrir configuración',
+      'later_btn': 'Más tarde',
+
+      // Gestión de suscripción
+      'subscription_mgmt_title': 'Gestión de suscripción',
+      'subscription_policy_btn': 'Política de suscripción',
+      'refund_policy_btn': 'Política de reembolso',
+      'auto_renew_msg':
+          'Renovado automáticamente según las políticas de Google Play.',
+      'agree_auto_pay': 'Acepto el pago automático.',
+      'agree_policy': 'He revisado la política de suscripción/reembolso.',
+      'start_auto_subscription': 'Iniciar suscripción automática',
+      'current_plan': 'Plan actual',
+      'cancel_subscription': 'Cancelar',
+      'subscribe_btn': 'Suscribirse',
+      'auto_subscribe_btn': 'Suscripción automática',
+      'beta_no_paid_plans':
+          'Los planes de pago no están disponibles durante la beta. Estarán disponibles después de que termine la beta.',
+      'places_5': '5 lugares',
+      'active_alarms_10': '10 alarmas activas',
+      'ad_free_included': 'Sin anuncios incluido',
+      'places_alarms_unlimited': 'Lugares/Alarmas ilimitados',
+      'ad_remove_title': 'Eliminar anuncios',
+      'in_app_ad_remove': 'Eliminación de anuncios en la aplicación',
+      'price_loading': 'Cargando precio',
+      'duration_1month': '1 mes',
+      'duration_3months': '3 meses',
+      'duration_6months': '6 meses',
+      'duration_12months': '12 meses',
+      'discount_5': '5% de descuento',
+      'discount_10': '10% de descuento',
+      'discount_20': '20% de descuento',
+      'expiry_date_none': 'Vencimiento: -',
+      'expiry_date_format': 'Vencimiento: {date}',
+      'beta_sub_activate_later':
+          'Las suscripciones se activarán después de que termine la beta.',
+
+      // Diálogo de límite de suscripción
+      'place_limit_title': 'Límite de registro de lugares',
+      'place_limit_msg':
+          'En el plan {plan}, puede registrar hasta {limit} lugares.\nPor favor, elimine lugares existentes o actualice.',
+      'alarm_limit_title': 'Límite de registro de alarmas',
+      'alarm_limit_msg':
+          'En el plan {plan}, puede configurar hasta {limit} alarmas activas.\nPor favor, elimine alarmas existentes o actualice.',
+      'close_btn': 'Cerrar',
+
+      // Selector de ubicación
+      'place_name_input_title': 'Ingresar nombre del lugar',
+      'radius_default_info': 'Radio: 100m (se puede cambiar después)',
+      'location_select_title': 'Seleccionar ubicación',
+      'fetching_location': 'Obteniendo ubicación actual...',
+      'location_saved': '📍 ¡Ubicación guardada!',
+
+      // Inicio de sesión adicional
+      'dev_test_mode': 'Modo de prueba de desarrollador',
+      'test_login_failed': 'Error en inicio de sesión de prueba: {error}',
+
+      // Cambio de mapa
+      'switch_to_google': 'Cambiar a Google Maps',
+      'switch_to_naver': 'Cambiar a Naver Map',
+
+      // Límite de mapa del plan gratuito
+      'map_free_limit_exceeded_title': 'Límite del plan gratuito',
+      'map_free_limit_exceeded_body':
+          'Ha utilizado todas las {limit} aperturas de Google Maps este mes.\n\n'
+          'OSM siempre está disponible de forma gratuita.\n'
+          'Actualice a un plan de pago para acceso ilimitado.',
+      'map_switch_confirm_title': 'Cambiar a Google Maps',
+      'map_switch_confirm_body':
+          'El plan gratuito permite {limit} aperturas de Google Maps por mes.\n\n'
+          'Restante: {remaining}/{limit}\n\n'
+          'Cambiar a Google Maps usa 1 crédito.\n'
+          'OSM siempre es gratuito e ilimitado.',
+      'map_switch_btn_cancel': 'Cancelar',
+      'map_switch_btn_confirm': 'Cambiar',
+
+      // Falso disparo / Pantalla de alarma
       'btn_snooze': 'Posponer',
       'btn_dismiss': 'Detener alarma',
       'btn_false_trigger': 'Falso disparo',
       'false_trigger_hint': 'Activado por error GPS',
+      'snooze_time_title': 'Duración de posposición',
+      'snooze_min': '{m} min',
+
+      // Info de falso disparo
+      'false_trigger_info_title': '⚡ ¿Qué es Falso disparo?',
+      'false_trigger_info_subtitle':
+          'Mantener la alarma activa cuando se activa por error GPS',
+      'false_trigger_dialog_title': '¿Qué es Falso disparo?',
+      'false_trigger_dialog_body':
+          'Cuando la alarma suena, aparece un botón "⚡ Falso disparo"'
+          ' junto a "Posponer" y "Detener alarma".\n\n'
+          'Cuando toca "⚡ Falso disparo":\n'
+          '  • El tono/vibración se detiene inmediatamente\n'
+          '  • La alarma permanece activa (no se desactiva)\n'
+          '  • La alarma puede dispararse de nuevo\n\n'
+          '📍 Límites de precisión GPS\n'
+          'El GPS solo puede estimar su ubicación.'
+          ' Incluso al aire libre, siempre hay un margen de error de varios a decenas de metros.'
+          ' Esto puede hacer que la alarma suene un poco antes o después.\n\n'
+          '📡 Picos de señal GPS\n'
+          'En entornos con GPS inestable (subterráneos, edificios altos, zonas sin señal),'
+          ' el error de detección del radio puede aumentar. Incluso cuando realmente está dentro del radio,'
+          ' el GPS puede leerlo temporalmente como fuera — o viceversa.\n'
+          'En estos casos, use el botón "⚡ Falso disparo".'
+          ' Si el mismo problema se repite, intente aumentar su radio de 10m a la vez.\n\n'
+          '💡 Si necesita permanecer o moverse cerca del límite del radio configurado\n'
+          'Incluso después de tocar Falso disparo, la alarma puede seguir sonando.'
+          ' En ese caso, desactive la alarma y reactívela cuando sea necesario.\n'
+          '(Modo "Espera" — en consideración si se solicita: reactivación automática después de una duración establecida)',
+      'false_trigger_dialog_ok': 'Entendido',
+
+      // Alarma Bluetooth — disparo no intencionado
+      'bt_false_trigger_info_title': '⚡ ¿Alarma no intencionada?',
+      'bt_false_trigger_info_subtitle':
+          '¿La alarma se activó sin su intención? Esto es lo que debe hacer',
+      'bt_false_trigger_dialog_title': '¿Alarma no intencionada?',
+      'bt_false_trigger_dialog_body':
+          'Las alarmas Bluetooth se activan cuando una conexión o desconexión\n'
+          'dura 15 segundos o más. Esto es por diseño — pero la vida\n'
+          'no siempre sale como se planea.\n\n'
+          'Cuando la alarma se active, toque "⚡ Falso disparo" para detener el tono\n'
+          'manteniendo la alarma activa para la próxima vez.\n\n'
+          '💡 Consejo: Use condiciones de día o hora para reducir enormemente\n'
+          'los disparos no deseados en otros momentos del día.',
+      'bt_bonded_devices_title': 'Dispositivos Bluetooth emparejados',
+      'bt_refresh_tooltip': 'Actualizar lista de dispositivos',
+      'bt_selector_description':
+          'Seleccione dispositivos Bluetooth emparejados para detectar en este lugar.',
+      'bt_permission_needed':
+          'Se requiere permiso de Bluetooth.\nPor favor, permita el acceso Bluetooth en Configuración.',
+      'bt_no_bonded_devices':
+          'No se encontraron dispositivos Bluetooth emparejados.',
+      'bt_selected_count': '{count} dispositivo(s) seleccionado(s)',
+      'bt_device_retained':
+          'Guardado anteriormente (no emparejado actualmente)',
+      'bt_devices_label': 'Dispositivos Bluetooth',
+      'bt_none_selected': 'Ninguno seleccionado',
+      'bt_count_selected': '{count} seleccionado(s)',
+
+      // Alarma de dispositivo
       'device_alarm_empty': 'Sin alarmas de dispositivo',
+      'device_alarm_empty_desc':
+          'Añada una alarma de dispositivo Bluetooth para ser notificado\ncuando un dispositivo se conecte o desconecte.',
       'device_alarm_add': 'Añadir alarma de dispositivo',
+      'device_alarm_delete_confirm': '¿Eliminar esta alarma de dispositivo?',
+      'device_alarm_select_device': 'Seleccionar dispositivo',
+      'device_alarm_name_label': 'Nombre de alarma',
+      'device_alarm_name_hint': 'Ingrese nombre de alarma',
+      'device_alarm_trigger_label': 'Activar cuando',
       'device_trigger_connect': 'Conectado',
       'device_trigger_disconnect': 'Desconectado',
-      'login_app_description':
-          'Aplicación de alarma basada en ubicación.\n¡Reciba notificaciones al llegar o salir de un lugar!',
-      'login_continue_with_google': 'Continuar con Google',
-      'permission_required': 'Permiso requerido',
-      'location_permission': 'Permiso de ubicación',
-      'notification_permission': 'Permiso de notificación',
-      'grant_permission': 'Conceder permiso',
-      'allow': 'Permitir',
-      'setup_complete': '¡Configuración completada! 🎉',
+
+      // Mis dispositivos
+      'my_devices_empty': 'Sin dispositivos registrados',
+      'my_devices_empty_desc':
+          'Los dispositivos Bluetooth registrados en lugares o\nalarmas de dispositivo aparecerán aquí.',
+      'my_devices_source_place': 'Lugar',
+      'my_devices_source_alarm': 'Alarma',
+      'my_devices_add': 'Añadir dispositivo',
+      'my_devices_add_title': 'Añadir dispositivo Bluetooth',
+      'my_devices_custom_name_label': 'Nombre personalizado',
+      'my_devices_custom_name_hint': 'Ingrese un nombre fácil de recordar',
+      'my_devices_original_name': 'Nombre Bluetooth',
+      'my_devices_edit_name': 'Editar nombre',
+      'edit_device_menu': 'Editar dispositivo',
+      'add_device_alarm_menu': 'Añadir nueva alarma',
+      'my_devices_delete_confirm': '¿Eliminar este dispositivo?',
+      'my_devices_source_manual': 'Manual',
+
+      // Botón de añadir alarma (barra inferior fija)
+      'add_alarm_btn': 'Añadir alarma',
+      'add_device_alarm_btn': 'Añadir alarma',
+
+      // Página de alarma de dispositivo
+      'device_alarm_page_title': 'Añadir alarma de dispositivo',
+      'device_alarm_edit_title': 'Editar alarma de dispositivo',
+      'add_new_device_alarm': 'Añadir nueva alarma de dispositivo',
+      'select_device_label': 'Seleccionar dispositivo',
+      'alarm_on_connect_label': 'Alarma al conectar',
+      'alarm_on_disconnect_label': 'Alarma al desconectar',
+      'device_condition_hint':
+          'Sin condiciones, la alarma se activa en la primera conexión/desconexión.',
+      'device_alarm_voice_section': 'Reconocimiento de voz',
+      'device_alarm_voice_msg_label': 'Mensaje de voz',
+      'device_alarm_voice_msg_hint':
+          'Mensaje a anunciar cuando se active la alarma',
+      'device_alarm_voice_enabled': 'Activar notificación de voz',
+      'device_alarm_sound_section': 'Sonido de alarma',
+      'device_alarm_save_success': 'Alarma de dispositivo guardada',
+
+      // Wi-Fi
+      'wifi_networks_label': 'Redes Wi-Fi',
+      'wifi_none_selected': 'Ninguna seleccionada',
+      'wifi_count_selected': '{count} seleccionada(s)',
+      'wifi_rescan_tooltip': 'Volver a escanear',
+      'wifi_description':
+          'Use la conexión Wi-Fi para una detección de ubicación más precisa.',
+      'wifi_disabled': 'El Wi-Fi está desactivado',
+      'wifi_disabled_detail':
+          'El Wi-Fi está desactivado. Por favor, active el Wi-Fi e inténtelo de nuevo.',
+      'wifi_scan_failed': 'Error en el escaneo Wi-Fi',
+      'wifi_no_networks': 'No se detectaron redes Wi-Fi.',
+      'wifi_networks_selected': '{count} red(es) seleccionada(s)',
+      'wifi_hidden_network': '(Red oculta)',
+      'wifi_currently_connected': 'Actualmente conectado',
+      'wifi_previously_saved':
+          'Guardado anteriormente (no detectado actualmente)',
     },
   };
 
