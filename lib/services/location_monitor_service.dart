@@ -34,6 +34,7 @@ import 'package:ringinout/services/alarm_notification_helper.dart';
 import 'package:ringinout/services/app_log_buffer.dart';
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/holiday_service.dart';
+import 'package:ringinout/services/quota_service.dart';
 
 // ═══════════════════════════════════════════════════════════
 //  v3 상태 열거형
@@ -1513,6 +1514,26 @@ class LocationMonitorService {
     }
 
     _log('✅ 알람 트리거: ${alarmData['name']} ($trigger)');
+
+    // ═══════════════════════════════════════════════════════════
+    //  Quota 게이트 — 플랜별 월간 알람 발동 한도 확인
+    //  - capped: 조용히 skip (백그라운드 isolate에선 다이얼로그 불가)
+    //  - needsReward: 보상 크레딧은 UI에서 사전 적립, 여기선 record만
+    //  - ok: 통과
+    // ═══════════════════════════════════════════════════════════
+    try {
+      final quota = await QuotaService.check(QuotaCategory.alarm);
+      if (quota.status == QuotaStatus.capped) {
+        _log(
+          '🚫 알람 쿼터 초과 — skip: used=${quota.used}/${quota.absoluteCap} '
+          '(name=${alarmData['name']})',
+        );
+        return;
+      }
+      await QuotaService.record(QuotaCategory.alarm);
+    } catch (e) {
+      _log('⚠️ 알람 쿼터 체크 실패(계속 진행): $e');
+    }
 
     // ★ 알람 실제 발동 확인 → Wi-Fi 대기 타이머 + pending GPS 정리
     //   WiFi ENTER 시점이 아닌, 알람이 진짜 울린 후에만 정리하여

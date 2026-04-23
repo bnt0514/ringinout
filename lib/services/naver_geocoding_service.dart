@@ -1,15 +1,15 @@
 // lib/services/naver_geocoding_service.dart
 // 네이버 지오코딩 API 서비스
+// - 역지오코딩(reverse)은 OSM Nominatim으로 통합되어 제거됨
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:ringinout/config/app_config.dart';
 import 'package:ringinout/services/map_usage_service.dart';
-import 'package:ringinout/utils/geocoding_cache.dart';
 
 class NaverGeocodingService {
-  // 네이버 클라우드 플랫폼 API 키 (Geocoding/Reverse Geocoding)
+  // 네이버 클라우드 플랫폼 API 키 (Geocoding)
   static const String _clientId = 'k68ej9xnz7';
   static const String _clientSecret =
       '5GLjOCubGYbZZwPpFK5sP6ko71ktqB7uRbJASNYg';
@@ -17,8 +17,6 @@ class NaverGeocodingService {
   // 네이버 개발자센터 API 키 (Local Search)
   static const String _devClientId = 'aUS9TAPzqwqtpQJwNvKL';
   static const String _devClientSecret = 'MKU_6OiXW9';
-
-  static final _cache = GeocodingCache();
 
   /// 주소 → 좌표 변환 (Geocoding)
   static Future<GeocodingResult?> searchAddress(String query) async {
@@ -75,92 +73,8 @@ class NaverGeocodingService {
     return null;
   }
 
-  /// 좌표 → 주소 변환 (Reverse Geocoding)
-  static Future<String?> reverseGeocode(double lat, double lng) async {
-    if (!AppConfig.isGeocodingEnabled) {
-      debugPrint('🚫 [NaverGeocode] 지오코딩 킬스위치 활성 — reverseGeocode 스킵');
-      return null;
-    }
-    // 온디바이스 캐시 확인
-    final cached = _cache.get(lat, lng);
-    if (cached != null) {
-      debugPrint('📦 [NaverGeocode] cache hit');
-      return cached;
-    }
-    try {
-      debugPrint('🔄 역지오코딩 시작: ($lat, $lng)');
-      await MapUsageService.trackGeocodingCall('naver_rev');
-      final url = Uri.parse(
-        'https://maps.apigw.ntruss.com/map-reversegeocode/v2/gc'
-        '?coords=$lng,$lat'
-        '&orders=roadaddr,addr'
-        '&output=json',
-      );
-
-      debugPrint('📡 역지오코딩 URL: $url');
-      final response = await http.get(
-        url,
-        headers: {
-          'x-ncp-apigw-api-key-id': _clientId,
-          'x-ncp-apigw-api-key': _clientSecret,
-          'Accept': 'application/json',
-        },
-      );
-
-      debugPrint('📥 역지오코딩 응답: ${response.statusCode}');
-      debugPrint('📥 역지오코딩 본문: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-
-        if (data['results'] != null && (data['results'] as List).isNotEmpty) {
-          final result = data['results'][0];
-          final region = result['region'];
-          final land = result['land'];
-
-          // 도로명 주소 조합
-          if (result['name'] == 'roadaddr' && land != null) {
-            final area1 = region['area1']['name'] ?? ''; // 시/도
-            final area2 = region['area2']['name'] ?? ''; // 구/군
-            // area3(동)은 도로명 주소에서 불필요하여 제외
-            final roadName = land['name'] ?? '';
-            final number1 = land['number1'] ?? '';
-            final number2 = land['number2'] ?? '';
-
-            String address = '$area1 $area2 $roadName $number1';
-            if (number2.isNotEmpty) {
-              address += '-$number2';
-            }
-            final trimmed = address.trim();
-            await _cache.put(lat, lng, trimmed);
-            return trimmed;
-          }
-
-          // 지번 주소 조합
-          if (result['name'] == 'addr' && land != null) {
-            final area1 = region['area1']['name'] ?? '';
-            final area2 = region['area2']['name'] ?? '';
-            final area3 = region['area3']['name'] ?? '';
-            final number1 = land['number1'] ?? '';
-            final number2 = land['number2'] ?? '';
-
-            String address = '$area1 $area2 $area3 $number1';
-            if (number2.isNotEmpty) {
-              address += '-$number2';
-            }
-            final trimmed = address.trim();
-            await _cache.put(lat, lng, trimmed);
-            return trimmed;
-          }
-        }
-      } else {
-        debugPrint('역지오코딩 API 오류: ${response.statusCode} - ${response.body}');
-      }
-    } catch (e) {
-      debugPrint('역지오코딩 실패: $e');
-    }
-    return null;
-  }
+  // [제거됨] reverseGeocode — NCP 유료(₩4/호출) → OSM Nominatim(무료)로 통합
+  //   → add_myplaces_page._reverseGeocode 는 OsmGeocodingService.reverseGeocode 사용
 
   /// 장소명 검색 (Naver Local Search API)
   /// [lat], [lng]가 주어지면 해당 좌표 기준으로 검색어에 지역명을 자동 추가

@@ -287,3 +287,102 @@ exports.submitBugReport = functions.https.onRequest(async (req, res) => {
         res.status(500).json({ error: 'Failed to save bug report' });
     }
 });
+
+// ============================================================
+// POST /incrementQuota - 서버측 쿼터 증분 (위조 방지)
+// body: { category: 'search'|'alarm', kind: 'used'|'reward' }
+// - Firebase ID Token 검증
+// - 플랜 조회 → cap 초과 시 403
+// - FieldValue.increment로 원자적 증가
+// ============================================================
+exports.incrementQuota = functions.https.onRequest(async (req, res) => {
+    setCors(req, res);
+
+    if (req.method === 'OPTIONS') return res.status(204).send('');
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Authorization header missing' });
+    }
+
+    try {
+        const idToken = authHeader.split('Bearer ')[1];
+        const decodedToken = await admin.auth().verifyIdToken(idToken);
+        const firebaseUid = decodedToken.uid;
+
+        const { category, kind } = req.body || {};
+        if (!['search', 'alarm'].includes(category)) {
+            return res.status(400).json({ error: 'invalid category' });
+        }
+        if (!['used', 'reward'].includes(kind)) {
+            return res.status(400).json({ error: 'invalid kind' });
+        }
+
+        // 플랜 조회 (cf_subscriptions는 anonUserId 기반이므로 변환)
+        const anonUserId = generateAnonUserId(firebaseUid);
+        const subSnap = await db.collection('cf_subscriptions').doc(anonUserId).get();
+        const plan = subSnap.exists ? (subSnap.data().plan || 'free') : 'free';
+
+        // 플랜별 absolute cap (Flutter SubscriptionService와 동기화)
+        const CAPS = {
+            search: { free: 15, plus: 50, pro: 150, special: 100000 },
+            alarm: { free: 30, plus: 200, pro: 500, special: 100000 },
+        };
+        const cap = CAPS[category][plan] ?? CAPS[category].free;
+
+        const now = new Date();
+        const month = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+        const userRef = db.collection('quotas').doc(firebaseUid).collection('months').doc(month);
+        const poolRef = db.collection('pools').doc(month);
+
+        const usedField = category === 'search' ? 'search_used' : 'alarm_used';
+        const rewardField = category === 'search' ? 'search_reward' : 'alarm_reward';
+        const totalField = category === 'search' ? 'search_total' : 'alarm_total';
+
+        // 트랜잭션: 현재 used 확인 후 cap 검증 → increment
+        const result = await db.runTransaction(async (tx) => {
+            const snap = await tx.get(userRef);
+            const data = snap.exists ? snap.data() : {};
+            const curUsed = (data[usedField] || 0);
+            const curReward = (data[rewardField] || 0);
+
+            if (kind === 'used' && curUsed >= cap) {
+                return { ok: false, reason: 'capped', used: curUsed, cap };
+            }
+
+            const patch = {
+                plan_snapshot: plan,
+                uid: firebaseUid,
+                last_updated: admin.firestore.FieldValue.serverTimestamp(),
+            };
+            if (kind === 'used') {
+                patch[usedField] = admin.firestore.FieldValue.increment(1);
+            } else {
+                patch[rewardField] = admin.firestore.FieldValue.increment(1);
+            }
+            tx.set(userRef, patch, { merge: true });
+
+            if (kind === 'used') {
+                tx.set(poolRef, {
+                    [totalField]: admin.firestore.FieldValue.increment(1),
+                    last_updated: admin.firestore.FieldValue.serverTimestamp(),
+                }, { merge: true });
+            }
+            return {
+                ok: true,
+                used: kind === 'used' ? curUsed + 1 : curUsed,
+                reward: kind === 'reward' ? curReward + 1 : curReward,
+                cap,
+            };
+        });
+
+        if (!result.ok) {
+            return res.status(403).json({ error: 'quota_capped', ...result });
+        }
+        res.json({ success: true, ...result });
+    } catch (error) {
+        console.error('❌ incrementQuota failed:', error);
+        res.status(500).json({ error: 'Failed to increment quota' });
+    }
+});

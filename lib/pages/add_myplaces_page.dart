@@ -14,8 +14,10 @@ import 'package:ringinout/services/map_provider_service.dart';
 import 'package:ringinout/services/map_usage_service.dart';
 import 'package:ringinout/services/naver_geocoding_service.dart';
 import 'package:ringinout/services/osm_geocoding_service.dart';
+import 'package:ringinout/services/quota_service.dart';
 import 'package:ringinout/services/smart_location_service.dart';
 import 'package:ringinout/services/subscription_service.dart';
+import 'package:ringinout/widgets/reward_consent_dialog.dart';
 import 'package:ringinout/widgets/subscription_limit_dialog.dart';
 import 'package:ringinout/widgets/unified_map_widget.dart';
 import 'package:ringinout/widgets/map_toggle_button.dart';
@@ -162,40 +164,16 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
   }
 
   Future<void> _reverseGeocode(UnifiedLatLng pos) async {
+    // 역지오코딩은 전 플랜/전 지도 공급자에서 OSM Nominatim(무료)으로 통합.
+    // Naver/Google 역지오코딩은 비용 발생으로 제거됨.
     try {
-      final mapService = context.read<MapProviderService>();
-      final plan = await SubscriptionService.getCurrentPlan();
-      final isFree = plan == SubscriptionPlan.free;
-      String? address;
-      if (mapService.isNaver) {
-        // Naver Reverse Geocoding은 NCP 유료 — 무료 플랜은 OSM 폴백
-        if (isFree) {
-          address = await OsmGeocodingService.reverseGeocode(
-            pos.latitude,
-            pos.longitude,
-          );
-        } else {
-          address = await NaverGeocodingService.reverseGeocode(
-            pos.latitude,
-            pos.longitude,
-          );
-        }
-      } else if (mapService.isOsm) {
-        address = await OsmGeocodingService.reverseGeocode(
-          pos.latitude,
-          pos.longitude,
-        );
-      } else {
-        // 구글맵 역지오코딩은 비용 발생(Geocoding API 과금)으로 비활성화
-        // 무료/유료 모두 OSM 폴백 사용 (좌표 탭 시 주소 표시용)
-        address = await OsmGeocodingService.reverseGeocode(
-          pos.latitude,
-          pos.longitude,
-        );
-      }
-      if (address != null) {
+      final address = await OsmGeocodingService.reverseGeocode(
+        pos.latitude,
+        pos.longitude,
+      );
+      if (address != null && mounted) {
         setState(() {
-          _address = address!;
+          _address = address;
         });
       }
     } catch (e) {
@@ -236,12 +214,35 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
   Future<void> _performSearch(String query) async {
     if (query.trim().isEmpty) return;
 
+    // ── Quota 게이트 ──
+    //   ok         → 그대로 진행
+    //   needsReward→ 보상 동의 다이얼로그, 동의 시 추가 사용 허용
+    //   capped     → 상한 도달 안내 다이얼로그 후 중단
+    final quota = await QuotaService.check(QuotaCategory.search);
+    if (!mounted) return;
+    if (quota.status == QuotaStatus.capped) {
+      await RewardConsentDialog.showCapped(
+        context,
+        category: QuotaCategory.search,
+        cap: quota.absoluteCap,
+      );
+      return;
+    }
+    if (quota.status == QuotaStatus.needsReward) {
+      final granted = await RewardConsentDialog.show(
+        context,
+        category: QuotaCategory.search,
+      );
+      if (!granted) return;
+    }
+
     setState(() {
       _isSearching = true;
       _showSearchResults = true;
       _searchResults = [];
     });
 
+    bool searchSucceeded = false;
     try {
       final mapService = context.read<MapProviderService>();
       final plan = await SubscriptionService.getCurrentPlan();
@@ -315,6 +316,9 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
       // 장소 검색 결과 추가
       combinedResults.addAll(placeResults);
 
+      // 실제 결과가 나왔거나 API 호출이 실행되었으면 성공으로 간주 → record
+      searchSucceeded = true;
+
       if (mounted) {
         setState(() {
           _searchResults = combinedResults;
@@ -337,6 +341,10 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
         setState(() {
           _isSearching = false;
         });
+      }
+    } finally {
+      if (searchSucceeded) {
+        await QuotaService.record(QuotaCategory.search);
       }
     }
   }

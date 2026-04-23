@@ -223,10 +223,18 @@ class MapUsageService {
         AppConfig.isGeocodingEnabled = false;
       }
 
+      // 무료 유저 선별 차단 적용
+      SubscriptionService.setFreeUserBlock(
+        naver: data['free_naver_blocked'] as bool? ?? false,
+        google: data['free_google_blocked'] as bool? ?? false,
+      );
+
       debugPrint(
         '🗺️ [MapSettings] Google=${AppConfig.isGoogleMapsEnabled}, '
         'Naver=${AppConfig.isNaverMapsEnabled}, '
-        'Geocoding=${AppConfig.isGeocodingEnabled}',
+        'Geocoding=${AppConfig.isGeocodingEnabled}, '
+        'FreeNaverBlocked=${SubscriptionService.freeNaverBlocked}, '
+        'FreeGoogleBlocked=${SubscriptionService.freeGoogleBlocked}',
       );
     } catch (e) {
       debugPrint('⚠️ [MapSettings] 설정 로드 실패 (기본값 사용): $e');
@@ -254,6 +262,23 @@ class MapUsageService {
         .set({'geocoding_enabled': enabled}, SetOptions(merge: true));
     AppConfig.isGeocodingEnabled = enabled;
     debugPrint('🗺️ [Admin] geocoding enabled=$enabled');
+  }
+
+  // Admin: 무료 유저 선별 차단 (naver만, google만, 둘 다 선택 가능)
+  static Future<void> setFreeProviderBlocked({
+    bool? naver,
+    bool? google,
+  }) async {
+    final patch = <String, dynamic>{};
+    if (naver != null) patch['free_naver_blocked'] = naver;
+    if (google != null) patch['free_google_blocked'] = google;
+    if (patch.isEmpty) return;
+    await FirebaseFirestore.instance
+        .collection('admin_config')
+        .doc('map_settings')
+        .set(patch, SetOptions(merge: true));
+    SubscriptionService.setFreeUserBlock(naver: naver, google: google);
+    debugPrint('🗺️ [Admin] free block naver=$naver google=$google');
   }
 
   // ──────────────────────────────────────────────

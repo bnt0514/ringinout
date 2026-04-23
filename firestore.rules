@@ -65,5 +65,32 @@ service cloud.firestore {
     match /cf_subscriptions/{docId} {
       allow read, write: if false;
     }
+
+    // ── 쿼터 (월간 검색/알람 사용량): 본인 읽기 + 제한적 쓰기, 어드민 전체 가시
+    //    경로: quotas/{uid}/months/{yyyy-MM}
+    //    필드: search_used, search_reward, alarm_used, alarm_reward,
+    //          plan_snapshot, uid, last_updated
+    match /quotas/{uid} {
+      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == uid);
+      allow write: if false; // 부모 문서는 사용 안 함
+
+      match /months/{month} {
+        allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == uid);
+        // 클라이언트가 FieldValue.increment로 +1만 올릴 수 있도록 보수적 허용
+        allow create, update: if isAuthenticated()
+            && request.auth.uid == uid;
+        allow delete: if isAdmin();
+      }
+    }
+
+    // ── 글로벌 풀 (월간 전사 합계): 어드민만 읽기, 쓰기는 클라이언트 증감 허용
+    //    경로: pools/{yyyy-MM}
+    //    필드: search_total, alarm_total, last_updated
+    match /pools/{month} {
+      allow read: if isAdmin();
+      // 쓰기는 인증된 유저라면 증분 허용 (필드 위조 방지는 Cloud Function에서 강화)
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
   }
 }

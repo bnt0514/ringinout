@@ -1,5 +1,6 @@
-// lib/services/google_geocoding_service.dart
-// Google 지오코딩 서비스 (geocoding 패키지 활용)
+// lib/google_geocoding_service.dart
+// Google 지오코딩 서비스 — 사용 예: 유료 플랜 주소/장소 검색(forward).
+// 역지오코딩(reverse)은 비용 절감을 위해 OSM Nominatim으로 통합 (제거됨).
 
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
@@ -7,60 +8,13 @@ import 'package:http/http.dart' as http;
 import 'package:ringinout/config/app_config.dart';
 import 'package:ringinout/services/map_usage_service.dart';
 import 'package:ringinout/services/naver_geocoding_service.dart';
-import 'package:ringinout/utils/geocoding_cache.dart';
 
 class GoogleGeocodingService {
   // Google Maps Geocoding API key (AndroidManifest.xml과 동일)
   static const String _apiKey = 'AIzaSyBeH5HhLcpj2JL91U_1eSHU4vRyC_qmxao';
-  static final _cache = GeocodingCache();
 
-  /// 좌표 → 주소 변환 (Reverse Geocoding)
-  static Future<String?> reverseGeocode(double lat, double lng) async {
-    // 온디바이스 캐시 확인
-    final cached = _cache.get(lat, lng);
-    if (cached != null) {
-      debugPrint('📦 [GoogleGeocode] cache hit');
-      return cached;
-    }
-
-    try {
-      debugPrint('🔄 Google 역지오코딩 시작: ($lat, $lng)');
-      final url = Uri.parse(
-        'https://maps.googleapis.com/maps/api/geocode/json'
-        '?latlng=$lat,$lng'
-        '&key=$_apiKey'
-        '&language=ko',
-      );
-
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        debugPrint('📋 Google 역지오코딩 응답 status: ${data['status']}');
-        if (data['status'] == 'OK' &&
-            data['results'] != null &&
-            (data['results'] as List).isNotEmpty) {
-          final address = data['results'][0]['formatted_address'] as String?;
-          debugPrint('✅ Google 역지오코딩 결과: $address');
-          if (address != null) await _cache.put(lat, lng, address);
-          return address;
-        }
-        if (data['status'] == 'REQUEST_DENIED') {
-          debugPrint(
-            '⚠️ Google Geocoding API가 활성화되지 않았습니다. '
-            'Google Cloud Console에서 "Geocoding API"를 활성화해주세요.',
-          );
-          debugPrint('⚠️ 에러 메시지: ${data['error_message'] ?? 'N/A'}');
-        }
-      }
-      debugPrint(
-        '❌ Google 역지오코딩 실패: HTTP ${response.statusCode}, body: ${response.body.substring(0, (response.body.length > 300) ? 300 : response.body.length)}',
-      );
-    } catch (e) {
-      debugPrint('❌ Google 역지오코딩 에러: $e');
-    }
-    return null;
-  }
+  // [제거됨] reverseGeocode — 비용(₩7/호출) 발생으로 OSM Nominatim(무료)로 통합
+  //   → add_myplaces_page._reverseGeocode 는 OsmGeocodingService.reverseGeocode 사용
 
   /// 주소/장소명 검색 (Google Places Text Search)
   static Future<List<LocalSearchResult>> searchPlace(

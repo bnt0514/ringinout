@@ -47,48 +47,130 @@ class SubscriptionService {
     }
   }
 
-  static int? placeLimit(SubscriptionPlan plan) {
-    switch (plan) {
-      case SubscriptionPlan.free:
-        return 2;
-      case SubscriptionPlan.plus:
-        return 5;
-      case SubscriptionPlan.pro:
-      case SubscriptionPlan.special:
-        return null;
-    }
-  }
+  // ══════════════════════════════════════════════════════════════════
+  // 등록 제한은 폐기 (사용량 기반 모델로 전환)
+  // placeLimit / alarmLimit은 @Deprecated 유지 — 기존 UI 호환용만 반환
+  // ══════════════════════════════════════════════════════════════════
 
-  /// 등록 가능한 알람 총 개수 (활성 여부 무관)
-  static int? alarmLimit(SubscriptionPlan plan) {
-    switch (plan) {
-      case SubscriptionPlan.free:
-        return 4;
-      case SubscriptionPlan.plus:
-        return 10;
-      case SubscriptionPlan.pro:
-      case SubscriptionPlan.special:
-        return null;
-    }
-  }
+  @Deprecated('등록 개수 제한 폐기. QuotaService 기반 알람 발동 쿼터 사용.')
+  static int? placeLimit(SubscriptionPlan plan) => null; // 무제한
 
-  /// 맵 오픈 월별 제한 횟수
-  /// - free: 20 (네이버/구글 합산, OSM 무제한)
-  /// - plus: 50 (네이버/구글 합산)
-  /// - pro: 500 (공정 사용 정책 — 어뷰즈 방지)
-  /// - special: null (개발자, 무제한)
+  @Deprecated('등록 개수 제한 폐기. QuotaService 기반 알람 발동 쿼터 사용.')
+  static int? alarmLimit(SubscriptionPlan plan) => null; // 무제한
+
+  /// 맵 오픈 월별 제한 — 어뷰즈 방지용 (실제 비용은 검색에서 발생)
+  /// - free: 100, plus: 300, pro: 1000, special: 무제한
   static int? mapOpenMonthlyLimit(SubscriptionPlan plan) {
     switch (plan) {
       case SubscriptionPlan.free:
-        return 20;
+        return 100;
       case SubscriptionPlan.plus:
-        return 50;
+        return 300;
       case SubscriptionPlan.pro:
-        return 500;
+        return 1000;
       case SubscriptionPlan.special:
         return null;
     }
   }
+
+  // ══════════════════════════════════════════════════════════════════
+  // 검색 쿼터 (명칭 + 주소 통합)
+  //   baseLimit = 보장 한도 (광고/보상 없이 제공)
+  //   cap       = 어뷰징 절대 상한 (보상으로도 못 넘음)
+  //   Pro 마케팅 표기: "대용량" (cap=150)
+  // ══════════════════════════════════════════════════════════════════
+
+  /// 보장 검색 횟수 (null = 무제한, special만 해당)
+  static int? searchMonthlyBase(SubscriptionPlan plan) {
+    switch (plan) {
+      case SubscriptionPlan.free:
+        return 5;
+      case SubscriptionPlan.plus:
+        return 30;
+      case SubscriptionPlan.pro:
+        return 150; // cap과 동일 = 실질 상한, 마케팅은 "대용량"
+      case SubscriptionPlan.special:
+        return null;
+    }
+  }
+
+  /// 검색 절대 상한 (어뷰징 방지)
+  static int searchMonthlyCap(SubscriptionPlan plan) {
+    switch (plan) {
+      case SubscriptionPlan.free:
+        return 15;
+      case SubscriptionPlan.plus:
+        return 50;
+      case SubscriptionPlan.pro:
+        return 150;
+      case SubscriptionPlan.special:
+        return 100000; // 사실상 무제한
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // 알람 발동 쿼터 (외부 API 비용 없음, 플랜 차별화용)
+  // ══════════════════════════════════════════════════════════════════
+
+  /// 보장 알람 발동 횟수
+  static int? alarmMonthlyBase(SubscriptionPlan plan) {
+    switch (plan) {
+      case SubscriptionPlan.free:
+        return 15;
+      case SubscriptionPlan.plus:
+        return 100;
+      case SubscriptionPlan.pro:
+        return 500; // cap과 동일 = 실질 상한, 마케팅은 "대용량"
+      case SubscriptionPlan.special:
+        return null;
+    }
+  }
+
+  /// 알람 발동 절대 상한
+  static int alarmMonthlyCap(SubscriptionPlan plan) {
+    switch (plan) {
+      case SubscriptionPlan.free:
+        return 30;
+      case SubscriptionPlan.plus:
+        return 200;
+      case SubscriptionPlan.pro:
+        return 500;
+      case SubscriptionPlan.special:
+        return 100000;
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // 무료 사용자 선택적 차단 (어드민 토글)
+  //   admin_config/map_settings 에 free_*_blocked 플래그 추가
+  //   여기선 AppConfig에서 읽어서 반환하는 헬퍼
+  // ══════════════════════════════════════════════════════════════════
+
+  /// 해당 플랜 + 제공자 조합에서 지오코딩을 사용할 수 있는지
+  /// 어드민이 "무료만 차단" 토글을 켜면 Plus/Pro는 계속 사용 가능
+  static bool canUseGeocoding({
+    required SubscriptionPlan plan,
+    required String provider, // 'google' or 'naver'
+  }) {
+    // 전체 킬스위치는 여기선 체크 안 함 (호출측에서 AppConfig 체크)
+    // 여기선 "무료만 차단" 로직만
+    if (plan != SubscriptionPlan.free) return true;
+    if (provider == 'naver' && _freeNaverBlocked) return false;
+    if (provider == 'google' && _freeGoogleBlocked) return false;
+    return true;
+  }
+
+  // loadMapSettings에서 MapUsageService가 업데이트
+  static bool _freeNaverBlocked = false;
+  static bool _freeGoogleBlocked = false;
+
+  static void setFreeUserBlock({bool? naver, bool? google}) {
+    if (naver != null) _freeNaverBlocked = naver;
+    if (google != null) _freeGoogleBlocked = google;
+  }
+
+  static bool get freeNaverBlocked => _freeNaverBlocked;
+  static bool get freeGoogleBlocked => _freeGoogleBlocked;
 
   /// 인덱스가 한도 초과인지 여부 (초과분은 잠금 처리)
   /// items는 0번부터 순서대로, limit 이상 인덱스가 잠김

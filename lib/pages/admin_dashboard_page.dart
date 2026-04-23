@@ -8,6 +8,8 @@ import 'package:provider/provider.dart';
 import 'package:ringinout/config/app_config.dart';
 import 'package:ringinout/services/map_provider_service.dart';
 import 'package:ringinout/services/map_usage_service.dart';
+import 'package:ringinout/services/quota_service.dart';
+import 'package:ringinout/services/subscription_service.dart';
 
 // ── 버그 리포트 데이터 모델 ──────────────────────────────────────────
 class _BugReport {
@@ -157,6 +159,8 @@ class _MapsDashboardTabState extends State<_MapsDashboardTab> {
   bool _forceUploadInProgress = false;
   Map<String, int> _geoCounts = {};
   bool _geoLoading = true;
+  Map<String, int> _globalPool = {};
+  bool _poolLoading = true;
 
   @override
   void initState() {
@@ -164,12 +168,49 @@ class _MapsDashboardTabState extends State<_MapsDashboardTab> {
     _loadStats();
     _loadWeeklyHistory();
     _loadGeoCounts();
+    _loadGlobalPool();
   }
 
   void refresh() {
     _loadStats();
     _loadWeeklyHistory();
     _loadGeoCounts();
+    _loadGlobalPool();
+  }
+
+  Future<void> _loadGlobalPool() async {
+    if (mounted) setState(() => _poolLoading = true);
+    final pool = await QuotaService.getGlobalPool();
+    if (mounted) {
+      setState(() {
+        _globalPool = pool;
+        _poolLoading = false;
+      });
+    }
+  }
+
+  Future<void> _toggleFreeBlock({bool? naver, bool? google}) async {
+    try {
+      await MapUsageService.setFreeProviderBlocked(
+        naver: naver,
+        google: google,
+      );
+      if (mounted) {
+        setState(() {}); // rebuild for SubscriptionService.freeXBlocked
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('무료 유저 제공자 차단 설정 업데이트'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('오류: $e')));
+      }
+    }
   }
 
   Future<void> _loadGeoCounts() async {
@@ -409,6 +450,24 @@ class _MapsDashboardTabState extends State<_MapsDashboardTab> {
             isGeocodingEnabled: AppConfig.isGeocodingEnabled,
             fmt: fmt,
             onToggle: _toggleGeocoding,
+          ),
+          const SizedBox(height: 16),
+
+          // ── 무료 유저 제공자 선별 차단 ──
+          _FreeBlockSection(
+            freeNaverBlocked: SubscriptionService.freeNaverBlocked,
+            freeGoogleBlocked: SubscriptionService.freeGoogleBlocked,
+            onToggleNaver: (v) => _toggleFreeBlock(naver: v),
+            onToggleGoogle: (v) => _toggleFreeBlock(google: v),
+          ),
+          const SizedBox(height: 16),
+
+          // ── 글로벌 풀 (이번 달 전체 누적) ──
+          _GlobalPoolSection(
+            pool: _globalPool,
+            isLoading: _poolLoading,
+            fmt: fmt,
+            onRefresh: _loadGlobalPool,
           ),
           const SizedBox(height: 24),
 
@@ -1867,6 +1926,218 @@ class _CostSummaryRow extends StatelessWidget {
           Text(
             '₩${fmt.format(cost.round())}',
             style: style.copyWith(fontFamily: 'monospace'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 무료 유저 전용 제공자 차단 섹션
+// ═══════════════════════════════════════════════════════════════════════
+class _FreeBlockSection extends StatelessWidget {
+  final bool freeNaverBlocked;
+  final bool freeGoogleBlocked;
+  final void Function(bool) onToggleNaver;
+  final void Function(bool) onToggleGoogle;
+
+  const _FreeBlockSection({
+    required this.freeNaverBlocked,
+    required this.freeGoogleBlocked,
+    required this.onToggleNaver,
+    required this.onToggleGoogle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.block, color: Colors.orange, size: 22),
+              SizedBox(width: 8),
+              Text(
+                '무료 유저 전용 차단',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Plus/Pro는 영향 없음. 무료 유저만 해당 제공자 지오코딩이 차단되고 OSM 폴백으로 강제됩니다.',
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Icon(Icons.location_on, color: Color(0xFF03C75A), size: 18),
+              const SizedBox(width: 8),
+              const Expanded(child: Text('Naver (Free 차단)')),
+              Switch(
+                value: freeNaverBlocked,
+                onChanged: onToggleNaver,
+                activeThumbColor: Colors.red,
+              ),
+              Text(
+                freeNaverBlocked ? '차단' : '허용',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: freeNaverBlocked ? Colors.red : Colors.green,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              const Icon(Icons.location_on, color: Color(0xFF4285F4), size: 18),
+              const SizedBox(width: 8),
+              const Expanded(child: Text('Google (Free 차단)')),
+              Switch(
+                value: freeGoogleBlocked,
+                onChanged: onToggleGoogle,
+                activeThumbColor: Colors.red,
+              ),
+              Text(
+                freeGoogleBlocked ? '차단' : '허용',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: freeGoogleBlocked ? Colors.red : Colors.green,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 글로벌 풀 게이지 (이번 달 전사 누적 검색/알람)
+// ═══════════════════════════════════════════════════════════════════════
+class _GlobalPoolSection extends StatelessWidget {
+  final Map<String, int> pool;
+  final bool isLoading;
+  final NumberFormat fmt;
+  final VoidCallback onRefresh;
+
+  const _GlobalPoolSection({
+    required this.pool,
+    required this.isLoading,
+    required this.fmt,
+    required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final searchTotal = pool['search_total'] ?? 0;
+    final alarmTotal = pool['alarm_total'] ?? 0;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.pie_chart, color: Colors.indigo, size: 22),
+              const SizedBox(width: 8),
+              const Text(
+                '글로벌 풀 (이번 달 전사 누적)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.refresh, size: 20),
+                onPressed: onRefresh,
+                tooltip: '새로 고침',
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (isLoading)
+            const Center(child: CircularProgressIndicator(strokeWidth: 2))
+          else ...[
+            _PoolRow(
+              label: '검색 (search)',
+              value: searchTotal,
+              color: Colors.blue,
+              fmt: fmt,
+            ),
+            _PoolRow(
+              label: '알람 발동 (alarm)',
+              value: alarmTotal,
+              color: Colors.deepPurple,
+              fmt: fmt,
+            ),
+          ],
+          const SizedBox(height: 8),
+          const Text(
+            'pools/{yyyy-MM} 문서의 누적값. 유저별 세부는 quotas/{uid}/months/{yyyy-MM}.',
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.grey,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PoolRow extends StatelessWidget {
+  final String label;
+  final int value;
+  final Color color;
+  final NumberFormat fmt;
+  const _PoolRow({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.fmt,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Text(label, style: const TextStyle(fontSize: 13))),
+          Text(
+            fmt.format(value),
+            style: const TextStyle(
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),

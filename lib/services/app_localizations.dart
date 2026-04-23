@@ -728,6 +728,26 @@ class AppLocalizations {
       'wifi_hidden_network': '(Hidden network)',
       'wifi_currently_connected': 'Currently connected',
       'wifi_previously_saved': 'Previously saved (not detected now)',
+
+      // Quota / Reward system
+      'quota_search_label': 'Search',
+      'quota_alarm_label': 'Alarm triggers',
+      'quota_usage_format': '{used} / {base} this month',
+      'quota_cap_suffix': ' (cap {cap})',
+      'quota_reward_credits': 'Bonus credits: {count}',
+      'quota_capped_title': 'Monthly cap reached',
+      'quota_capped_msg':
+          'You’ve reached this month’s safety cap for {category} on the {plan} plan ({cap}/mo). This cap exists to protect the service from abuse. You can continue next month or upgrade your plan.',
+      'quota_need_reward_title': 'Free limit reached',
+      'quota_need_reward_msg':
+          'You’ve used all {base} free {category} this month. Watch a short notice to unlock +1 use (daily bonus limit: {daily}).',
+      'reward_consent_agree': 'Agree & use +1',
+      'reward_consent_cancel': 'Not now',
+      'reward_intro_title': 'About the bonus system',
+      'reward_intro_body':
+          'Free features have a monthly safety limit to keep the service sustainable. You can unlock extra uses by reading this notice and agreeing. In a future update this will be replaced with an opt-in short ad.',
+      'reward_daily_limit_reached':
+          'You’ve reached today’s bonus limit ({daily}/day). Please try again tomorrow.',
     },
 
     'ko': {
@@ -1417,6 +1437,26 @@ class AppLocalizations {
       'wifi_hidden_network': '(숨겨진 네트워크)',
       'wifi_currently_connected': '현재 연결됨',
       'wifi_previously_saved': '이전에 저장됨 (현재 감지 안 됨)',
+
+      // Quota / Reward system
+      'quota_search_label': '검색',
+      'quota_alarm_label': '알람 발동',
+      'quota_usage_format': '이번 달 {used} / {base} 회',
+      'quota_cap_suffix': ' (상한 {cap})',
+      'quota_reward_credits': '보너스 크레딧: {count}',
+      'quota_capped_title': '이번 달 상한 도달',
+      'quota_capped_msg':
+          '이번 달 {plan} 플랜의 {category} 안전 상한({cap}회)에 도달했어요. 서비스 어뷀징 방지를 위한 상한이에요. 다음 달에 다시 이용하시거나 플랜을 업그레이드해 주세요.',
+      'quota_need_reward_title': '무료 한도 소진',
+      'quota_need_reward_msg':
+          '이번 달 무료 {category} {base}회를 모두 사용했어요. 안내문을 읽고 동의하면 +1회 추가 사용할 수 있어요 (일일 보너스 한도: {daily}회).',
+      'reward_consent_agree': '동의하고 +1 사용',
+      'reward_consent_cancel': '나중에',
+      'reward_intro_title': '보너스 시스템 안내',
+      'reward_intro_body':
+          '지속 가능한 서비스 운영을 위해 무료 기능에는 월간 상한이 있어요. 이 안내문을 읽고 동의하면 추가 사용이 열려요. 향후 업데이트에서 선택 시청 형식의 짧은 리워드 광고로 대체될 수 있어요.',
+      'reward_daily_limit_reached':
+          '오늘의 보너스 한도({daily}회)에 도달했어요. 내일 다시 시도해 주세요.',
     },
 
     'ja': {
@@ -2103,6 +2143,25 @@ class AppLocalizations {
       'wifi_hidden_network': '（非公開ネットワーク）',
       'wifi_currently_connected': '接続中',
       'wifi_previously_saved': '以前に保存（現在未検出）',
+
+      // Quota / Reward system
+      'quota_search_label': '検索',
+      'quota_alarm_label': 'アラーム発動',
+      'quota_usage_format': '今月 {used} / {base} 回',
+      'quota_cap_suffix': '（上限 {cap}）',
+      'quota_reward_credits': 'ボーナスクレジット：{count}',
+      'quota_capped_title': '今月の上限に達しました',
+      'quota_capped_msg':
+          '今月 {plan} プランの {category} 安全上限（{cap}回）に達しました。サービスの不正利用防止のための上限です。来月再びご利用いただくか、プランのアップグレードをご検討ください。',
+      'quota_need_reward_title': '無料上限に達しました',
+      'quota_need_reward_msg':
+          '今月の無料 {category} {base} 回をすべて使用しました。お知らせを読んで同意すると +1 回追加で使用できます（1日のボーナス上限：{daily}回）。',
+      'reward_consent_agree': '同意して +1 使用',
+      'reward_consent_cancel': 'あとで',
+      'reward_intro_title': 'ボーナスシステムについて',
+      'reward_intro_body':
+          '持続可能なサービス運営のため、無料機能には月間上限があります。このお知らせを読んで同意すると追加利用が可能になります。将来のアップデートで、選択式の短いリワード広告に置き換わる可能性があります。',
+      'reward_daily_limit_reached': '本日のボーナス上限（{daily}回）に達しました。明日再度お試しください。',
     },
 
     'zh': {
@@ -2778,6 +2837,25 @@ class AppLocalizations {
       'wifi_hidden_network': '（隐藏网络）',
       'wifi_currently_connected': '当前已连接',
       'wifi_previously_saved': '之前保存（当前未检测到）',
+
+      // Quota / Reward system
+      'quota_search_label': '搜索',
+      'quota_alarm_label': '闹钟触发',
+      'quota_usage_format': '本月 {used} / {base} 次',
+      'quota_cap_suffix': '（上限 {cap}）',
+      'quota_reward_credits': '奖励额度：{count}',
+      'quota_capped_title': '已达本月上限',
+      'quota_capped_msg':
+          '本月 {plan} 套餐的 {category} 安全上限（{cap}次）已达到。此上限用于防止滥用。请下月继续使用或升级套餐。',
+      'quota_need_reward_title': '已用完免费额度',
+      'quota_need_reward_msg':
+          '本月的 {base} 次免费 {category} 已全部使用。阅读提示并同意后可额外使用 +1 次（每日奖励上限：{daily} 次）。',
+      'reward_consent_agree': '同意并使用 +1',
+      'reward_consent_cancel': '稍后',
+      'reward_intro_title': '关于奖励系统',
+      'reward_intro_body':
+          '为了持续运营服务，免费功能设有月度上限。阅读此提示并同意即可解锁额外使用。在未来版本中，此功能可能被可选的短视频奖励广告替换。',
+      'reward_daily_limit_reached': '已达今日奖励上限（{daily} 次/天）。请明日再试。',
     },
 
     'de': {
