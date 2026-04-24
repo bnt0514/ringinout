@@ -130,6 +130,23 @@ class QuotaService {
     return true;
   }
 
+  /// 사용량 -1 환불. 0 미만으로는 내려가지 않음.
+  /// 오발동/잠시 멈춤처럼 "사용자가 의도적으로 dismiss한" 케이스에서 호출.
+  /// Firestore도 동일하게 -1 sync (FieldValue.increment는 음수 허용).
+  static Future<void> refund(QuotaCategory category) async {
+    final prefs = await SharedPreferences.getInstance();
+    final month = _month();
+    final key = '${_usedKey(category)}$month';
+    final cur = prefs.getInt(key) ?? 0;
+    if (cur <= 0) {
+      debugPrint('💸 [Quota] ${category.name} 환불 스킵 (이미 0)');
+      return;
+    }
+    await prefs.setInt(key, cur - 1);
+    debugPrint('💸 [Quota] ${category.name} -1 → ${cur - 1} (refund)');
+    unawaited(_syncToFirestore(category, delta: -1, rewardDelta: 0));
+  }
+
   // ──────────────────────────────────────────────
   // 보상 지급
   // ──────────────────────────────────────────────

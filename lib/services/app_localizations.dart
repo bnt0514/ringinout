@@ -406,6 +406,12 @@ class AppLocalizations {
       'subscription_pro_fair_use':
           'Fair use policy: up to 500 map opens per month to prevent abuse.',
       'subscription_map_opens_500': '500 map opens/month',
+      'subscription_plan_desc_free': '15 alarm triggers/mo · 100 map opens/mo',
+      'subscription_plan_desc_plus':
+          '100 alarm triggers/mo · 300 map opens/mo · ad-free',
+      'subscription_plan_desc_pro':
+          '500 alarm triggers/mo · 1,000 map opens/mo · ad-free',
+      'subscription_plan_desc_special': 'Developer - all features unlimited',
 
       // 알람 추가/편집 페이지 추가 키
       'plan_upgrade_needed': 'Plan upgrade needed',
@@ -443,6 +449,9 @@ class AppLocalizations {
       'alarm_sound_label': 'Alarm Sound',
       'alarm_sound_default': 'Device default alarm sound',
       'alarm_sound_unchangeable': 'Cannot be changed',
+      'vibration_label': 'Vibration',
+      'vibration_default_phone': 'Device default vibration',
+      'sound_vibration_hint': 'Select at least one',
       'save_btn': 'Save',
       'delete_btn': 'Delete',
       'edit_alarm_title': 'Edit Location Alarm',
@@ -464,6 +473,8 @@ class AppLocalizations {
       'search_hint': 'Address or place name (e.g., Starbucks)',
       'no_search_result': 'No search results',
       'address_label': 'Address: {address}',
+      'place_add_no_search_hint':
+          'Search unavailable. Move the pin to choose your location, or tap the current-location button to jump to where you are.',
       'radius_label_prefix': 'Radius: ',
       'custom_input': 'Custom',
       'save_location_btn': 'Save location',
@@ -605,6 +616,21 @@ class AppLocalizations {
       'btn_dismiss': 'Dismiss Alarm',
       'btn_false_trigger': 'False Trigger',
       'false_trigger_hint': 'Triggered by GPS error',
+      'btn_pause': 'Pause',
+      'pause_or_false_hint':
+          'Pause: silence for a while · False trigger: GPS error',
+      'pause_dialog_title': 'How long to pause this alarm?',
+      'pause_min_value': '{m} min',
+      'pause_min_custom': 'Custom...',
+      'pause_custom_title': 'Pause duration',
+      'pause_custom_hint': 'Enter minutes (1-720)',
+      'pause_custom_unit': 'min',
+      'pause_help_link': 'Why does this keep firing? See tips',
+      'pause_help_title': 'Why does the alarm keep firing?',
+      'pause_help_body':
+          'If the same alarm keeps going off, try one of these:\n\n• Move the place pin a bit further from where you usually stay.\n• Increase the trigger radius (e.g. 100m → 200m) so brief in-and-out movements are ignored.\n• Switch the trigger type — for example, use Exit instead of Entry if you only need to know when leaving.\n• Make sure GPS/Wi-Fi is enabled for accurate location.',
+      'pause_toast_entry': 'Entry alarm paused for {time}',
+      'pause_toast_exit': 'Exit alarm paused for {time}',
       'snooze_time_title': 'Snooze Duration',
       'snooze_min': '{m} min',
       // 오발동 안내 타일
@@ -1131,6 +1157,10 @@ class AppLocalizations {
       'subscription_pro_fair_use':
           '공정 사용 정책: 어뷰즈 방지를 위해 월 최대 500회 지도 열기 한도가 있습니다.',
       'subscription_map_opens_500': '맵 오픈 월 500회',
+      'subscription_plan_desc_free': '알람 발동 월 15회 · 맵 오픈 월 100회',
+      'subscription_plan_desc_plus': '알람 발동 월 100회 · 맵 오픈 월 300회 · 광고 없음',
+      'subscription_plan_desc_pro': '알람 발동 월 500회 · 맵 오픈 월 1,000회 · 광고 없음',
+      'subscription_plan_desc_special': '개발자 - 모든 기능 무제한',
 
       // 알람 추가/편집 페이지 추가 키
       'plan_upgrade_needed': '플랜 업그레이드 필요',
@@ -1167,6 +1197,9 @@ class AppLocalizations {
       'alarm_sound_label': '알람음',
       'alarm_sound_default': '각 사용자 폰 기본 알람음',
       'alarm_sound_unchangeable': '변경불가',
+      'vibration_label': '진동',
+      'vibration_default_phone': '각 사용자 폰 기본 진동',
+      'sound_vibration_hint': '하나 이상 선택 필수',
       'save_btn': '저장',
       'delete_btn': '삭제',
       'edit_alarm_title': '위치알람 수정',
@@ -1188,6 +1221,8 @@ class AppLocalizations {
       'search_hint': '주소 또는 지역+장소명 (예: 시흥 롯데마트)',
       'no_search_result': '검색 결과가 없습니다',
       'address_label': '주소: {address}',
+      'place_add_no_search_hint':
+          '검색을 사용할 수 없습니다. 핀을 움직여 장소를 지정하거나, 현재 위치 버튼으로 내 위치로 이동해주세요.',
       'radius_label_prefix': '반경: ',
       'custom_input': '직접입력',
       'save_location_btn': '위치 저장',
@@ -1327,6 +1362,20 @@ class AppLocalizations {
       'btn_dismiss': '알람 종료',
       'btn_false_trigger': '오발동',
       'false_trigger_hint': 'GPS 오류로 잘못 울린 경우',
+      'btn_pause': '잠시 멈춤',
+      'pause_or_false_hint': '잠시 멈춤: 일정 시간 동안 안 울림 · 오발동: GPS 오류',
+      'pause_dialog_title': '얼마 동안 멈출까요?',
+      'pause_min_value': '{m}분',
+      'pause_min_custom': '직접 입력...',
+      'pause_custom_title': '잠시 멈춤 시간',
+      'pause_custom_hint': '분 단위로 입력 (1~720)',
+      'pause_custom_unit': '분',
+      'pause_help_link': '왜 자꾸 울리지? 해결 팁 보기',
+      'pause_help_title': '알람이 자꾸 울리는 이유',
+      'pause_help_body':
+          '같은 알람이 반복해서 울린다면 아래를 시도해 보세요:\n\n• 장소 핀을 자주 머무는 곳에서 조금 더 떨어진 위치로 옮겨 보세요.\n• 반경을 더 크게 설정해 보세요 (예: 100m → 200m). 잠깐 들락날락하는 동작이 무시됩니다.\n• 트리거 타입을 바꿔 보세요. 예를 들어 떠날 때만 알면 된다면 진입 대신 이탈로 설정하세요.\n• 위치 정확도를 위해 GPS와 Wi-Fi가 켜져 있는지 확인하세요.',
+      'pause_toast_entry': '진입 알람을 {time} 동안 멈췄어요',
+      'pause_toast_exit': '이탈 알람을 {time} 동안 멈췄어요',
       'snooze_time_title': '다시 울림 시간 선택',
       'snooze_min': '{m}분 후',
       // 오발동 안내 타일
@@ -1839,6 +1888,10 @@ class AppLocalizations {
       'subscription_price_tbd': '価格は後日お知らせ',
       'subscription_pro_fair_use': '公正利用ポリシー: 不正利用防止のため月最大500回のマップ表示制限があります。',
       'subscription_map_opens_500': 'マップ表示月500回',
+      'subscription_plan_desc_free': 'アラーム発動月15回・マップ表示月100回',
+      'subscription_plan_desc_plus': 'アラーム発動月100回・マップ表示月300回・広告なし',
+      'subscription_plan_desc_pro': 'アラーム発動月500回・マップ表示月1,000回・広告なし',
+      'subscription_plan_desc_special': '開発者 - 全機能無制限',
 
       // 알람 추가/편집 페이지 추가 키
       'plan_upgrade_needed': 'プランのアップグレードが必要',
@@ -1875,6 +1928,9 @@ class AppLocalizations {
       'alarm_sound_label': 'アラーム音',
       'alarm_sound_default': 'デバイスのデフォルトアラーム音',
       'alarm_sound_unchangeable': '変更不可',
+      'vibration_label': 'バイブレーション',
+      'vibration_default_phone': 'デバイスのデフォルトバイブレーション',
+      'sound_vibration_hint': '最低1つ必須',
       'save_btn': '保存',
       'delete_btn': '削除',
       'edit_alarm_title': '位置アラームを編集',
@@ -1896,6 +1952,8 @@ class AppLocalizations {
       'search_hint': '住所または場所名（例：スターバックス）',
       'no_search_result': '検索結果がありません',
       'address_label': '住所: {address}',
+      'place_add_no_search_hint':
+          '検索をご利用いただけません。ピンを動かして場所を指定するか、現在地ボタンで現在位置に移動してください。',
       'radius_label_prefix': '半径: ',
       'custom_input': 'カスタム',
       'save_location_btn': '場所を保存',
@@ -2033,6 +2091,20 @@ class AppLocalizations {
       'btn_dismiss': 'アラーム終了',
       'btn_false_trigger': '誤発動',
       'false_trigger_hint': 'GPSエラーで誤作動した場合',
+      'btn_pause': '一時停止',
+      'pause_or_false_hint': '一時停止: しばらく鳴らさない · 誤発動: GPSエラー',
+      'pause_dialog_title': 'どのくらい停止しますか？',
+      'pause_min_value': '{m}分',
+      'pause_min_custom': '直接入力...',
+      'pause_custom_title': '一時停止時間',
+      'pause_custom_hint': '分単位で入力 (1〜720)',
+      'pause_custom_unit': '分',
+      'pause_help_link': 'なぜ繰り返し鳴る？ 解決のヒント',
+      'pause_help_title': 'アラームが繰り返し鳴る理由',
+      'pause_help_body':
+          '同じアラームが何度も鳴る場合は、以下をお試しください:\n\n• 場所のピンをよくいる場所から少し離してください。\n• 半径を大きくしてください (例: 100m → 200m)。短時間の出入りが無視されます。\n• トリガータイプを変えてみてください。例えば離れる時だけ知りたい場合は「進入」ではなく「退出」に設定します。\n• 位置精度のため、GPSとWi-Fiがオンになっているか確認してください。',
+      'pause_toast_entry': '進入アラームを{time}停止しました',
+      'pause_toast_exit': '退出アラームを{time}停止しました',
       'snooze_time_title': 'スヌーズ時間を選択',
       'snooze_min': '{m}分後',
       // 誤発動 案内タイル
@@ -2537,6 +2609,10 @@ class AppLocalizations {
       'subscription_price_tbd': '价格待定',
       'subscription_pro_fair_use': '公平使用政策: 为防止滥用, 每月最多500次地图打开。',
       'subscription_map_opens_500': '每月500次地图打开',
+      'subscription_plan_desc_free': '每月15次警报触发 · 每月100次地图打开',
+      'subscription_plan_desc_plus': '每月100次警报触发 · 每月300次地图打开 · 无广告',
+      'subscription_plan_desc_pro': '每月500次警报触发 · 每月1,000次地图打开 · 无广告',
+      'subscription_plan_desc_special': '开发者 - 所有功能无限制',
 
       // 알람 추가/편집 페이지 추가 키
       'plan_upgrade_needed': '套餐升级需要',
@@ -2573,6 +2649,9 @@ class AppLocalizations {
       'alarm_sound_label': '闹钟铃声',
       'alarm_sound_default': '设备默认闹钟声',
       'alarm_sound_unchangeable': '无法更改',
+      'vibration_label': '振动',
+      'vibration_default_phone': '设备默认振动',
+      'sound_vibration_hint': '至少选一项',
       'save_btn': '保存',
       'delete_btn': '删除',
       'edit_alarm_title': '编辑位置闹钟',
@@ -2594,6 +2673,7 @@ class AppLocalizations {
       'search_hint': '地址或地点名称',
       'no_search_result': '没有搜索结果',
       'address_label': '地址: {address}',
+      'place_add_no_search_hint': '无法使用搜索。请移动图钉选择位置，或点击当前位置按钮跳转到您的位置。',
       'radius_label_prefix': '半径: ',
       'custom_input': '自定义',
       'save_location_btn': '保存位置',
@@ -2729,6 +2809,20 @@ class AppLocalizations {
       'btn_dismiss': '关闭闹钟',
       'btn_false_trigger': '误触发',
       'false_trigger_hint': 'GPS错误导致误触发',
+      'btn_pause': '暂停',
+      'pause_or_false_hint': '暂停: 暂时不响 · 误触发: GPS错误',
+      'pause_dialog_title': '暂停多长时间？',
+      'pause_min_value': '{m}分钟',
+      'pause_min_custom': '自定义...',
+      'pause_custom_title': '暂停时长',
+      'pause_custom_hint': '请输入分钟数 (1-720)',
+      'pause_custom_unit': '分钟',
+      'pause_help_link': '为什么反复响？查看提示',
+      'pause_help_title': '闹钟反复响的原因',
+      'pause_help_body':
+          '如果同一个闹钟反复响起，请尝试:\n\n• 将位置标记移到您经常停留位置稍远一些的地方。\n• 增大触发半径 (如 100m → 200m)。短暂的进出会被忽略。\n• 更改触发类型。例如只想在离开时知道，请使用「离开」而不是「进入」。\n• 确认 GPS 和 Wi-Fi 已开启以提高定位精度。',
+      'pause_toast_entry': '进入闹钟已暂停 {time}',
+      'pause_toast_exit': '离开闹钟已暂停 {time}',
       'snooze_time_title': '选择稍后提醒时间',
       'snooze_min': '{m}分钟后',
       // 误触发 说明
@@ -3258,6 +3352,14 @@ class AppLocalizations {
       'subscription_pro_fair_use':
           'Fair-Use-Richtlinie: max. 500 Kartenöffnungen pro Monat zur Missbrauchsprävention.',
       'subscription_map_opens_500': '500 Kartenöffnungen/Monat',
+      'subscription_plan_desc_free':
+          '15 Alarm-Auslösungen/Mo · 100 Kartenöffnungen/Mo',
+      'subscription_plan_desc_plus':
+          '100 Alarm-Auslösungen/Mo · 300 Kartenöffnungen/Mo · werbefrei',
+      'subscription_plan_desc_pro':
+          '500 Alarm-Auslösungen/Mo · 1.000 Kartenöffnungen/Mo · werbefrei',
+      'subscription_plan_desc_special':
+          'Entwickler - alle Funktionen unbegrenzt',
 
       // Alarm hinzufügen/bearbeiten - zusätzliche Schlüssel
       'plan_upgrade_needed': 'Plan-Upgrade erforderlich',
@@ -3295,6 +3397,9 @@ class AppLocalizations {
       'alarm_sound_label': 'Alarmton',
       'alarm_sound_default': 'Geräte-Standardalarmton',
       'alarm_sound_unchangeable': 'Kann nicht geändert werden',
+      'vibration_label': 'Vibration',
+      'vibration_default_phone': 'Standard-Vibration des Geräts',
+      'sound_vibration_hint': 'Mind. eine wählen',
       'save_btn': 'Speichern',
       'delete_btn': 'Löschen',
       'edit_alarm_title': 'Standort-Alarm bearbeiten',
@@ -3317,6 +3422,8 @@ class AppLocalizations {
       'search_hint': 'Adresse oder Ortsname (z.B. Starbucks)',
       'no_search_result': 'Keine Suchergebnisse',
       'address_label': 'Adresse: {address}',
+      'place_add_no_search_hint':
+          'Suche nicht verfügbar. Verschieben Sie die Stecknadel, um Ihren Ort zu wählen, oder tippen Sie auf die Standort-Schaltfläche, um zu Ihrer Position zu springen.',
       'radius_label_prefix': 'Radius: ',
       'custom_input': 'Benutzerdefiniert',
       'save_location_btn': 'Standort speichern',
@@ -3474,6 +3581,21 @@ class AppLocalizations {
       'btn_dismiss': 'Alarm beenden',
       'btn_false_trigger': 'Fehlauslösung',
       'false_trigger_hint': 'Durch GPS-Fehler ausgelöst',
+      'btn_pause': 'Pause',
+      'pause_or_false_hint':
+          'Pause: vorübergehend stumm · Fehlauslösung: GPS-Fehler',
+      'pause_dialog_title': 'Wie lange pausieren?',
+      'pause_min_value': '{m} Min',
+      'pause_min_custom': 'Benutzerdefiniert...',
+      'pause_custom_title': 'Pausendauer',
+      'pause_custom_hint': 'Minuten eingeben (1-720)',
+      'pause_custom_unit': 'Min',
+      'pause_help_link': 'Warum wird immer wieder ausgelöst? Tipps ansehen',
+      'pause_help_title': 'Warum wird der Alarm immer wieder ausgelöst?',
+      'pause_help_body':
+          'Wenn derselbe Alarm wiederholt ausgelöst wird, versuchen Sie:\n\n• Verschieben Sie den Ortsmarker etwas weiter von Ihrem üblichen Aufenthaltsort weg.\n• Vergrößern Sie den Auslöseradius (z. B. 100m → 200m). Kurzes Hinein- und Hinausgehen wird ignoriert.\n• Ändern Sie den Auslösertyp. Wenn Sie z. B. nur das Verlassen wissen müssen, verwenden Sie „Verlassen“ statt „Betreten“.\n• Stellen Sie sicher, dass GPS/WLAN für genaue Ortung aktiviert ist.',
+      'pause_toast_entry': 'Eintrittsalarm für {time} pausiert',
+      'pause_toast_exit': 'Austrittsalarm für {time} pausiert',
       'snooze_time_title': 'Schlummerdauer',
       'snooze_min': '{m} Min.',
 
@@ -4006,6 +4128,14 @@ class AppLocalizations {
       'subscription_pro_fair_use':
           'Politique d\'usage équitable : jusqu\'à 500 ouvertures de carte par mois pour prévenir les abus.',
       'subscription_map_opens_500': '500 ouvertures de carte/mois',
+      'subscription_plan_desc_free':
+          '15 déclenchements/mois · 100 ouvertures de carte/mois',
+      'subscription_plan_desc_plus':
+          '100 déclenchements/mois · 300 ouvertures de carte/mois · sans pub',
+      'subscription_plan_desc_pro':
+          '500 déclenchements/mois · 1 000 ouvertures de carte/mois · sans pub',
+      'subscription_plan_desc_special':
+          'Développeur - toutes fonctions illimitées',
 
       // Clés supplémentaires ajout/modification d'alarme
       'plan_upgrade_needed': 'Mise à niveau du plan nécessaire',
@@ -4043,6 +4173,9 @@ class AppLocalizations {
       'alarm_sound_label': 'Son d\'alarme',
       'alarm_sound_default': 'Son d\'alarme par défaut de l\'appareil',
       'alarm_sound_unchangeable': 'Ne peut pas être modifié',
+      'vibration_label': 'Vibration',
+      'vibration_default_phone': 'Vibration par défaut de l\'appareil',
+      'sound_vibration_hint': 'Au moins une option',
       'save_btn': 'Enregistrer',
       'delete_btn': 'Supprimer',
       'edit_alarm_title': 'Modifier l\'alarme de lieu',
@@ -4065,6 +4198,8 @@ class AppLocalizations {
       'search_hint': 'Adresse ou nom de lieu (ex. Starbucks)',
       'no_search_result': 'Aucun résultat de recherche',
       'address_label': 'Adresse : {address}',
+      'place_add_no_search_hint':
+          'Recherche indisponible. Déplacez l’épingle pour choisir votre lieu, ou appuyez sur le bouton de position actuelle pour vous y rendre.',
       'radius_label_prefix': 'Rayon : ',
       'custom_input': 'Personnalisé',
       'save_location_btn': 'Enregistrer le lieu',
@@ -4225,6 +4360,22 @@ class AppLocalizations {
       'btn_dismiss': 'Arrêter l\'alarme',
       'btn_false_trigger': 'Faux déclenchement',
       'false_trigger_hint': 'Déclenché par erreur GPS',
+      'btn_pause': 'Pause',
+      'pause_or_false_hint':
+          'Pause: silence temporaire · Faux décl.: erreur GPS',
+      'pause_dialog_title': 'Pause pendant combien de temps ?',
+      'pause_min_value': '{m} min',
+      'pause_min_custom': 'Personnalisé...',
+      'pause_custom_title': 'Durée de la pause',
+      'pause_custom_hint': 'Entrer en minutes (1-720)',
+      'pause_custom_unit': 'min',
+      'pause_help_link':
+          'Pourquoi se déclenche-t-il sans cesse ? Voir les conseils',
+      'pause_help_title': 'Pourquoi l\'alarme se déclenche-t-elle sans cesse ?',
+      'pause_help_body':
+          'Si la même alarme se déclenche à plusieurs reprises, essayez:\n\n• Éloignez un peu le repère du lieu où vous restez habituellement.\n• Augmentez le rayon de déclenchement (ex. 100m → 200m). Les brefs allers-retours seront ignorés.\n• Changez le type de déclencheur. Par ex., utilisez Sortie au lieu d\'Entrée si vous ne voulez savoir que lors du départ.\n• Assurez-vous que GPS/Wi-Fi est activé pour une localisation précise.',
+      'pause_toast_entry': 'Alarme d\'entrée mise en pause pendant {time}',
+      'pause_toast_exit': 'Alarme de sortie mise en pause pendant {time}',
       'snooze_time_title': 'Durée de répétition',
       'snooze_min': '{m} min',
 
@@ -4751,6 +4902,14 @@ class AppLocalizations {
       'subscription_pro_fair_use':
           'Política de uso justo: hasta 500 aperturas de mapa al mes para prevenir abusos.',
       'subscription_map_opens_500': '500 aperturas de mapa/mes',
+      'subscription_plan_desc_free':
+          '15 activaciones de alarma/mes · 100 aperturas de mapa/mes',
+      'subscription_plan_desc_plus':
+          '100 activaciones/mes · 300 aperturas de mapa/mes · sin anuncios',
+      'subscription_plan_desc_pro':
+          '500 activaciones/mes · 1.000 aperturas de mapa/mes · sin anuncios',
+      'subscription_plan_desc_special':
+          'Desarrollador - todas las funciones ilimitadas',
 
       // Claves adicionales de añadir/editar alarma
       'plan_upgrade_needed': 'Se necesita actualizar el plan',
@@ -4788,6 +4947,9 @@ class AppLocalizations {
       'alarm_sound_label': 'Sonido de alarma',
       'alarm_sound_default': 'Sonido de alarma predeterminado del dispositivo',
       'alarm_sound_unchangeable': 'No se puede cambiar',
+      'vibration_label': 'Vibración',
+      'vibration_default_phone': 'Vibración predeterminada del dispositivo',
+      'sound_vibration_hint': 'Mínimo una opción',
       'save_btn': 'Guardar',
       'delete_btn': 'Eliminar',
       'edit_alarm_title': 'Editar alarma de ubicación',
@@ -4810,6 +4972,8 @@ class AppLocalizations {
       'search_hint': 'Dirección o nombre del lugar (ej. Starbucks)',
       'no_search_result': 'Sin resultados de búsqueda',
       'address_label': 'Dirección: {address}',
+      'place_add_no_search_hint':
+          'Búsqueda no disponible. Mueva el alfiler para elegir su ubicación o pulse el botón de ubicación actual para ir a donde está.',
       'radius_label_prefix': 'Radio: ',
       'custom_input': 'Personalizado',
       'save_location_btn': 'Guardar ubicación',
@@ -4971,6 +5135,21 @@ class AppLocalizations {
       'btn_dismiss': 'Detener alarma',
       'btn_false_trigger': 'Falso disparo',
       'false_trigger_hint': 'Activado por error GPS',
+      'btn_pause': 'Pausar',
+      'pause_or_false_hint':
+          'Pausar: silenciar un rato · Falso disparo: error GPS',
+      'pause_dialog_title': '¿Cuánto tiempo pausar?',
+      'pause_min_value': '{m} min',
+      'pause_min_custom': 'Personalizado...',
+      'pause_custom_title': 'Duración de la pausa',
+      'pause_custom_hint': 'Introducir minutos (1-720)',
+      'pause_custom_unit': 'min',
+      'pause_help_link': '¿Por qué se activa una y otra vez? Ver consejos',
+      'pause_help_title': '¿Por qué se activa la alarma repetidamente?',
+      'pause_help_body':
+          'Si la misma alarma se activa repetidamente, prueba:\n\n• Mueve el marcador del lugar un poco más lejos de donde sueles estar.\n• Aumenta el radio de activación (p. ej., 100m → 200m). Las breves entradas y salidas se ignorarán.\n• Cambia el tipo de disparador. Por ejemplo, usa Salida en vez de Entrada si solo necesitas saber al salir.\n• Asegúrate de que GPS/Wi-Fi esté activado para una ubicación precisa.',
+      'pause_toast_entry': 'Alarma de entrada pausada por {time}',
+      'pause_toast_exit': 'Alarma de salida pausada por {time}',
       'snooze_time_title': 'Duración de posposición',
       'snooze_min': '{m} min',
 

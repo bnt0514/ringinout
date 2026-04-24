@@ -1,6 +1,7 @@
 // add_myplaces_page.dart
 
 import 'package:flutter/material.dart';
+import 'package:ringinout/config/app_config.dart';
 import 'package:ringinout/config/app_theme.dart';
 import 'package:flutter_map/flutter_map.dart' as fmap;
 import 'package:flutter_naver_map/flutter_naver_map.dart';
@@ -61,10 +62,15 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
   /// 현재 위치 확정 여부 — false이면 맵/검색 잠금
   bool _locationReady = false;
 
+  /// 지오코딩(검색 + 역지오코딩) 허용 여부
+  /// false이면 검색바 숨김 + 맵 탭 시 주소 조회 안 함 (좌표만 표시)
+  bool _geocodingAllowed = true;
+
   @override
   void initState() {
     super.initState();
     _determinePosition();
+    _refreshGeocodingAllowed();
   }
 
   Future<void> _determinePosition() async {
@@ -166,6 +172,16 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
   Future<void> _reverseGeocode(UnifiedLatLng pos) async {
     // 역지오코딩은 전 플랜/전 지도 공급자에서 OSM Nominatim(무료)으로 통합.
     // Naver/Google 역지오코딩은 비용 발생으로 제거됨.
+    // 지오코딩 허용 안 되면 좌표만 표시.
+    if (!_geocodingAllowed) {
+      if (mounted) {
+        setState(() {
+          _address =
+              '${pos.latitude.toStringAsFixed(6)}, ${pos.longitude.toStringAsFixed(6)}';
+        });
+      }
+      return;
+    }
     try {
       final address = await OsmGeocodingService.reverseGeocode(
         pos.latitude,
@@ -178,6 +194,50 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
       }
     } catch (e) {
       debugPrint('주소 변환 실패: $e');
+    }
+  }
+
+  /// 검색/역지오코딩 허용 여부 갱신
+  /// 조건: (1) 글로벌 지오코딩 킬스위치 OFF가 아님
+  ///       (2) 무료 + 제공자별 차단 토글에 안 걸림
+  ///       (3) 검색 quota cap 도달 안 함 (needsReward는 허용)
+  Future<void> _refreshGeocodingAllowed() async {
+    bool allowed = true;
+
+    if (!AppConfig.isGeocodingEnabled) {
+      allowed = false;
+    } else {
+      try {
+        final plan = await SubscriptionService.getCurrentPlan();
+        final mapService = context.read<MapProviderService>();
+        final provider =
+            mapService.isNaver
+                ? 'naver'
+                : mapService.isOsm
+                ? 'osm'
+                : 'google';
+        // OSM은 무료라 차단 대상이 아님
+        if (provider != 'osm' &&
+            !SubscriptionService.canUseGeocoding(
+              plan: plan,
+              provider: provider,
+            )) {
+          allowed = false;
+        } else {
+          final quota = await QuotaService.check(QuotaCategory.search);
+          if (quota.status == QuotaStatus.capped) {
+            allowed = false;
+          }
+        }
+      } catch (e) {
+        debugPrint('⚠️ _refreshGeocodingAllowed 실패: $e');
+      }
+    }
+
+    if (mounted && _geocodingAllowed != allowed) {
+      setState(() {
+        _geocodingAllowed = allowed;
+      });
     }
   }
 
@@ -346,6 +406,8 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
       if (searchSucceeded) {
         await QuotaService.record(QuotaCategory.search);
       }
+      // cap 도달 등 상태 변화 반영 (검색바 즉시 숨김 가능)
+      await _refreshGeocodingAllowed();
     }
   }
 
@@ -510,46 +572,84 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              controller: _searchController,
-              onSubmitted: (value) {
-                if (!_locationReady) {
-                  FocusScope.of(context).unfocus();
-                  return;
-                }
-                _performSearch(value);
-              },
-              onChanged: (value) {
-                // 검색어 지우면 결과도 숨김
-                if (value.isEmpty) {
-                  setState(() {
-                    _searchResults = [];
-                    _showSearchResults = false;
-                  });
-                }
-              },
-              decoration: InputDecoration(
-                hintText: AppLocalizations.of(context).get('search_hint'),
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon:
-                    _searchController.text.isNotEmpty
-                        ? IconButton(
-                          icon: const Icon(Icons.clear, size: 20),
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() {
-                              _searchResults = [];
-                              _showSearchResults = false;
-                            });
-                          },
-                        )
-                        : null,
-                border: const OutlineInputBorder(),
+          if (_geocodingAllowed)
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: TextField(
+                controller: _searchController,
+                onSubmitted: (value) {
+                  if (!_locationReady) {
+                    FocusScope.of(context).unfocus();
+                    return;
+                  }
+                  _performSearch(value);
+                },
+                onChanged: (value) {
+                  // 검색어 지우면 결과도 숨김
+                  if (value.isEmpty) {
+                    setState(() {
+                      _searchResults = [];
+                      _showSearchResults = false;
+                    });
+                  }
+                },
+                decoration: InputDecoration(
+                  hintText: AppLocalizations.of(context).get('search_hint'),
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon:
+                      _searchController.text.isNotEmpty
+                          ? IconButton(
+                            icon: const Icon(Icons.clear, size: 20),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() {
+                                _searchResults = [];
+                                _showSearchResults = false;
+                              });
+                            },
+                          )
+                          : null,
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade300),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: Colors.orange.shade800,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        AppLocalizations.of(
+                          context,
+                        ).get('place_add_no_search_hint'),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.orange.shade900,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
           // ✅ 지도 + 검색 결과 오버레이 (Stack으로 overflow 방지)
           Expanded(
             child: Stack(

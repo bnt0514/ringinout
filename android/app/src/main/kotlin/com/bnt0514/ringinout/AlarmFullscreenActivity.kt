@@ -12,6 +12,9 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
@@ -56,6 +59,7 @@ class AlarmFullscreenActivity : Activity() {
     private var alarmKey: String = ""
     private var placeId: String = ""
     private var isRepeat: Boolean = false // ✅ 반복 알람 여부
+    private var triggerType: String = "entry" // ✅ entry / exit
 
     // ✅ 알람 종료 중 플래그 — stopAlarmAndGoHome()에서 startActivity() 호출 시
     // onUserLeaveHint()가 트리거되어 native_alarm_active를 다시 true로 설정하는 것을 방지
@@ -65,6 +69,11 @@ class AlarmFullscreenActivity : Activity() {
     private var originalVolume: Int = -1
     private val volumeHandler = Handler(Looper.getMainLooper())
     private var volumeEscalationRunnable: Runnable? = null
+
+    // ✅ 진동
+    private var alarmVibrator: Vibrator? = null
+    private var soundEnabled: Boolean = true
+    private var vibrationEnabled: Boolean = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -87,6 +96,9 @@ class AlarmFullscreenActivity : Activity() {
         alarmKey = intent.getStringExtra("alarmKey") ?: ""
         placeId = intent.getStringExtra("placeId") ?: ""
         isRepeat = intent.getBooleanExtra("isRepeat", false) // ✅ 반복 알람 여부
+        triggerType = intent.getStringExtra("trigger") ?: "entry"
+        soundEnabled = intent.getBooleanExtra("soundEnabled", true)
+        vibrationEnabled = intent.getBooleanExtra("vibrationEnabled", true)
         if (alarmKey.isEmpty()) {
             alarmKey = placeId
         }
@@ -163,6 +175,7 @@ class AlarmFullscreenActivity : Activity() {
         alarmKey = newAlarmIntent.getStringExtra("alarmKey") ?: ""
         placeId = newAlarmIntent.getStringExtra("placeId") ?: ""
         isRepeat = newAlarmIntent.getBooleanExtra("isRepeat", false)
+        triggerType = newAlarmIntent.getStringExtra("trigger") ?: "entry"
         if (alarmKey.isEmpty()) alarmKey = placeId
 
         // 스누즈 알람이면 플래그 해제
@@ -217,10 +230,61 @@ class AlarmFullscreenActivity : Activity() {
                 flutterRingtone?.audioAttributes = attrs
             }
 
-            flutterRingtone?.play()
-            Log.d("AlarmFullscreen", "🔔 알람 벨소리 직접 재생 시작")
+            // 링거 모드 확인: 무음/진동이면 소리는 안 냄 (USAGE_ALARM은 무음 무시하지만 명시적으로 처리)
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val ringerMode = audioManager.ringerMode
+            if (soundEnabled &&
+                ringerMode != AudioManager.RINGER_MODE_SILENT &&
+                ringerMode != AudioManager.RINGER_MODE_VIBRATE) {
+                flutterRingtone?.play()
+                Log.d("AlarmFullscreen", "🔔 알람 벨소리 재생 시작 (ringerMode=$ringerMode)")
+            } else {
+                Log.d("AlarmFullscreen", "🔕 무음/진동 모드 — 벨소리 생략 (ringerMode=$ringerMode)")
+            }
+
+            // 진동 시작 (무음·진동 모드 모두에서 항상 울림)
+            if (vibrationEnabled) {
+                startAlarmVibration()
+            }
         } catch (e: Exception) {
             Log.e("AlarmFullscreen", "❌ 벨소리 재생 실패: ${e.message}")
+        }
+    }
+
+    /// 알람 진동 시작 — 무음/진동 모드 모두에서 동작
+    private fun startAlarmVibration() {
+        try {
+            stopAlarmVibration() // 중복 방지
+            alarmVibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vm = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+                vm.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            }
+            // 패턴: 대기0ms → 진동500ms → 쉬기500ms → 반복 (-1=한번, 0=처음부터 반복)
+            val pattern = longArrayOf(0, 500, 500)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val effect = VibrationEffect.createWaveform(pattern, 0) // 0=index 0부터 반복
+                alarmVibrator?.vibrate(effect)
+            } else {
+                @Suppress("DEPRECATION")
+                alarmVibrator?.vibrate(pattern, 0)
+            }
+            Log.d("AlarmFullscreen", "📳 진동 시작")
+        } catch (e: Exception) {
+            Log.e("AlarmFullscreen", "❌ 진동 시작 실패: ${e.message}")
+        }
+    }
+
+    /// 알람 진동 정지
+    private fun stopAlarmVibration() {
+        try {
+            alarmVibrator?.cancel()
+            alarmVibrator = null
+            Log.d("AlarmFullscreen", "📴 진동 정지")
+        } catch (e: Exception) {
+            Log.e("AlarmFullscreen", "❌ 진동 정지 실패: ${e.message}")
         }
     }
 
@@ -372,35 +436,73 @@ class AlarmFullscreenActivity : Activity() {
         )
         buttonContainer.addView(spacer2)
 
-        // "⚡ 오발동" 버튼 (amber — GPS 오류로 잘못 울린 경우)
-        val falseTriggerButton = Button(this).apply {
-            text = "⚡ 오발동"
-            textSize = 15f
-            setTextColor(Color.parseColor("#FFD54F")) // amber.shade300
+        // "⏸ 잠시 멈춤" + "⚡ 오발동" 보조 버튼 행 (weight=1 균등 분할로 잘림 방지)
+        val auxRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(32), 0, dp(32), 0) // 화면 가장자리와 여백
+        }
+
+        val pauseButton = Button(this).apply {
+            text = "⏸ 잠시 멈춤"
+            textSize = 14f
+            setTextColor(Color.parseColor("#81D4FA"))
             isAllCaps = false
             val shape = android.graphics.drawable.GradientDrawable().apply {
                 setColor(Color.TRANSPARENT)
                 cornerRadius = dp(24).toFloat()
-                setStroke(dp(2), Color.parseColor("#FFB300")) // amber.shade400
+                setStroke(dp(2), Color.parseColor("#4FC3F7"))
             }
             background = shape
-            layoutParams = LinearLayout.LayoutParams(dp(210), dp(46))
+            val lp = LinearLayout.LayoutParams(0, dp(46), 1f) // weight=1
+            lp.marginEnd = dp(8)
+            layoutParams = lp
+            gravity = Gravity.CENTER
+            setOnClickListener {
+                Log.d("AlarmFullscreen", "⏸ 잠시 멈춤 버튼 클릭")
+                showPauseOptions()
+            }
+        }
+        auxRow.addView(pauseButton)
+
+        val falseTriggerButton2 = Button(this).apply {
+            text = "⚡ 오발동"
+            textSize = 14f
+            setTextColor(Color.parseColor("#FFD54F"))
+            isAllCaps = false
+            val shape = android.graphics.drawable.GradientDrawable().apply {
+                setColor(Color.TRANSPARENT)
+                cornerRadius = dp(24).toFloat()
+                setStroke(dp(2), Color.parseColor("#FFB300"))
+            }
+            background = shape
+            layoutParams = LinearLayout.LayoutParams(0, dp(46), 1f) // weight=1
             gravity = Gravity.CENTER
             setOnClickListener {
                 Log.d("AlarmFullscreen", "⚡ 오발동 버튼 클릭")
                 handleFalseTrigger()
             }
         }
-        buttonContainer.addView(falseTriggerButton)
+        auxRow.addView(falseTriggerButton2)
+
+        buttonContainer.addView(auxRow)
+
+        // 힌트 텍스트
+        val hintText = android.widget.TextView(this).apply {
+            text = "잠시 멈춤: 일정 시간 동안 안 울림  ·  오발동: GPS 오류"
+            textSize = 11f
+            setTextColor(Color.argb(153, 255, 255, 255)) // 60% white
+            gravity = Gravity.CENTER
+            setPadding(dp(16), dp(6), dp(16), 0)
+        }
+        buttonContainer.addView(hintText)
 
         val buttonParams =
                 FrameLayout.LayoutParams(
-                        FrameLayout.LayoutParams.WRAP_CONTENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT, // 전체 너비 → 버튼 잘림 방지
                         FrameLayout.LayoutParams.WRAP_CONTENT
                 )
-        buttonParams.gravity = Gravity.CENTER
-        // 다시울림 버튼을 화면 40% 위치에, 알람종료를 25% 위치에 맞추기 위해
-        // 버튼 컨테이너를 화면 중앙보다 약간 위로
+        buttonParams.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
         buttonParams.topMargin = (screenHeight * 0.30).toInt()
         rootLayout.addView(buttonContainer, buttonParams)
 
@@ -499,9 +601,144 @@ class AlarmFullscreenActivity : Activity() {
         Log.d("AlarmFullscreen", "✅ AlarmManager 스누즈 스케줄 완료: ${minutes}분 후")
     }
 
+    /// ⏸️ 잠시 멈춤 — 시간 선택 후 pause_until 저장 + 오발동 후처리
+    private fun showPauseOptions() {
+        val options = arrayOf("15분", "1시간 (60분)", "4시간 (240분)", "직접 입력...")
+        val minutes = arrayOf(15, 60, 240, -1)
+
+        val builder = android.app.AlertDialog.Builder(
+            this,
+            android.R.style.Theme_DeviceDefault_Dialog_Alert
+        )
+        builder.setTitle("⏸ 얼마 동안 멈출까요?")
+        builder.setItems(options) { _, which ->
+            if (minutes[which] == -1) {
+                showCustomPauseDialog()
+            } else {
+                handlePause(minutes[which])
+            }
+        }
+        builder.setNegativeButton("취소") { dialog, _ ->
+            Log.d("AlarmFullscreen", "⏸ 잠시 멈춤 취소")
+            dialog.dismiss()
+            if (flutterRingtone?.isPlaying != true) playAlarmRingtone()
+        }
+        builder.setCancelable(false)
+        builder.show()
+    }
+
+    private fun showCustomPauseDialog() {
+        val input = android.widget.EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            hint = "분 단위로 입력 (1~720)"
+        }
+        val builder = android.app.AlertDialog.Builder(
+            this,
+            android.R.style.Theme_DeviceDefault_Dialog_Alert
+        )
+        builder.setTitle("잠시 멈춤 시간")
+        builder.setView(input)
+        builder.setPositiveButton("확인") { _, _ ->
+            val v = input.text.toString().toIntOrNull()
+            if (v != null && v in 1..720) {
+                handlePause(v)
+            } else {
+                if (flutterRingtone?.isPlaying != true) playAlarmRingtone()
+            }
+        }
+        builder.setNegativeButton("취소") { dialog, _ ->
+            dialog.dismiss()
+            if (flutterRingtone?.isPlaying != true) playAlarmRingtone()
+        }
+        builder.setCancelable(false)
+        builder.show()
+    }
+
+    private fun handlePause(pauseMinutes: Int) {
+        Log.d("AlarmFullscreen", "⏸ 잠시 멈춤 처리: ${pauseMinutes}분, trigger=$triggerType, alarmKey=$alarmKey")
+
+        // 1. pause_until_{trigger}_{alarmKey} → FlutterSharedPreferences에 저장
+        //    Flutter SharedPreferences 플러그인은 'flutter.' 접두사를 사용
+        val pauseUntilMs = System.currentTimeMillis() + pauseMinutes.toLong() * 60 * 1000
+        val flutterPrefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        flutterPrefs.edit().apply {
+            if (alarmKey.isNotEmpty()) {
+                putLong("flutter.pause_until_${triggerType}_$alarmKey", pauseUntilMs)
+                Log.d("AlarmFullscreen", "✅ pause_until_${triggerType}_$alarmKey = $pauseUntilMs (+${pauseMinutes}분)")
+            }
+            // 2. 오발동과 동일: native_alarm_active 클리어 + 당일 트리거 기록 초기화
+            remove("flutter.native_alarm_active")
+            remove("flutter.native_alarm_title")
+            remove("flutter.native_alarm_place_id")
+            remove("flutter.native_alarm_id")
+            if (alarmKey.isNotEmpty()) {
+                remove("flutter.alarm_triggered_date_$alarmKey")
+                remove("flutter.cooldown_until_$alarmKey")
+            }
+            apply()
+        }
+
+        // 3. 트리거 카운트 원복 (오발동과 동일)
+        val prefs = getSharedPreferences("ringinout", Context.MODE_PRIVATE)
+        val current = prefs.getInt("trigger_count_$alarmId", 0)
+        if (current > 0) {
+            prefs.edit().putInt("trigger_count_$alarmId", current - 1).apply()
+            Log.d("AlarmFullscreen", "⏸ 트리거 카운트 원복: $current → ${current - 1}")
+        }
+
+        // 4. Toast 피드백
+        val triggerLabel = if (triggerType == "exit") "이탈" else "진입"
+        val timeLabel = if (pauseMinutes < 60) "${pauseMinutes}분" else "${pauseMinutes / 60}시간"
+        android.widget.Toast.makeText(
+            this,
+            "$triggerLabel 알람을 $timeLabel 동안 멈췄어요",
+            android.widget.Toast.LENGTH_SHORT
+        ).show()
+
+        // 5. 같은 장소 2회째 잠시 멈춤 → 이슈 안내 다이얼로그 자동 노출
+        val placeKey = placeId.ifEmpty { alarmKey }
+        val flutterPrefs2 = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val cntKey = "flutter.native_pause_count_$placeKey"
+        val pauseCnt = flutterPrefs2.getInt(cntKey, 0) + 1
+        flutterPrefs2.edit().putInt(cntKey, pauseCnt).apply()
+        val shownKey = "flutter.native_pause_coaching_$placeKey"
+        val alreadyShown = flutterPrefs2.getBoolean(shownKey, false)
+
+        if (pauseCnt >= 2 && !alreadyShown) {
+            flutterPrefs2.edit().putBoolean(shownKey, true).apply()
+            Handler(Looper.getMainLooper()).postDelayed({
+                if (!isFinishing) showPauseCoachingDialog()
+            }, 400)
+        } else {
+            if (pendingAlarms.isNotEmpty()) showNextQueuedAlarm() else stopAlarmAndGoHome()
+        }
+    }
+
+    private fun showPauseCoachingDialog() {
+        val builder = android.app.AlertDialog.Builder(
+            this, android.R.style.Theme_DeviceDefault_Dialog_Alert
+        )
+        builder.setTitle("🔧 알람이 자꾸 울리는 이유")
+        builder.setMessage(
+            "같은 알람이 반복해서 울린다면 아래를 시도해 보세요:\n\n" +
+            "• 장소 핀을 자주 머무는 곳에서 조금 더 떨어진 위치로 옮겨 보세요.\n" +
+            "• 반경을 더 크게 설정해 보세요 (예: 100m → 200m). 잠깐 들락날락하는 소음이 무시됩니다.\n" +
+            "• 트리거 타입을 바꿔 보세요. 떠날 때만 알면 된다면 진입 대신 이탈을 설정하세요.\n" +
+            "• GPS와 Wi-Fi가 켜져 있는지 확인하세요."
+        )
+        builder.setPositiveButton("확인") { _, _ ->
+            if (pendingAlarms.isNotEmpty()) showNextQueuedAlarm() else stopAlarmAndGoHome()
+        }
+        builder.setCancelable(false)
+        builder.show()
+    }
+
     /// ⚡ 오발동 처리 — 소리만 끄고 알람 enabled=true 유지 (트리거 카운트 -1)
     private fun handleFalseTrigger() {
         Log.d("AlarmFullscreen", "⚡ 오발동 처리 — 소리만 끄고 알람 유지")
+        android.widget.Toast.makeText(
+            this, "GPS 오류로 처리했어요. 알람은 유지됩니다.", android.widget.Toast.LENGTH_SHORT
+        ).show()
 
         // triggerCount -1 (오발동이므로 카운트 원복)
         val prefs = getSharedPreferences("ringinout", Context.MODE_PRIVATE)
@@ -626,15 +863,15 @@ class AlarmFullscreenActivity : Activity() {
         }
         Log.d("AlarmFullscreen", "✅ 알람 상태 플래그 클리어 완료")
 
-        // 벨소리 정지
+        // 벨소리 + 진동 정지
         try {
-            // ✅ MainActivity의 전역 변수 사용
             flutterRingtone?.stop()
             flutterRingtone = null
             Log.d("AlarmFullscreen", "🔕 벨소리 정지")
         } catch (e: Exception) {
             Log.e("AlarmFullscreen", "❌ 벨소리 정지 실패: ${e.message}")
         }
+        stopAlarmVibration()
 
         // ✅ 영구 푸쉬 알림 제거 (ID: 999)
         try {
@@ -728,6 +965,7 @@ class AlarmFullscreenActivity : Activity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        stopAlarmVibration()
         AlarmFullscreenActivity.isActive = false
         Log.d("AlarmFullscreen", "🛑 AlarmFullscreenActivity 종료 — isActive = false")
     }

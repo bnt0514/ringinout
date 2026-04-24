@@ -439,6 +439,9 @@ class MainActivity : FlutterActivity() {
                             val alarmKey = call.argument<String>("alarmKey") ?: ""
                             val placeId = call.argument<String>("placeId") ?: ""
                             val isRepeat = call.argument<Boolean>("isRepeat") ?: false
+                            val trigger = call.argument<String>("trigger") ?: "entry"
+                            val soundEnabled = call.argument<Boolean>("soundEnabled") ?: true
+                            val vibrationEnabled = call.argument<Boolean>("vibrationEnabled") ?: true
 
                             // ✅ String UUID를 hashCode로 변환
                             val alarmId =
@@ -454,7 +457,10 @@ class MainActivity : FlutterActivity() {
                                     alarmId,
                                     alarmKey,
                                     placeId,
-                                    isRepeat
+                                    isRepeat,
+                                    trigger,
+                                    soundEnabled,
+                                    vibrationEnabled
                                 )
                             result.success(true)
                         }
@@ -791,12 +797,15 @@ class MainActivity : FlutterActivity() {
             alarmId: Int,
             alarmKey: String = "",
             placeId: String = "",
-            isRepeat: Boolean = false
+            isRepeat: Boolean = false,
+            trigger: String = "entry",
+            soundEnabled: Boolean = true,
+            vibrationEnabled: Boolean = true
     ) {
         try {
             Log.d(
                 "MainActivity",
-                "📱 백그라운드 전체화면 알람 표시: $title (ID: $alarmId, alarmKey: $alarmKey, placeId: $placeId, isRepeat: $isRepeat)"
+                "📱 백그라운드 전체화면 알람 표시: $title (ID: $alarmId, alarmKey: $alarmKey, placeId: $placeId, isRepeat: $isRepeat, trigger: $trigger)"
             )
 
             // ✅ SharedPreferences에서 triggerCount 가져오기
@@ -812,11 +821,10 @@ class MainActivity : FlutterActivity() {
                         putExtra("alarmKey", alarmKey)
                         putExtra("placeId", placeId)
                         putExtra("isRepeat", isRepeat) // ✅ 반복 알람 여부 전달
+                        putExtra("trigger", trigger)   // ✅ entry/exit 트리거 타입 전달
+                        putExtra("soundEnabled", soundEnabled)
+                        putExtra("vibrationEnabled", vibrationEnabled)
                         putExtra("isBackgroundAlarm", true)
-                        // ✅ CLEAR_TOP 추가: singleTask Activity가 이미 있으면 onNewIntent() 호출
-                        //    FLAG_ACTIVITY_NEW_TASK: applicationContext에서 시작하므로 필수
-                        //    FLAG_ACTIVITY_CLEAR_TOP: 기존 인스턴스 위의 Activity 제거
-                        //    FLAG_ACTIVITY_SINGLE_TOP: 기존 인스턴스 재사용 (onNewIntent)
                         addFlags(
                                 Intent.FLAG_ACTIVITY_NEW_TASK or
                                         Intent.FLAG_ACTIVITY_CLEAR_TOP or
@@ -825,7 +833,7 @@ class MainActivity : FlutterActivity() {
                     }
 
             applicationContext.startActivity(intent)
-            Log.d("MainActivity", "✅ 백그라운드 전체화면 알람 시작 (triggerCount: $count, isRepeat: $isRepeat)")
+            Log.d("MainActivity", "✅ 백그라운드 전체화면 알람 시작 (triggerCount: $count, isRepeat: $isRepeat, trigger: $trigger)")
         } catch (e: Exception) {
             Log.e("MainActivity", "❌ 백그라운드 전체화면 알람 실패: ${e.message}")
         }

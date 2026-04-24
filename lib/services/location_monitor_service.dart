@@ -1036,6 +1036,7 @@ class LocationMonitorService {
         if (!await _isAlarmStillActive(alarmId)) continue;
         if (await _isAlarmDisabledByNative(alarmId)) continue;
         if (await _isAlarmInCooldown(alarmId, placeName)) continue;
+        if (await _isAlarmPaused(alarmId, 'entry', placeName)) continue;
         if (await _hasAlreadyTriggeredToday(alarmId, alarm, placeName)) {
           continue;
         }
@@ -1090,6 +1091,7 @@ class LocationMonitorService {
         if (!await _isAlarmStillActive(alarmId)) continue;
         if (await _isAlarmDisabledByNative(alarmId)) continue;
         if (await _isAlarmInCooldown(alarmId, placeName)) continue;
+        if (await _isAlarmPaused(alarmId, 'exit', placeName)) continue;
         if (await _hasAlreadyTriggeredToday(alarmId, alarm, placeName)) {
           continue;
         }
@@ -1377,6 +1379,39 @@ class LocationMonitorService {
         return true;
       }
 
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// 사용자가 "잠시 멈춤" 버튼으로 N분간 차단해둔 상태인지 확인.
+  /// trigger 타입(entry/exit)별로 독립 적용 — 진입 알람만 멈춰둬도 진출은 정상 발동.
+  /// SharedPreferences 키:
+  ///   pause_until_entry_{alarmId} : epochMs (entry 알람 차단 만료 시각)
+  ///   pause_until_exit_{alarmId}  : epochMs (exit 알람 차단 만료 시각)
+  Future<bool> _isAlarmPaused(
+    String alarmId,
+    String trigger, // 'entry' or 'exit'
+    String? placeName,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.reload();
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      final key = 'pause_until_${trigger}_$alarmId';
+      final pauseUntilMs = prefs.getInt(key) ?? 0;
+      if (pauseUntilMs > nowMs) {
+        final remaining = (pauseUntilMs - nowMs) ~/ 1000;
+        _log(
+          '⏸️ [${placeName ?? alarmId}] 잠시 멈춤 중 ($trigger, ${remaining}초 남음)',
+        );
+        return true;
+      }
+      // 만료된 키 정리 (메모리 청소)
+      if (pauseUntilMs > 0) {
+        await prefs.remove(key);
+      }
       return false;
     } catch (e) {
       return false;

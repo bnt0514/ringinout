@@ -57,6 +57,7 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
   String holidayBehavior = 'on';
   String alarmSound = 'thoughtfulringtone';
   bool alarmSoundEnabled = true;
+  bool vibrationEnabled = true;
 
   // ✅ 조건 설정 (선택사항) - 모든 알람은 "최초 1회"
   TimeOfDay? conditionTime; // 시간 조건 (선택적)
@@ -966,18 +967,102 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
                 ),
               ),
             const SizedBox(height: 20),
-            _buildOptionTile(
-              title: AppLocalizations.of(context).get('alarm_sound_label'),
-              subtitle: AppLocalizations.of(context).get('alarm_sound_default'),
-              enabled: true,
-              onToggle: (val) {},
-              onTap: () {},
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: 16, bottom: 4),
-              child: Text(
-                AppLocalizations.of(context).get('alarm_sound_unchangeable'),
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(AppStyle.radiusCard),
+                border: Border.all(color: AppColors.border),
+                boxShadow: AppStyle.softShadow,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          AppLocalizations.of(
+                                context,
+                              ).get('alarm_sound_label') +
+                              ' / ' +
+                              AppLocalizations.of(
+                                context,
+                              ).get('vibration_label'),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          AppLocalizations.of(
+                            context,
+                          ).get('sound_vibration_hint'),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(
+                    height: 12,
+                    thickness: 0.5,
+                    indent: 16,
+                    endIndent: 16,
+                    color: AppColors.border,
+                  ),
+                  _buildOptionTile(
+                    title: AppLocalizations.of(
+                      context,
+                    ).get('alarm_sound_label'),
+                    subtitle: AppLocalizations.of(
+                      context,
+                    ).get('alarm_sound_default'),
+                    enabled: alarmSoundEnabled,
+                    onToggle: (val) {
+                      if (!val && !vibrationEnabled) return;
+                      setState(() => alarmSoundEnabled = val);
+                    },
+                    onTap: () {},
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 16, bottom: 6),
+                    child: Text(
+                      AppLocalizations.of(
+                        context,
+                      ).get('alarm_sound_unchangeable'),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                  const Divider(
+                    height: 1,
+                    thickness: 0.5,
+                    indent: 16,
+                    endIndent: 16,
+                    color: AppColors.border,
+                  ),
+                  _buildOptionTile(
+                    title: AppLocalizations.of(context).get('vibration_label'),
+                    subtitle: AppLocalizations.of(
+                      context,
+                    ).get('vibration_default_phone'),
+                    enabled: vibrationEnabled,
+                    onToggle: (val) {
+                      if (!val && !alarmSoundEnabled) return;
+                      setState(() => vibrationEnabled = val);
+                    },
+                    onTap: () {},
+                  ),
+                  const SizedBox(height: 6),
+                ],
               ),
             ),
             const SizedBox(height: 16),
@@ -986,7 +1071,8 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
             ElevatedButton(
               onPressed:
                   (alarmName.trim().isEmpty ||
-                          (!triggerOnEntry && !triggerOnExit))
+                          (!triggerOnEntry && !triggerOnExit) ||
+                          (!alarmSoundEnabled && !vibrationEnabled))
                       ? null
                       : () async {
                         // ✅ context에서 필요한 값을 pop 전에 미리 추출
@@ -1054,6 +1140,8 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
                             'hour': conditionTime!.hour,
                             'minute': conditionTime!.minute,
                           },
+                          'soundEnabled': alarmSoundEnabled,
+                          'vibrationEnabled': vibrationEnabled,
                         };
 
                         // ✅ 저장 완료 후 pop
