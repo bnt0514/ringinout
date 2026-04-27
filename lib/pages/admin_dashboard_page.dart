@@ -10,6 +10,8 @@ import 'package:ringinout/services/map_provider_service.dart';
 import 'package:ringinout/services/map_usage_service.dart';
 import 'package:ringinout/services/quota_service.dart';
 import 'package:ringinout/services/subscription_service.dart';
+import 'package:ringinout/services/force_update_service.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 // ── 버그 리포트 데이터 모델 ──────────────────────────────────────────
 class _BugReport {
@@ -1556,6 +1558,9 @@ class _AdminSettingsTab extends StatefulWidget {
 class _AdminSettingsTabState extends State<_AdminSettingsTab> {
   bool _testLoginEnabled = false;
   bool _loading = true;
+  String? _currentMinVersion;
+  String? _currentAppVersion;
+  final _versionController = TextEditingController();
 
   @override
   void initState() {
@@ -1563,11 +1568,24 @@ class _AdminSettingsTabState extends State<_AdminSettingsTab> {
     _loadSettings();
   }
 
+  @override
+  void dispose() {
+    _versionController.dispose();
+    super.dispose();
+  }
+
   void refresh() => _loadSettings();
 
   Future<void> _loadSettings() async {
     setState(() => _loading = true);
     try {
+      final info = await PackageInfo.fromPlatform();
+      _currentAppVersion = info.version;
+
+      final minVer = await ForceUpdateService.getMinVersion();
+      _currentMinVersion = minVer;
+      _versionController.text = minVer ?? '';
+
       final doc =
           await FirebaseFirestore.instance
               .collection('admin_config')
@@ -1582,6 +1600,44 @@ class _AdminSettingsTabState extends State<_AdminSettingsTab> {
       debugPrint('❌ 설정 로드 실패: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _saveMinVersion() async {
+    final v = _versionController.text.trim();
+    if (v.isEmpty) return;
+    try {
+      await ForceUpdateService.setMinVersion(v);
+      setState(() => _currentMinVersion = v);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('업데이트 강제 버전 저장: $v'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ min_version 저장 실패: $e');
+    }
+  }
+
+  Future<void> _clearMinVersion() async {
+    try {
+      await ForceUpdateService.setMinVersion('');
+      _versionController.clear();
+      setState(() => _currentMinVersion = null);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('강제 업데이트 해제됨'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ min_version 삭제 실패: $e');
     }
   }
 
@@ -1643,6 +1699,91 @@ class _AdminSettingsTabState extends State<_AdminSettingsTab> {
             secondary: Icon(
               _testLoginEnabled ? Icons.lock_open : Icons.lock,
               color: _testLoginEnabled ? Colors.green : Colors.grey,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // 강제 업데이트 설정 카드
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.system_update, color: Colors.blue),
+                    const SizedBox(width: 8),
+                    const Text(
+                      '강제 업데이트 최소 버전',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '현재 앱 버전: ${_currentAppVersion ?? '-'}',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                Text(
+                  '현재 설정된 min_version: ${_currentMinVersion?.isNotEmpty == true ? _currentMinVersion! : '(없음 — 강제 업데이트 비활성)'}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color:
+                        _currentMinVersion?.isNotEmpty == true
+                            ? Colors.orange
+                            : Colors.grey,
+                    fontWeight:
+                        _currentMinVersion?.isNotEmpty == true
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _versionController,
+                        decoration: const InputDecoration(
+                          labelText: '최소 요구 버전 (ex: 1.0.5)',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        keyboardType: TextInputType.text,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: _saveMinVersion,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('저장'),
+                    ),
+                    const SizedBox(width: 4),
+                    OutlinedButton(
+                      onPressed: _clearMinVersion,
+                      child: const Text('해제'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '설정하면 해당 버전 미만 앱에서 로그인 시 강제 업데이트 다이얼로그가 표시됩니다. '
+                  '"해제" 누르면 강제 업데이트 없이 실행됩니다.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

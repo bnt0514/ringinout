@@ -17,6 +17,16 @@ import 'package:ringinout/services/billing_service.dart';
 import 'package:ringinout/services/map_provider_service.dart';
 import 'package:ringinout/config/app_theme.dart';
 import 'package:ringinout/config/app_config.dart';
+import 'package:ringinout/services/force_update_service.dart';
+import 'package:ringinout/widgets/force_update_dialog.dart';
+
+/// 강제 업데이트 체크 — 로그인 직후 호출
+Future<void> _checkForceUpdate(BuildContext context) async {
+  final needs = await ForceUpdateService.needsUpdate();
+  if (needs && context.mounted) {
+    await ForceUpdateDialog.show(context);
+  }
+}
 
 class RinginoutApp extends StatelessWidget {
   final GlobalKey<NavigatorState> navigatorKey;
@@ -74,6 +84,8 @@ class RinginoutApp extends StatelessWidget {
                 _handlePendingAlarm(context);
                 // 로그인 상태 변경 시 플랜 강제 새로고침
                 context.read<BillingService>().fetchStatus(forceRefresh: true);
+                // 강제 업데이트 체크
+                _checkForceUpdate(context);
               });
               return const PermissionGate(
                 child: TermsGate(child: MainNavigationPage()),

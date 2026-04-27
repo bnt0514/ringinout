@@ -748,6 +748,12 @@ class AppLocalizations {
           'Free features have a monthly safety limit to keep the service sustainable. You can unlock extra uses by reading this notice and agreeing. In a future update this will be replaced with an opt-in short ad.',
       'reward_daily_limit_reached':
           'You’ve reached today’s bonus limit ({daily}/day). Please try again tomorrow.',
+
+      // Force update
+      'force_update_title': 'Update Required',
+      'force_update_body':
+          'A new version of Ringinout is available. Please update to continue using the app.',
+      'force_update_button': 'Update Now',
     },
 
     'ko': {
@@ -1457,6 +1463,11 @@ class AppLocalizations {
           '지속 가능한 서비스 운영을 위해 무료 기능에는 월간 상한이 있어요. 이 안내문을 읽고 동의하면 추가 사용이 열려요. 향후 업데이트에서 선택 시청 형식의 짧은 리워드 광고로 대체될 수 있어요.',
       'reward_daily_limit_reached':
           '오늘의 보너스 한도({daily}회)에 도달했어요. 내일 다시 시도해 주세요.',
+
+      // Force update
+      'force_update_title': '업데이트 필요',
+      'force_update_body': 'Ringinout 새 버전이 출시되었어요. 계속 이용하려면 업데이트해 주세요.',
+      'force_update_button': '지금 업데이트',
     },
 
     'ja': {
@@ -2162,6 +2173,12 @@ class AppLocalizations {
       'reward_intro_body':
           '持続可能なサービス運営のため、無料機能には月間上限があります。このお知らせを読んで同意すると追加利用が可能になります。将来のアップデートで、選択式の短いリワード広告に置き換わる可能性があります。',
       'reward_daily_limit_reached': '本日のボーナス上限（{daily}回）に達しました。明日再度お試しください。',
+
+      // Force update
+      'force_update_title': 'アップデートが必要です',
+      'force_update_body':
+          'Ringinoutの新バージョンがリリースされました。引き続きお使いいただくにはアップデートしてください。',
+      'force_update_button': '今すぐアップデート',
     },
 
     'zh': {
@@ -2856,6 +2873,11 @@ class AppLocalizations {
       'reward_intro_body':
           '为了持续运营服务，免费功能设有月度上限。阅读此提示并同意即可解锁额外使用。在未来版本中，此功能可能被可选的短视频奖励广告替换。',
       'reward_daily_limit_reached': '已达今日奖励上限（{daily} 次/天）。请明日再试。',
+
+      // Force update
+      'force_update_title': '需要更新',
+      'force_update_body': 'Ringinout 有新版本可用。请更新后继续使用。',
+      'force_update_button': '立即更新',
     },
 
     'de': {
@@ -3599,6 +3621,10 @@ class AppLocalizations {
       'wifi_hidden_network': '(Verstecktes Netzwerk)',
       'wifi_currently_connected': 'Derzeit verbunden',
       'wifi_previously_saved': 'Zuvor gespeichert (derzeit nicht erkannt)',
+      'force_update_title': 'Update erforderlich',
+      'force_update_body':
+          'Eine neue Version von Ringinout ist verfügbar. Bitte aktualisieren Sie, um fortzufahren.',
+      'force_update_button': 'Jetzt aktualisieren',
     },
 
     'fr': {
@@ -4350,6 +4376,10 @@ class AppLocalizations {
       'wifi_currently_connected': 'Actuellement connecté',
       'wifi_previously_saved':
           'Précédemment enregistré (non détecté actuellement)',
+      'force_update_title': 'Mise à jour requise',
+      'force_update_body':
+          'Une nouvelle version de Ringinout est disponible. Veuillez mettre à jour pour continuer.',
+      'force_update_button': 'Mettre à jour maintenant',
     },
 
     'es': {
@@ -5098,6 +5128,10 @@ class AppLocalizations {
       'wifi_currently_connected': 'Actualmente conectado',
       'wifi_previously_saved':
           'Guardado anteriormente (no detectado actualmente)',
+      'force_update_title': 'Actualización requerida',
+      'force_update_body':
+          'Hay una nueva versión de Ringinout disponible. Por favor, actualice para continuar.',
+      'force_update_button': 'Actualizar ahora',
     },
   };
 
