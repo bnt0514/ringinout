@@ -140,6 +140,9 @@ class AlarmNotificationHelper {
         'alarmKey': alarmData?['id']?.toString() ?? '',
         'placeId': alarmData?['placeId']?.toString() ?? '',
         'isRepeat': isRepeat,
+        'trigger': alarmData?['trigger']?.toString() ?? 'entry',
+        'soundEnabled': alarmData?['soundEnabled'] ?? true,
+        'vibrationEnabled': alarmData?['vibrationEnabled'] ?? true,
       });
       print('📱 네이티브 전체화면 알람 요청 완료 (ID: $alarmId)');
     } catch (e) {

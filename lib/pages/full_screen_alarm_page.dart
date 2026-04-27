@@ -8,6 +8,7 @@ import 'package:ringinout/services/alarm_notification_helper.dart'; // cancelAll
 import 'package:ringinout/features/navigation/main_navigation.dart'; // ✅ 홈 화면 import
 import 'package:ringinout/services/location_monitor_service.dart'; // ✅ Heartbeat 전송용
 import 'package:ringinout/services/active_alarm_state.dart'; // ✅ 활성 알람 상태 추적
+import 'package:ringinout/services/quota_service.dart'; // ✅ 오발동/잠시멈춤 시 환불
 import 'package:ringinout/services/smart_location_service.dart'; // ✅ 오발동 후 장소 상태 복원
 import 'package:ringinout/services/app_localizations.dart';
 
@@ -394,6 +395,12 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
     // 2. 트리거 카운트 원복 (발동 안 된 것쳄럼 재설정)
     final alarmId = widget.alarmData?['id'];
     if (alarmId != null) {
+      // 2-0. 월간 quota도 환불 (알람이 트리거될 때 QuotaService.record(alarm)이 호출되었으므로)
+      try {
+        await QuotaService.refund(QuotaCategory.alarm);
+      } catch (e) {
+        print('⚠️ 오발동 quota 환불 실패 (무시): $e');
+      }
       final box = await Hive.openBox('trigger_counts_v2');
       final currentRaw = box.get(alarmId, defaultValue: 0);
       final current =
@@ -467,6 +474,395 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
         (route) => false,
       );
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  ⏸️ 잠시 멈춤 (Pause)
+  //
+  //  오발동과 다른 점: 사용자가 N분 동안 같은 트리거 타입(entry/exit)을
+  //  완전히 차단. 반경 근처에서 활동할 때 진입/이탈 반복 발동을 막음.
+  //
+  //  - 발동된 트리거 타입(entry/exit)만 차단 → 상대 트리거는 정상 동작
+  //  - quota 환불 (오발동과 동일)
+  //  - 같은 장소에서 2회째 잠시 멈춤 시 안내 다이얼로그 자동 노출
+  // ═══════════════════════════════════════════════════════════
+
+  Future<void> _onPause() async {
+    print('⏸️ 잠시 멈춤 버튼 클릭');
+
+    // 1. 사운드/진동 즉시 정지 (다이얼로그 띄우기 전)
+    await _stopAllSounds();
+    await cancelAllAlarmNotifications();
+
+    // 2. 시간 선택 다이얼로그 표시
+    final selectedMinutes = await _showPauseTimeDialog();
+    if (selectedMinutes == null || selectedMinutes <= 0) {
+      // 취소: 사운드 다시 재생 (사용자가 결정 안 함)
+      print('! 잠시 멈춤 취소됨 → 알람 화면 유지');
+      try {
+        await bellPlatform.invokeMethod('playSystemRingtone');
+      } catch (_) {}
+      return;
+    }
+
+    // 3. 마지막 선택 시간 저장 (다음 다이얼로그 기본값용)
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('lastPauseMinutes', selectedMinutes);
+    } catch (_) {}
+
+    // 4. pause_until_{trigger}_{alarmId} 설정 — LMS가 평가 시 차단
+    final alarmId = widget.alarmData?['id']?.toString();
+    final trigger =
+        (widget.alarmData?['trigger'] as String?)?.toLowerCase() ?? 'entry';
+    if (alarmId != null && alarmId.isNotEmpty) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final pauseUntilMs =
+            DateTime.now().millisecondsSinceEpoch +
+            (selectedMinutes * 60 * 1000);
+        await prefs.setInt('pause_until_${trigger}_$alarmId', pauseUntilMs);
+        print(
+          '⏸️ pause_until_${trigger}_$alarmId 설정: $pauseUntilMs ($selectedMinutes분 후)',
+        );
+      } catch (e) {
+        print('⚠️ pause_until 저장 실패: $e');
+      }
+    }
+
+    // 5. 오발동과 동일한 후처리 (quota 환불, 카운트 원복, 활성화 복원, LMS 재판단)
+    await _onFalseTriggerCleanup();
+
+    // 6. 토스트로 사용자 피드백
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    final toastKey =
+        trigger == 'exit' ? 'pause_toast_exit' : 'pause_toast_entry';
+    final minLabel = l10n.getWithArgs('pause_min_value', {
+      'm': '$selectedMinutes',
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.getWithArgs(toastKey, {'time': minLabel})),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
+    // 7. 같은 장소에서 잠시 멈춤 횟수 카운트 → 2회째에 안내 다이얼로그 자동 노출
+    final placeKey = _placeKeyForCoaching();
+    bool shouldShowCoaching = false;
+    if (placeKey != null) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final cntKey = 'pause_count_$placeKey';
+        final cur = prefs.getInt(cntKey) ?? 0;
+        final next = cur + 1;
+        await prefs.setInt(cntKey, next);
+
+        final shownKey = 'pause_coaching_shown_$placeKey';
+        final alreadyShown = prefs.getBool(shownKey) ?? false;
+        if (next >= 2 && !alreadyShown) {
+          shouldShowCoaching = true;
+          await prefs.setBool(shownKey, true);
+        }
+      } catch (_) {}
+    }
+
+    if (shouldShowCoaching && mounted) {
+      // 토스트 후 살짝 텀을 두고 다이얼로그
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (mounted) await _showPauseIssueHelpDialog(autoShown: true);
+    }
+
+    // 8. 화면 종료
+    if (!mounted) return;
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const MainNavigationPage()),
+        (route) => false,
+      );
+    }
+  }
+
+  /// `_onFalseTrigger`의 6단계 후처리 부분만 추출 — 잠시 멈춤이 재사용.
+  /// (사운드 정지/UI 종료는 호출측에서 직접 처리)
+  Future<void> _onFalseTriggerCleanup() async {
+    final alarmId = widget.alarmData?['id'];
+    if (alarmId == null) {
+      ActiveAlarmState.clear();
+      return;
+    }
+
+    // quota 환불
+    try {
+      await QuotaService.refund(QuotaCategory.alarm);
+    } catch (e) {
+      print('⚠️ 잠시멈춤 quota 환불 실패 (무시): $e');
+    }
+
+    // 트리거 카운트 원복
+    final box = await Hive.openBox('trigger_counts_v2');
+    final currentRaw = box.get(alarmId, defaultValue: 0);
+    final current =
+        (currentRaw is int)
+            ? currentRaw
+            : int.tryParse(currentRaw.toString()) ?? 0;
+    if (current > 0) {
+      await box.put(alarmId, current - 1);
+    }
+
+    // 당일 트리거 기록 + cooldown 초기화
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('alarm_triggered_date_$alarmId');
+      await prefs.remove('cooldown_until_$alarmId');
+    } catch (_) {}
+
+    // 일회성 알람 enabled 복원 (트리거 시 disabled 되었을 수 있음)
+    try {
+      final hiveBox = HiveHelper.alarmBox;
+      final cur = hiveBox.get(alarmId);
+      if (cur != null) {
+        final repeat = cur['repeat'];
+        final isRepeat = (repeat is List && repeat.isNotEmpty);
+        if (!isRepeat && cur['enabled'] != true) {
+          final updated = Map<String, dynamic>.from(cur);
+          updated['enabled'] = true;
+          await hiveBox.put(alarmId, updated);
+        }
+      }
+    } catch (_) {}
+
+    // LMS 장소 상태 GPS 기반 재판단
+    try {
+      final placeId =
+          widget.alarmData?['placeId']?.toString() ??
+          widget.alarmData?['place']?.toString() ??
+          widget.alarmData?['locationName']?.toString();
+      if (placeId != null && placeId.isNotEmpty) {
+        await SmartLocationService.clearTriggeredAlarm(placeId);
+      }
+    } catch (_) {}
+
+    ActiveAlarmState.clear();
+  }
+
+  /// 잠시 멈춤 시간 선택 다이얼로그 (15/60/240/직접 입력)
+  /// 직전 선택값을 하이라이트로 표시.
+  Future<int?> _showPauseTimeDialog() async {
+    final l10n = AppLocalizations.of(context);
+    int lastMinutes = 60; // 기본값
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      lastMinutes = prefs.getInt('lastPauseMinutes') ?? 60;
+    } catch (_) {}
+
+    if (!mounted) return null;
+    return showDialog<int>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.pause_circle, color: AppColors.primary, size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  l10n.get('pause_dialog_title'),
+                  style: const TextStyle(fontSize: 17),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ...[15, 60, 240].map((m) {
+                final isLast = m == lastMinutes;
+                return ListTile(
+                  dense: true,
+                  leading:
+                      isLast
+                          ? Icon(
+                            Icons.check_circle,
+                            color: AppColors.primary,
+                            size: 20,
+                          )
+                          : const SizedBox(width: 20),
+                  title: Text(
+                    l10n.getWithArgs('pause_min_value', {'m': '$m'}),
+                    style: TextStyle(
+                      fontWeight: isLast ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                  onTap: () => Navigator.pop(ctx, m),
+                );
+              }),
+              ListTile(
+                dense: true,
+                leading: const SizedBox(width: 20),
+                title: Text(l10n.get('pause_min_custom')),
+                onTap: () async {
+                  final custom = await _showCustomPauseDialog();
+                  if (custom != null && custom > 0) {
+                    if (!ctx.mounted) return;
+                    Navigator.pop(ctx, custom);
+                  }
+                },
+              ),
+              const Divider(height: 16),
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () async {
+                  Navigator.pop(ctx, null); // 다이얼로그 닫고
+                  // 안내 다이얼로그 띄움 → 잠시 멈춤은 취소된 상태
+                  if (mounted) {
+                    await _showPauseIssueHelpDialog(autoShown: false);
+                  }
+                  // 사운드 다시 재생 (사용자가 안내만 보고 다시 결정)
+                  try {
+                    await bellPlatform.invokeMethod('playSystemRingtone');
+                  } catch (_) {}
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 6,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.lightbulb_outline,
+                        size: 16,
+                        color: Colors.amber.shade700,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          l10n.get('pause_help_link'),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.amber.shade900,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right,
+                        size: 16,
+                        color: Colors.amber.shade700,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, null),
+              child: Text(l10n.get('cancel_btn')),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 직접 입력 다이얼로그 (1~720분)
+  Future<int?> _showCustomPauseDialog() async {
+    final l10n = AppLocalizations.of(context);
+    final controller = TextEditingController();
+    return showDialog<int>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text(l10n.get('pause_custom_title')),
+          content: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: l10n.get('pause_custom_hint'),
+              suffixText: l10n.get('pause_custom_unit'),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, null),
+              child: Text(l10n.get('cancel_btn')),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final v = int.tryParse(controller.text.trim());
+                if (v == null || v <= 0 || v > 720) {
+                  Navigator.pop(ctx, null);
+                  return;
+                }
+                Navigator.pop(ctx, v);
+              },
+              child: Text(l10n.get('confirm')),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// "왜 잘못 울렸을까요?" 안내 다이얼로그 (Issue Coaching)
+  Future<void> _showPauseIssueHelpDialog({required bool autoShown}) async {
+    final l10n = AppLocalizations.of(context);
+    if (!mounted) return;
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.handyman_outlined, color: Colors.amber.shade700),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  l10n.get('pause_help_title'),
+                  style: const TextStyle(fontSize: 17),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Text(
+              l10n.get('pause_help_body'),
+              style: const TextStyle(fontSize: 13.5, height: 1.55),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(l10n.get('false_trigger_dialog_ok')),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// place coaching 카운터 키 (placeId > placeName 순으로 폴백)
+  String? _placeKeyForCoaching() {
+    final pid = widget.alarmData?['placeId']?.toString();
+    if (pid != null && pid.isNotEmpty) return pid;
+    final pname =
+        widget.alarmData?['place']?.toString() ??
+        widget.alarmData?['locationName']?.toString();
+    if (pname != null && pname.isNotEmpty) return pname;
+    return null;
   }
 
   @override
@@ -561,30 +957,55 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
                 ),
               ),
 
-              // ── 오발동 (작은 보조 버튼) ──
+              // ── 잠시 멈춤 / 오발동 (보조 버튼 2개) ──
               Padding(
                 padding: const EdgeInsets.only(top: 20, bottom: 24),
                 child: Column(
                   children: [
-                    TextButton.icon(
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.amber.shade300,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 8,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // ⏸️ 잠시 멈춤
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.lightBlue.shade200,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                          ),
+                          onPressed: _onPause,
+                          icon: const Icon(Icons.pause_circle, size: 16),
+                          label: Text(
+                            l10n.get('btn_pause'),
+                            style: const TextStyle(fontSize: 14),
+                          ),
                         ),
-                      ),
-                      onPressed: _onFalseTrigger,
-                      icon: const Icon(Icons.bolt, size: 16),
-                      label: Text(
-                        l10n.get('btn_false_trigger'),
-                        style: const TextStyle(fontSize: 14),
-                      ),
+                        const SizedBox(width: 8),
+                        // ⚡ 오발동
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.amber.shade300,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                          ),
+                          onPressed: _onFalseTrigger,
+                          icon: const Icon(Icons.bolt, size: 16),
+                          label: Text(
+                            l10n.get('btn_false_trigger'),
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
+                      ],
                     ),
+                    const SizedBox(height: 4),
                     Text(
-                      l10n.get('false_trigger_hint'),
+                      l10n.get('pause_or_false_hint'),
+                      textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.amber.shade200,
+                        color: Colors.white.withValues(alpha: 0.6),
                         fontSize: 11,
                       ),
                     ),

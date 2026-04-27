@@ -398,7 +398,7 @@ class _CurrentPlanCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              _getPlanDescription(plan),
+              _getPlanDescription(plan, l10n),
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
           ],
@@ -420,16 +420,16 @@ class _CurrentPlanCard extends StatelessWidget {
     }
   }
 
-  String _getPlanDescription(SubscriptionPlan plan) {
+  String _getPlanDescription(SubscriptionPlan plan, AppLocalizations l10n) {
     switch (plan) {
       case SubscriptionPlan.free:
-        return '2 places · 4 alarms · 20 map opens/mo';
+        return l10n.get('subscription_plan_desc_free');
       case SubscriptionPlan.plus:
-        return '5 places · 10 alarms · 50 map opens/mo · ad-free';
+        return l10n.get('subscription_plan_desc_plus');
       case SubscriptionPlan.pro:
-        return 'Unlimited places & alarms · 500 map opens/mo · ad-free';
+        return l10n.get('subscription_plan_desc_pro');
       case SubscriptionPlan.special:
-        return 'Developer - all features unlimited';
+        return l10n.get('subscription_plan_desc_special');
     }
   }
 }
