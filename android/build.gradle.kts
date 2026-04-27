@@ -1,5 +1,5 @@
 buildscript {
-    dependencies { classpath("com.android.tools.build:gradle:8.1.0") }
+    dependencies { classpath("com.android.tools.build:gradle:8.9.1") }
 
     repositories {
         google()
