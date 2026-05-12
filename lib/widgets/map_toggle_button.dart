@@ -73,11 +73,11 @@ class MapToggleButton extends StatelessWidget {
       return;
     }
 
-    // 네이버(한국)/구글(해외) 전환 시: 모든 유료 플랜에도 월 한도 적용 (special 제외)
+    // 네이버(한국)/구글(해외) 전환 시: 정식 플랜에는 월 한도 적용 (beta free/special 제외)
     final plan = await SubscriptionService.getCurrentPlan();
     final limit = SubscriptionService.mapOpenMonthlyLimit(plan);
     if (limit != null) {
-      // free=20, plus=50, pro=500. special(=null)은 통과
+      // beta free/special(null)은 통과. 정식 free=100, plus=300, pro=1000
       final canOpen = await MapUsageService.canOpenMap(provider: p.name);
       if (!context.mounted) return;
 

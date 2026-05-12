@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:ringinout/config/app_config.dart';
 import 'package:ringinout/services/billing_service.dart';
 import 'package:ringinout/services/hive_helper.dart';
 
@@ -59,10 +60,11 @@ class SubscriptionService {
   static int? alarmLimit(SubscriptionPlan plan) => null; // 무제한
 
   /// 맵 오픈 월별 제한 — 어뷰즈 방지용 (실제 비용은 검색에서 발생)
-  /// - free: 100, plus: 300, pro: 1000, special: 무제한
+  /// - beta free: 무제한, free: 100, plus: 300, pro: 1000, special: 무제한
   static int? mapOpenMonthlyLimit(SubscriptionPlan plan) {
     switch (plan) {
       case SubscriptionPlan.free:
+        if (AppConfig.isBetaVersion) return null;
         return 100;
       case SubscriptionPlan.plus:
         return 300;
@@ -84,6 +86,7 @@ class SubscriptionService {
   static int? searchMonthlyBase(SubscriptionPlan plan) {
     switch (plan) {
       case SubscriptionPlan.free:
+        if (AppConfig.isBetaVersion) return 100000;
         return 5;
       case SubscriptionPlan.plus:
         return 30;
@@ -98,6 +101,7 @@ class SubscriptionService {
   static int searchMonthlyCap(SubscriptionPlan plan) {
     switch (plan) {
       case SubscriptionPlan.free:
+        if (AppConfig.isBetaVersion) return 100000;
         return 15;
       case SubscriptionPlan.plus:
         return 50;
@@ -116,7 +120,7 @@ class SubscriptionService {
   static int? alarmMonthlyBase(SubscriptionPlan plan) {
     switch (plan) {
       case SubscriptionPlan.free:
-        return 15;
+        return 30;
       case SubscriptionPlan.plus:
         return 100;
       case SubscriptionPlan.pro:
@@ -130,6 +134,7 @@ class SubscriptionService {
   static int alarmMonthlyCap(SubscriptionPlan plan) {
     switch (plan) {
       case SubscriptionPlan.free:
+        if (AppConfig.isBetaVersion) return 100000;
         return 30;
       case SubscriptionPlan.plus:
         return 200;

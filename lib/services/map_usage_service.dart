@@ -5,7 +5,7 @@
 // - 기기 로컬(SharedPreferences)에 provider별 월간 카운트 저장
 // - 주 1회 Firestore map_usage/{yyyy-MM} 에 increment 업로드
 // - Firestore admin_config/map_settings 읽어서 킬스위치 적용
-// - 플랜별 지도 오픈 한도 적용 (free=20, plus=50, pro=500)
+// - 플랜별 지도 오픈 한도 적용 (beta free=unlimited, free=100, plus=300, pro=1000)
 // - 전체 사용량이 무료 한도 95% 도달 시 자동 차단
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -74,7 +74,7 @@ const _kGeoNaverFwd = 'geo_nfwd_'; // + month
 const _kGeoNaverRev = 'geo_nrev_'; // + month
 
 /// 이전호환용 상수 — 실제 제한은 SubscriptionService.mapOpenMonthlyLimit 사용
-/// (free=20, plus=50, pro=500, special=null)
+/// (legacy only; current limits come from SubscriptionService)
 @Deprecated('Use SubscriptionService.mapOpenMonthlyLimit(plan) instead')
 const int kFreeMapOpenLimit = 20;
 

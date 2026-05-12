@@ -21,36 +21,46 @@ String _getSubscriptionPolicyKo({required bool isBeta}) {
   buffer.writeln('구독 정책');
   buffer.writeln();
   buffer.writeln('1. 서비스 개요');
-  buffer.writeln('- 본 서비스는 위치 기반 알람 기능을 제공하며, 일부 기능은 유료 구독을 통해 이용할 수 있습니다.');
+  buffer.writeln(
+    '- 본 서비스는 위치 기반 알람 기능을 제공합니다. 베타 기간에는 무료 플랜만 제공되며, 정식 출시 시 광고 도입 및 유료 플랜이 함께 제공될 수 있습니다.',
+  );
   buffer.writeln();
-  buffer.writeln('2. 구독 상품 및 제공 범위');
-  buffer.writeln(
-    '- Free: 장소/알람 등록 무제한, 알람 발동 월 15회 보장(안전 상한 30회), '
-    '주소/장소 검색 월 5회 보장(안전 상한 15회), 지도 로드 월 100회(어뷰징 방지)',
-  );
-  buffer.writeln(
-    '- Plus: 알람 발동 월 100회 보장(안전 상한 200회), 검색 월 30회 보장(안전 상한 50회), '
-    '지도 로드 월 300회, 광고 제거',
-  );
-  buffer.writeln(
-    '- Pro: 알람 발동 월 500회(대용량), 검색 월 150회, '
-    '지도 로드 월 1000회, 광고 제거',
-  );
-  buffer.writeln(
-    '- 보장 한도 초과 시 보너스 시스템(안내문 동의 또는 향후 리워드 광고)을 통해 안전 상한까지 추가 사용이 가능합니다. '
-    '안전 상한은 어뷀징 방지를 위해 도달 시 보너스로도 더 이상 사용할 수 없습니다.',
-  );
-  buffer.writeln(
-    '- 자동 구독(매월 자동 결제) 등록 시 월 구독료 할인이 적용될 수 있으며, 자세한 조건은 Google Play 상품 설명을 따릅니다.',
-  );
+  buffer.writeln('2. 무료 플랜 제공 범위');
+  buffer.writeln('- 장소/알람 등록은 무제한으로 제공됩니다.');
+  if (isBeta) {
+    buffer.writeln('- 베타 기간에는 검색, 지도, 알람 발동을 사실상 월간 제한 없이 이용할 수 있습니다.');
+    buffer.writeln(
+      '- 다만 사용자 수 또는 외부 API 비용이 예상보다 크게 증가하거나 서비스 안정성 문제가 발생하는 경우, 베타 기간 중에도 공정 사용 제한이 도입될 수 있습니다.',
+    );
+    buffer.writeln(
+      '- 정식 출시 시 Free 플랜에는 알람 발동, 검색, 지도 사용 등에 월간 제한이 적용될 수 있으며, 광고가 도입될 수 있습니다.',
+    );
+    buffer.writeln(
+      '- 정식 출시 시 Plus/Pro 등 유료 플랜이 제공될 수 있으며, 더 높은 사용량, 광고 감소 또는 제거, 일부 기능 우선 제공 등의 혜택이 포함될 수 있습니다.',
+    );
+  } else {
+    buffer.writeln('- 알람 발동: 월 30회 기본 제공.');
+    buffer.writeln('- 주소/장소 검색: 월 5회 보장(어뷰징 방지 안전 상한 15회).');
+    buffer.writeln('- 지도 로드: 월 100회(어뷰징 방지 상한).');
+    buffer.writeln(
+      '- 보장 한도 초과 시 보너스 시스템(안내문 동의 또는 리워드 광고)을 통해 안전 상한까지 추가 사용이 가능합니다.',
+    );
+    buffer.writeln('- 안전 상한은 어뷰징 방지를 위해 도달 시 보너스로도 더 이상 사용할 수 없습니다.');
+    buffer.writeln(
+      '- 유료 플랜 사용자에게는 더 많은 사용량, 광고 감소 또는 제거, 일부 기능 우선 제공 등의 혜택이 제공될 수 있습니다.',
+    );
+    buffer.writeln(
+      '- 자동 구독(매월 자동 결제) 등록 시 월 구독료 할인이 적용될 수 있으며, 자세한 조건은 Google Play 상품 설명을 따릅니다.',
+    );
+  }
   buffer.writeln();
   buffer.writeln('2-1. 지도 서비스 제공 조건 (중요)');
   buffer.writeln(
-    '- 지도 기능은 와부 지도 API(네이버 클라우드 플랫폼, 구글 플랫폼, OpenStreetMap 등)를 이용하며,',
+    '- 지도 기능은 외부 지도 API(네이버 클라우드 플랫폼, 구글 플랫폼, OpenStreetMap 등)를 이용하며,',
   );
-  buffer.writeln('  외부 API 제공자의 정책/요금체계/섬드움/쿠터 등에 의존합니다.');
-  buffer.writeln('- 명시된 월 지도 로드 횟수(Free 20회 등)는 일반적인 제공 목표이며 보장되지 않습니다.');
-  buffer.writeln('- 서버 되는 외부 API 비용 급증, 이상 사용 감지, 서비스 운영 안정성 확보 등을 위해');
+  buffer.writeln('  외부 API 제공자의 정책, 요금 체계, 장애, 쿼터 등에 의존합니다.');
+  buffer.writeln('- 정식 출시 후 명시되는 월 지도 로드 횟수는 일반적인 제공 목표이며 보장되지 않습니다.');
+  buffer.writeln('- 외부 API 비용 급증, 이상 사용 감지, 서비스 운영 안정성 확보 등을 위해');
   buffer.writeln('  무료 이용자 혹은 전체 이용자의 지도 기능이 예고 없이 일시 제한되거나 중단될 수 있습니다.');
   buffer.writeln(
     '- 이는 공정 사용 정책(Fair Use Policy) 및 서비스 안정 운영을 위한 조치이며, 해당 사유로 인한 환불은 제한될 수 있습니다.',
@@ -97,8 +107,15 @@ String _getSubscriptionPolicyKo({required bool isBeta}) {
   buffer.writeln('- 플랜 변경은 Google Play 정책 및 결제 시스템 규칙에 따릅니다.');
   buffer.writeln();
   buffer.writeln('7. 광고');
-  buffer.writeln('- Free 플랜은 장소 등록/알람 생성 시 광고가 노출될 수 있습니다.');
-  buffer.writeln('- Plus/Pro 플랜은 광고가 제거됩니다.');
+  if (isBeta) {
+    buffer.writeln('- 베타 기간에는 광고가 노출되지 않습니다.');
+    buffer.writeln(
+      '- 정식 출시 시 무료 플랜에 광고가 도입될 수 있으며, 유료 플랜은 광고가 감소되거나 제거될 수 있습니다.',
+    );
+  } else {
+    buffer.writeln('- 무료 플랜은 일부 기능 사용 시 광고가 노출될 수 있습니다.');
+    buffer.writeln('- 유료 플랜은 광고가 감소되거나 제거될 수 있습니다.');
+  }
   buffer.writeln();
   buffer.writeln('8. 서비스 이용 제한');
   buffer.writeln('- 서비스 안정성 보호를 위해 버그 리포트 및 건의사항 전송은 30분 간격, 하루 최대 3회로 제한됩니다.');
@@ -116,7 +133,8 @@ String _getSubscriptionPolicyKo({required bool isBeta}) {
       '- 베타 기간 중 저장된 데이터, 알람 설정, 기록 등이 손실 또는 변경될 수 있으며 복구가 보장되지 않습니다.',
     );
     buffer.writeln('- 베타 기간에는 성능 저하, 위치 오차, 알람 누락/지연/오작동이 발생할 수 있습니다.');
-    buffer.writeln('- 유료 플랜 구독은 베타 종료 후 활성화됩니다.');
+    buffer.writeln('- 베타 기간에는 무료 플랜만 제공되며, 유료 플랜은 정식 출시 후 도입될 수 있습니다.');
+    buffer.writeln('- 베타 기간의 한도 완화 등 혜택은 정식 출시 시 변경되거나 종료될 수 있습니다.');
     buffer.writeln();
     buffer.writeln('11. 책임의 제한');
   } else {
@@ -175,29 +193,50 @@ String _getSubscriptionPolicyEn({required bool isBeta}) {
   b.writeln();
   b.writeln('1. Service Overview');
   b.writeln(
-    '- This service provides location-based alarm features. Some features require a paid subscription.',
+    '- This service provides location-based alarm features. During the beta period only the Free Plan is offered; ads and paid plans may be introduced upon official release.',
   );
   b.writeln();
-  b.writeln('2. Plans & Coverage');
-  b.writeln(
-    '- Free: 2 places, 4 registered alarms, up to 20 map opens/month, ads after alarm dismissal (up to 3/day)',
-  );
-  b.writeln(
-    '- Plus: 5 places, 10 registered alarms, up to 50 map opens/month (ad-free)',
-  );
-  b.writeln(
-    '- Pro: Unlimited places/alarms, up to 500 map opens/month (fair use policy applies, ad-free)',
-  );
-  b.writeln(
-    '- Discounts may apply for auto-renewing subscriptions; see Google Play product details for exact pricing.',
-  );
+  b.writeln('2. Free Plan Coverage');
+  b.writeln('- Unlimited place and alarm registration.');
+  if (isBeta) {
+    b.writeln(
+      '- During beta, search, maps, and alarm triggers are available without practical monthly limits.',
+    );
+    b.writeln(
+      '- If user growth, third-party API costs, or service stability risks grow unexpectedly, fair-use limits may be introduced during beta.',
+    );
+    b.writeln(
+      '- Upon official release, the Free Plan may include monthly limits for alarm triggers, search, and maps, and ads may be introduced.',
+    );
+    b.writeln(
+      '- Plus/Pro paid plans may be offered with higher allowances, reduced or removed ads, and priority access to certain features.',
+    );
+  } else {
+    b.writeln('- Alarm triggers: 30 per month (standard).');
+    b.writeln(
+      '- Address/place search: 5 guaranteed per month (anti-abuse safety cap 15).',
+    );
+    b.writeln('- Map opens: up to 100 per month (anti-abuse cap).');
+    b.writeln(
+      '- When a guaranteed limit is exceeded, a bonus system (notice acknowledgement or rewarded ads) allows additional use up to the safety cap.',
+    );
+    b.writeln(
+      '- Once the safety cap is reached, no further use is possible that month even with bonuses, to prevent abuse.',
+    );
+    b.writeln(
+      '- Paid plan users may receive higher usage allowances, reduced or removed ads, and priority access to certain features.',
+    );
+    b.writeln(
+      '- Discounts may apply for auto-renewing subscriptions; see Google Play product details for exact pricing.',
+    );
+  }
   b.writeln();
   b.writeln('2-1. Map Service Provision Conditions (Important)');
   b.writeln(
     '- Map features depend on third-party APIs (Naver Cloud Platform, Google Cloud Platform, OpenStreetMap, etc.) and are subject to those providers\' policies, pricing, downtime, and quotas.',
   );
   b.writeln(
-    '- The monthly map-open counts above (e.g. Free 20) are general targets, not guaranteed availability.',
+    '- Monthly map-open counts stated after official release are general targets, not guaranteed availability.',
   );
   b.writeln(
     '- To protect service stability against sudden third-party API cost spikes, abuse, or operational issues, map features for free or all users may be temporarily limited or suspended without prior notice.',
@@ -274,8 +313,15 @@ String _getSubscriptionPolicyEn({required bool isBeta}) {
   b.writeln('- Plan changes follow Google Play policies.');
   b.writeln();
   b.writeln('7. Ads');
-  b.writeln('- Free plan may show ads when adding places/alarms.');
-  b.writeln('- Plus/Pro plans are ad-free.');
+  if (isBeta) {
+    b.writeln('- No ads are shown during the beta period.');
+    b.writeln(
+      '- Upon official release, ads may be introduced for the Free Plan; paid plans may have reduced or removed ads.',
+    );
+  } else {
+    b.writeln('- The Free Plan may show ads while using certain features.');
+    b.writeln('- Paid plans may have reduced or removed ads.');
+  }
   b.writeln();
   b.writeln('8. Usage Restrictions');
   b.writeln(
@@ -305,7 +351,12 @@ String _getSubscriptionPolicyEn({required bool isBeta}) {
     b.writeln(
       '- Performance issues, location errors, and alarm delays may occur.',
     );
-    b.writeln('- Paid subscriptions will be activated after beta ends.');
+    b.writeln(
+      '- Only the Free Plan is offered during beta; paid plans may be introduced after official release.',
+    );
+    b.writeln(
+      '- Beta benefits such as relaxed limits may be changed or ended upon official release.',
+    );
     b.writeln();
     b.writeln('11. Limitation of Liability');
   } else {
@@ -365,32 +416,38 @@ String _getSubscriptionPolicyJa({required bool isBeta}) {
   b.writeln('サブスクリプションポリシー');
   b.writeln();
   b.writeln('1. サービス概要');
-  b.writeln('- 本サービスは位置ベースのアラーム機能を提供し、一部の機能は有料サブスクリプションが必要です。');
+  b.writeln(
+    '- 本サービスは位置ベースのアラーム機能を提供します。ベータ期間中は無料プランのみ提供され、正式リリース時に広告の導入や有料プランが提供される場合があります。',
+  );
   b.writeln();
-  b.writeln('2. プランと提供範囲');
-  b.writeln(
-    '- Free: 場所/アラーム登録無制限、アラーム発動月　15回保証（安全上限 30回）、'
-    '住所/場所検索月　15回保証（2024改）保証5回（安全上限 15回）、マップ読み込み月100回（不正利用防止）',
-  );
-  b.writeln(
-    '- Plus: アラーム発動月100回保証（安全上限 200回）、検索月 30回保証（安全上限 50回）、'
-    'マップ読み込み月300回、広告なし',
-  );
-  b.writeln(
-    '- Pro: アラーム発動月500回（大容量）、検索月150回、'
-    'マップ読み込み月 1000回、広告なし',
-  );
-  b.writeln(
-    '- 保証割当を超過した場合、ボーナスシステム（お知らせへの同意、将来はリワード広告）で安全上限まで追加利用できます。'
-    '安全上限に達すると、その月はボーナスでも利用を拡張できません。',
-  );
-  b.writeln('- 自動購読設定時に割引が適用される場合があり、詳細はGoogle Playの商品説明に従います。');
+  b.writeln('2. 無料プランの提供範囲');
+  b.writeln('- 場所/アラームの登録は無制限です。');
+  if (isBeta) {
+    b.writeln('- ベータ期間中は、検索、マップ、アラーム発動を実質的な月間制限なくご利用いただけます。');
+    b.writeln(
+      '- 利用者数、外部API費用、サービス安定性のリスクが想定以上に増えた場合、ベータ中でも公正利用制限が導入される場合があります。',
+    );
+    b.writeln('- 正式リリース時には、無料プランにアラーム発動、検索、マップ利用などの月間制限が適用され、広告が導入される場合があります。');
+    b.writeln(
+      '- Plus/Proなどの有料プランが提供され、より多くの利用枠、広告の削減または除去、一部機能の優先提供などの特典が含まれる場合があります。',
+    );
+  } else {
+    b.writeln('- アラーム発動：月30回（基本提供）。');
+    b.writeln('- 住所/場所検索：月5回保証（不正利用防止の安全上限15回）。');
+    b.writeln('- マップ読み込み：月100回（不正利用防止上限）。');
+    b.writeln('- 保証枠を超過した場合、ボーナスシステム（お知らせへの同意またはリワード広告）で安全上限まで追加利用できます。');
+    b.writeln('- 安全上限に達するとその月はボーナスでも追加利用できません。');
+    b.writeln(
+      '- 有料プランのユーザーには、より多くの利用枠、広告の削減または除去、一部機能の優先提供などの特典が提供される場合があります。',
+    );
+    b.writeln('- 自動購読設定時に割引が適用される場合があり、詳細はGoogle Playの商品説明に従います。');
+  }
   b.writeln();
   b.writeln('2-1. マップサービス提供条件（重要）');
   b.writeln(
     '- マップ機能は外部API（ネイバークラウド、Google Cloud、OpenStreetMap等）に依存し、それらのポリシー、料金体系、サービス状況に左右されます。',
   );
-  b.writeln('- 上記の月間マップ表示回数（Free 20回等）は一般的な提供目標であり、保証されるものではありません。');
+  b.writeln('- 正式リリース後に明示される月間マップ表示回数は一般的な提供目標であり、保証されるものではありません。');
   b.writeln(
     '- 外部API費用の急増、不正利用、サービス運営の安定性確保のため、無料ユーザーや全ユーザーのマップ機能が予告なく一時的に制限・停止される場合があります。',
   );
@@ -430,8 +487,13 @@ String _getSubscriptionPolicyJa({required bool isBeta}) {
   b.writeln('- 解約後も次の更新日まで特典が維持されます。');
   b.writeln();
   b.writeln('7. 広告');
-  b.writeln('- Freeプランでは場所登録/アラーム作成時に広告が表示される場合があります。');
-  b.writeln('- Plus/Proプランは広告なしです。');
+  if (isBeta) {
+    b.writeln('- ベータ期間中は広告は表示されません。');
+    b.writeln('- 正式リリース時に無料プランに広告が導入される場合があり、有料プランは広告が削減または除去される場合があります。');
+  } else {
+    b.writeln('- 無料プランでは一部機能利用時に広告が表示される場合があります。');
+    b.writeln('- 有料プランは広告が削減または除去される場合があります。');
+  }
   b.writeln();
   b.writeln('8. 利用制限');
   b.writeln('- サービスの安定性を保護するため、バグレポートおよびフィードバックの送信は30分間隔、1日最大3回までに制限されています。');
@@ -445,7 +507,8 @@ String _getSubscriptionPolicyJa({required bool isBeta}) {
     b.writeln('- 本サービスはベータ版であり、安定性や無中断提供は保証されません。');
     b.writeln('- ベータ期間中は機能の変更・中断が予告なく行われる場合があります。');
     b.writeln('- データの損失や変更が発生する可能性があります。');
-    b.writeln('- 有料プランはベータ終了後に活性化されます。');
+    b.writeln('- ベータ期間中は無料プランのみ提供され、有料プランは正式リリース後に導入される場合があります。');
+    b.writeln('- ベータ期間中の上限緩和などの特典は、正式リリース時に変更または終了される場合があります。');
     b.writeln();
     b.writeln('11. 責任の制限');
   } else {
@@ -491,31 +554,31 @@ String _getSubscriptionPolicyZh({required bool isBeta}) {
   b.writeln('订阅政策');
   b.writeln();
   b.writeln('1. 服务概述');
-  b.writeln('- 本服务提供基于位置的闹钟功能，部分功能需要付费订阅。');
+  b.writeln('- 本服务提供基于位置的闹钟功能。测试期间仅提供免费方案；正式发布时可能引入广告并提供付费方案。');
   b.writeln();
-  b.writeln('2. 方案与范围');
-  b.writeln(
-    '- Free: 地点/闹钟注册无限制，每月保证 15 次闹钟触发（安全上限 30 次），'
-    '每月保证 5 次地址/地点搜索（安全上限 15 次），每月最多 100 次地图打开（防滥用）',
-  );
-  b.writeln(
-    '- Plus: 每月保证 100 次闹钟触发（安全上限 200 次），每月保证 30 次搜索（安全上限 50 次），'
-    '每月最多 300 次地图打开，无广告',
-  );
-  b.writeln(
-    '- Pro: 每月 500 次闹钟触发（大容量），每月 150 次搜索，'
-    '每月最多 1000 次地图打开，无广告',
-  );
-  b.writeln(
-    '- 超过保证额度时，可通过奖励系统（同意提示或今后的奖励广告）解锁至安全上限的额外使用。'
-    '一旦达到安全上限，即使使用奖励也无法再扩展本月额度。',
-  );
-  b.writeln('- 自动续费订阅可能享受折扣，具体价格以Google Play商品说明为准。');
+  b.writeln('2. 免费方案范围');
+  b.writeln('- 地点/闹钟注册不限。');
+  if (isBeta) {
+    b.writeln('- 测试期间，搜索、地图和警报触发实际上不设月度限制。');
+    b.writeln('- 如果用户增长、第三方API成本或服务稳定性风险超出预期，测试期间也可能引入公平使用限制。');
+    b.writeln('- 正式发布时，免费方案可能对警报触发、搜索、地图使用等设置月度限制，并可能引入广告。');
+    b.writeln('- 正式发布时可能提供Plus/Pro等付费方案，包含更高额度、减少或去除广告、部分功能优先使用等权益。');
+  } else {
+    b.writeln('- 闹钟触发：每月 30 次（基础提供）。');
+    b.writeln('- 地址/地点搜索：每月保证 5 次（防滥用安全上限 15 次）。');
+    b.writeln('- 地图打开：每月最多 100 次（防滥用上限）。');
+    b.writeln('- 超过保证额度时，可通过奖励系统（同意提示或奖励广告）解锁至安全上限的额外使用。');
+    b.writeln('- 一旦达到安全上限，即使使用奖励也无法再扩展本月额度。');
+    b.writeln('- 付费方案用户可能享有更高的使用额度、减少或去除广告、部分功能优先使用等权益。');
+    b.writeln('- 自动续费订阅可能享受折扣，具体价格以Google Play商品说明为准。');
+  }
   b.writeln();
   b.writeln('2-1. 地图服务提供条件（重要）');
-  b.writeln('- 地图功能依赖于第三方API（骑营云、谷歌云、OpenStreetMap等），受其政策、价格、可用性和配额影响。');
-  b.writeln('- 上述每月地图打开次数（如Free 20次）为一般提供目标，并非保证。');
-  b.writeln('- 为应对第三方API费用突增、滥用、运营稳定性问题，免费用户或全体用户的地图功能可能被临时限制或暂停，恨不另行通知。');
+  b.writeln(
+    '- 地图功能依赖于第三方API（Naver Cloud、Google Cloud、OpenStreetMap等），受其政策、价格、可用性和配额影响。',
+  );
+  b.writeln('- 正式发布后标明的每月地图打开次数为一般提供目标，并非保证。');
+  b.writeln('- 为应对第三方API费用突增、滥用、运营稳定性问题，免费用户或全体用户的地图功能可能被临时限制或暂停，恕不另行通知。');
   b.writeln('- 此为公平使用政策及服务稳定运营措施，由此产生的退款可能受限。');
   b.writeln('- OpenStreetMap基础的备用地图可能在付费地图受限期间仍然提供。');
   b.writeln();
@@ -548,8 +611,13 @@ String _getSubscriptionPolicyZh({required bool isBeta}) {
   b.writeln('- 取消后，权益保留至下一续费日。');
   b.writeln();
   b.writeln('7. 广告');
-  b.writeln('- Free方案可能在添加地点/闹钟时显示广告。');
-  b.writeln('- Plus/Pro方案无广告。');
+  if (isBeta) {
+    b.writeln('- 测试期间不显示广告。');
+    b.writeln('- 正式发布时可能在免费方案中引入广告；付费方案的广告可能减少或去除。');
+  } else {
+    b.writeln('- 免费方案在使用部分功能时可能显示广告。');
+    b.writeln('- 付费方案的广告可能减少或去除。');
+  }
   b.writeln();
   b.writeln('8. 使用限制');
   b.writeln('- 为保护服务稳定性，错误报告和反馈每30分钟可发送一次，每天最多3次。');
@@ -563,7 +631,8 @@ String _getSubscriptionPolicyZh({required bool isBeta}) {
     b.writeln('- 本服务为测试版，不保证稳定性和不间断服务。');
     b.writeln('- 测试期间功能可能会无预告变更或中断。');
     b.writeln('- 数据可能会丢失或变更。');
-    b.writeln('- 付费方案将在测试结束后开放。');
+    b.writeln('- 测试期间仅提供免费方案，付费方案可能在正式发布后引入。');
+    b.writeln('- 测试期间的限额放宽等福利可能在正式发布时变更或终止。');
     b.writeln();
     b.writeln('11. 责任限制');
   } else {

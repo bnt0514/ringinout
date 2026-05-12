@@ -398,7 +398,18 @@ class AppLocalizations {
       'subscription_recommended': 'Recommended',
       'subscription_coming_soon': 'Subscription feature is coming soon.',
       'subscription_beta_notice':
-          'Paid plans are not available during beta. They will be available after beta ends.',
+          'Only the Free Plan is available during beta. Search, maps, and alarm triggers are currently offered without practical monthly limits as a beta benefit.',
+      'subscription_beta_free_price': 'Available during beta',
+      'subscription_beta_free_feature_alarm_30':
+          'Beta benefit: search, maps, and alarm triggers are open for free',
+      'subscription_beta_free_feature_relaxed':
+          'If usage or operating costs grow unexpectedly, fair-use limits may be introduced during beta',
+      'subscription_beta_free_feature_no_paid':
+          'Paid plans are not offered during beta',
+      'subscription_beta_free_feature_ads_future':
+          'Official release may introduce Plus/Pro plans and Free Plan limits',
+      'subscription_beta_free_footer':
+          'The official Free Plan may include limits; Plus/Pro plans may offer higher allowances and paid benefits.',
       'subscription_per_month': '/ month',
       'subscription_policy': 'Subscription Policy',
       'subscription_refund_policy': 'Refund Policy',
@@ -406,7 +417,8 @@ class AppLocalizations {
       'subscription_pro_fair_use':
           'Fair use policy: up to 500 map opens per month to prevent abuse.',
       'subscription_map_opens_500': '500 map opens/month',
-      'subscription_plan_desc_free': '15 alarm triggers/mo · 100 map opens/mo',
+      'subscription_plan_desc_free':
+          'Beta: search, maps, and alarm triggers open for free',
       'subscription_plan_desc_plus':
           '100 alarm triggers/mo · 300 map opens/mo · ad-free',
       'subscription_plan_desc_pro':
@@ -557,8 +569,7 @@ class AppLocalizations {
       'cancel_subscription': 'Cancel',
       'subscribe_btn': 'Subscribe',
       'auto_subscribe_btn': 'Auto Subscribe',
-      'beta_no_paid_plans':
-          'Paid plans are not available during beta. They will be available after beta ends.',
+      'beta_no_paid_plans': 'Only the Free Plan is available during beta.',
       'places_5': '5 Places',
       'active_alarms_10': '10 Active Alarms',
       'ad_free_included': 'Ad-free Included',
@@ -602,7 +613,7 @@ class AppLocalizations {
       'map_free_limit_exceeded_body':
           'You have used all {limit} Google Maps opens this month.\n\n'
           'OSM is always available for free.\n'
-          'Upgrade to a paid plan for unlimited access.',
+          'Paid plans may offer higher limits after official release.',
       'map_switch_confirm_title': 'Switch to Google Maps',
       'map_switch_confirm_body':
           'Free plan allows {limit} Google Maps opens per month.\n\n'
@@ -763,15 +774,15 @@ class AppLocalizations {
       'quota_reward_credits': 'Bonus credits: {count}',
       'quota_capped_title': 'Monthly cap reached',
       'quota_capped_msg':
-          'You’ve reached this month’s safety cap for {category} on the {plan} plan ({cap}/mo). This cap exists to protect the service from abuse. You can continue next month or upgrade your plan.',
+          'You’ve reached this month’s safety cap for {category} on the Free Plan ({cap}/mo). This cap exists to protect the service from abuse. You can continue next month.',
       'quota_need_reward_title': 'Free limit reached',
       'quota_need_reward_msg':
-          'You’ve used all {base} free {category} this month. Watch a short notice to unlock +1 use (daily bonus limit: {daily}).',
+          'You’ve used all {base} Free Plan {category} this month. Read the notice and agree to unlock +1 use (daily bonus limit: {daily}).',
       'reward_consent_agree': 'Agree & use +1',
       'reward_consent_cancel': 'Not now',
       'reward_intro_title': 'About the bonus system',
       'reward_intro_body':
-          'Free features have a monthly safety limit to keep the service sustainable. You can unlock extra uses by reading this notice and agreeing. In a future update this will be replaced with an opt-in short ad.',
+          'Free Plan features have monthly safety limits to keep the service sustainable. You can unlock extra uses by reading this notice and agreeing. After official release, this may be replaced with an opt-in rewarded ad.',
       'reward_daily_limit_reached':
           'You’ve reached today’s bonus limit ({daily}/day). Please try again tomorrow.',
 
@@ -1155,7 +1166,18 @@ class AppLocalizations {
       'subscription_in_use': '사용 중',
       'subscription_recommended': '추천',
       'subscription_coming_soon': '구독 기능은 준비 중입니다.',
-      'subscription_beta_notice': '베타 기간에는 유료 플랜이 제공되지 않습니다. 베타 종료 후 공개됩니다.',
+      'subscription_beta_notice':
+          '베타 기간에는 무료 플랜만 제공됩니다. 현재 검색, 지도, 알람 발동은 베타 혜택으로 사실상 월간 제한 없이 제공됩니다.',
+      'subscription_beta_free_price': '베타 기간 제공',
+      'subscription_beta_free_feature_alarm_30':
+          '베타 혜택: 검색·지도·알람 발동을 무료로 넉넉하게 제공',
+      'subscription_beta_free_feature_relaxed':
+          '사용자 또는 운영 비용이 예상보다 크게 늘면 베타 중에도 공정 사용 제한이 도입될 수 있습니다',
+      'subscription_beta_free_feature_no_paid': '베타 기간에는 유료 플랜이 제공되지 않습니다',
+      'subscription_beta_free_feature_ads_future':
+          '정식 출시 시 Plus/Pro 플랜과 무료 플랜 제한이 도입될 수 있습니다',
+      'subscription_beta_free_footer':
+          '정식 출시 후 무료 플랜에는 제한이 생길 수 있으며, Plus/Pro는 더 높은 한도와 유료 혜택을 제공할 수 있습니다.',
       'subscription_per_month': '/ 월',
       'subscription_policy': '구독 정책',
       'subscription_refund_policy': '환불 정책',
@@ -1163,7 +1185,7 @@ class AppLocalizations {
       'subscription_pro_fair_use':
           '공정 사용 정책: 어뷰즈 방지를 위해 월 최대 500회 지도 열기 한도가 있습니다.',
       'subscription_map_opens_500': '맵 오픈 월 500회',
-      'subscription_plan_desc_free': '알람 발동 월 15회 · 맵 오픈 월 100회',
+      'subscription_plan_desc_free': '베타: 검색·지도·알람 발동 무료 제공',
       'subscription_plan_desc_plus': '알람 발동 월 100회 · 맵 오픈 월 300회 · 광고 없음',
       'subscription_plan_desc_pro': '알람 발동 월 500회 · 맵 오픈 월 1,000회 · 광고 없음',
       'subscription_plan_desc_special': '개발자 - 모든 기능 무제한',
@@ -1311,7 +1333,7 @@ class AppLocalizations {
       'cancel_subscription': '해지',
       'subscribe_btn': '구독하기',
       'auto_subscribe_btn': '자동 구독',
-      'beta_no_paid_plans': '베타 기간에는 유료 플랜이 제공되지 않습니다. 베타 종료 후 공개됩니다.',
+      'beta_no_paid_plans': '베타 기간에는 무료 플랜만 제공됩니다.',
       'places_5': '장소 5개',
       'active_alarms_10': '활성 알람 10개',
       'ad_free_included': '광고 제거 포함',
@@ -1354,7 +1376,7 @@ class AppLocalizations {
       'map_free_limit_exceeded_body':
           '이번 달 네이버 지도 오픈 횟수({limit}회)를 모두 사용했습니다.\n\n'
           'OSM 지도는 계속 무제한 이용 가능합니다.\n'
-          '제한 없이 사용하려면 유료 플랜으로 업그레이드하세요.',
+          '정식 출시 후 유료 플랜에서 더 높은 한도가 제공될 수 있습니다.',
       'map_switch_confirm_title': '네이버 지도로 전환',
       'map_switch_confirm_body':
           '무료 플랜은 네이버 지도를 월 {limit}회 이용할 수 있습니다.\n\n'
@@ -1501,15 +1523,15 @@ class AppLocalizations {
       'quota_reward_credits': '보너스 크레딧: {count}',
       'quota_capped_title': '이번 달 상한 도달',
       'quota_capped_msg':
-          '이번 달 {plan} 플랜의 {category} 안전 상한({cap}회)에 도달했어요. 서비스 어뷀징 방지를 위한 상한이에요. 다음 달에 다시 이용하시거나 플랜을 업그레이드해 주세요.',
+          '이번 달 무료 플랜의 {category} 안전 상한({cap}회)에 도달했어요. 서비스 어뷰징 방지를 위한 상한이에요. 다음 달에 다시 이용해 주세요.',
       'quota_need_reward_title': '무료 한도 소진',
       'quota_need_reward_msg':
-          '이번 달 무료 {category} {base}회를 모두 사용했어요. 안내문을 읽고 동의하면 +1회 추가 사용할 수 있어요 (일일 보너스 한도: {daily}회).',
+          '이번 달 무료 플랜 {category} {base}회를 모두 사용했어요. 안내문을 읽고 동의하면 +1회 추가 사용할 수 있어요 (일일 보너스 한도: {daily}회).',
       'reward_consent_agree': '동의하고 +1 사용',
       'reward_consent_cancel': '나중에',
       'reward_intro_title': '보너스 시스템 안내',
       'reward_intro_body':
-          '지속 가능한 서비스 운영을 위해 무료 기능에는 월간 상한이 있어요. 이 안내문을 읽고 동의하면 추가 사용이 열려요. 향후 업데이트에서 선택 시청 형식의 짧은 리워드 광고로 대체될 수 있어요.',
+          '지속 가능한 서비스 운영을 위해 무료 플랜 기능에는 월간 상한이 있어요. 이 안내문을 읽고 동의하면 추가 사용이 열려요. 정식 출시 후 선택 시청 형식의 리워드 광고로 대체될 수 있어요.',
       'reward_daily_limit_reached':
           '오늘의 보너스 한도({daily}회)에 도달했어요. 내일 다시 시도해 주세요.',
 
@@ -1892,14 +1914,25 @@ class AppLocalizations {
       'subscription_in_use': '使用中',
       'subscription_recommended': 'おすすめ',
       'subscription_coming_soon': 'サブスクリプション機能は準備中です。',
-      'subscription_beta_notice': 'ベータ期間中は有料プランは提供されません。ベータ終了後に公開されます。',
+      'subscription_beta_notice':
+          'ベータ期間中は無料プランのみ提供されます。現在、検索、マップ、アラーム発動はベータ特典として実質的な月間制限なく提供されています。',
+      'subscription_beta_free_price': 'ベータ期間中に提供',
+      'subscription_beta_free_feature_alarm_30':
+          'ベータ特典: 検索・マップ・アラーム発動を無料で十分に提供',
+      'subscription_beta_free_feature_relaxed':
+          '利用者数や運営コストが想定以上に増えた場合、ベータ中でも公正利用制限が導入される場合があります',
+      'subscription_beta_free_feature_no_paid': 'ベータ期間中は有料プランは提供されません',
+      'subscription_beta_free_feature_ads_future':
+          '正式リリース時にPlus/Proプランと無料プランの制限が導入される場合があります',
+      'subscription_beta_free_footer':
+          '正式リリース後、無料プランには制限が設けられ、Plus/Proではより高い上限や有料特典が提供される場合があります。',
       'subscription_per_month': '/ 月',
       'subscription_policy': 'サブスクリプションポリシー',
       'subscription_refund_policy': '返金ポリシー',
       'subscription_price_tbd': '価格は後日お知らせ',
       'subscription_pro_fair_use': '公正利用ポリシー: 不正利用防止のため月最大500回のマップ表示制限があります。',
       'subscription_map_opens_500': 'マップ表示月500回',
-      'subscription_plan_desc_free': 'アラーム発動月15回・マップ表示月100回',
+      'subscription_plan_desc_free': 'ベータ: 検索・マップ・アラーム発動を無料提供',
       'subscription_plan_desc_plus': 'アラーム発動月100回・マップ表示月300回・広告なし',
       'subscription_plan_desc_pro': 'アラーム発動月500回・マップ表示月1,000回・広告なし',
       'subscription_plan_desc_special': '開発者 - 全機能無制限',
@@ -2045,7 +2078,7 @@ class AppLocalizations {
       'cancel_subscription': '解約',
       'subscribe_btn': '購読する',
       'auto_subscribe_btn': '自動購読',
-      'beta_no_paid_plans': 'ベータ期間中は有料プランは提供されません。ベータ終了後に公開されます。',
+      'beta_no_paid_plans': 'ベータ期間中は無料プランのみ提供されます。',
       'places_5': '場所5件',
       'active_alarms_10': 'アクティブアラーム10件',
       'ad_free_included': '広告除去含む',
@@ -2088,7 +2121,7 @@ class AppLocalizations {
       'map_free_limit_exceeded_body':
           '今月のGoogleマップ起動回数（{limit}回）をすべて使い切りました。\n\n'
           'OSMはいつでも無制限に利用できます。\n'
-          '制限なく使いたい場合は有料プランへアップグレードしてください。',
+          '正式リリース後、有料プランでより高い上限が提供される場合があります。',
       'map_switch_confirm_title': 'Googleマップに切替',
       'map_switch_confirm_body':
           '無料プランはGoogleマップを月{limit}回利用できます。\n\n'
@@ -2235,15 +2268,15 @@ class AppLocalizations {
       'quota_reward_credits': 'ボーナスクレジット：{count}',
       'quota_capped_title': '今月の上限に達しました',
       'quota_capped_msg':
-          '今月 {plan} プランの {category} 安全上限（{cap}回）に達しました。サービスの不正利用防止のための上限です。来月再びご利用いただくか、プランのアップグレードをご検討ください。',
+          '今月の無料プランの {category} 安全上限（{cap}回）に達しました。サービスの不正利用防止のための上限です。来月再びご利用ください。',
       'quota_need_reward_title': '無料上限に達しました',
       'quota_need_reward_msg':
-          '今月の無料 {category} {base} 回をすべて使用しました。お知らせを読んで同意すると +1 回追加で使用できます（1日のボーナス上限：{daily}回）。',
+          '今月の無料プラン {category} {base} 回をすべて使用しました。お知らせを読んで同意すると +1 回追加で使用できます（1日のボーナス上限：{daily}回）。',
       'reward_consent_agree': '同意して +1 使用',
       'reward_consent_cancel': 'あとで',
       'reward_intro_title': 'ボーナスシステムについて',
       'reward_intro_body':
-          '持続可能なサービス運営のため、無料機能には月間上限があります。このお知らせを読んで同意すると追加利用が可能になります。将来のアップデートで、選択式の短いリワード広告に置き換わる可能性があります。',
+          '持続可能なサービス運営のため、無料プラン機能には月間上限があります。このお知らせを読んで同意すると追加利用が可能になります。正式リリース後、選択式のリワード広告に置き換わる可能性があります。',
       'reward_daily_limit_reached': '本日のボーナス上限（{daily}回）に達しました。明日再度お試しください。',
 
       // Force update
@@ -2619,14 +2652,21 @@ class AppLocalizations {
       'subscription_in_use': '使用中',
       'subscription_recommended': '推荐',
       'subscription_coming_soon': '订阅功能正在准备中。',
-      'subscription_beta_notice': '测试期间不提供付费方案。测试结束后将开放。',
+      'subscription_beta_notice': '测试期间仅提供免费方案。目前搜索、地图和警报触发作为测试版福利，实际上不设月度限制。',
+      'subscription_beta_free_price': '测试期间提供',
+      'subscription_beta_free_feature_alarm_30': '测试版福利: 搜索、地图和警报触发免费充分提供',
+      'subscription_beta_free_feature_relaxed':
+          '如果用户量或运营成本超出预期，测试期间也可能引入公平使用限制',
+      'subscription_beta_free_feature_no_paid': '测试期间不提供付费方案',
+      'subscription_beta_free_feature_ads_future': '正式发布时可能引入Plus/Pro方案和免费方案限制',
+      'subscription_beta_free_footer': '正式发布后，免费方案可能设置限制；Plus/Pro可提供更高额度和付费权益。',
       'subscription_per_month': '/ 月',
       'subscription_policy': '订阅政策',
       'subscription_refund_policy': '退款政策',
       'subscription_price_tbd': '价格待定',
       'subscription_pro_fair_use': '公平使用政策: 为防止滥用, 每月最多500次地图打开。',
       'subscription_map_opens_500': '每月500次地图打开',
-      'subscription_plan_desc_free': '每月15次警报触发 · 每月100次地图打开',
+      'subscription_plan_desc_free': '测试版: 搜索、地图和警报触发免费提供',
       'subscription_plan_desc_plus': '每月100次警报触发 · 每月300次地图打开 · 无广告',
       'subscription_plan_desc_pro': '每月500次警报触发 · 每月1,000次地图打开 · 无广告',
       'subscription_plan_desc_special': '开发者 - 所有功能无限制',
@@ -2771,7 +2811,7 @@ class AppLocalizations {
       'cancel_subscription': '取消',
       'subscribe_btn': '订阅',
       'auto_subscribe_btn': '自动订阅',
-      'beta_no_paid_plans': '测试期间不提供付费套餐。测试结束后将公开。',
+      'beta_no_paid_plans': '测试期间仅提供免费方案。',
       'places_5': '5个地点',
       'active_alarms_10': '10个活动闹钟',
       'ad_free_included': '包含去广告',
@@ -2812,7 +2852,7 @@ class AppLocalizations {
       'map_free_limit_exceeded_body':
           '本月Google地图打开次数（{limit}次）已全部用完。\n\n'
           'OSM地图可以无限次免费使用。\n'
-          '如需无限次使用，请升级到付费套餐。',
+          '正式发布后，付费套餐可能提供更高额度。',
       'map_switch_confirm_title': '切换到Google地图',
       'map_switch_confirm_body':
           '免费套餐每月可使用Google地图{limit}次。\n\n'
@@ -2957,15 +2997,15 @@ class AppLocalizations {
       'quota_reward_credits': '奖励额度：{count}',
       'quota_capped_title': '已达本月上限',
       'quota_capped_msg':
-          '本月 {plan} 套餐的 {category} 安全上限（{cap}次）已达到。此上限用于防止滥用。请下月继续使用或升级套餐。',
+          '本月免费方案的 {category} 安全上限（{cap}次）已达到。此上限用于防止滥用。请下月继续使用。',
       'quota_need_reward_title': '已用完免费额度',
       'quota_need_reward_msg':
-          '本月的 {base} 次免费 {category} 已全部使用。阅读提示并同意后可额外使用 +1 次（每日奖励上限：{daily} 次）。',
+          '本月免费方案的 {base} 次 {category} 已全部使用。阅读提示并同意后可额外使用 +1 次（每日奖励上限：{daily} 次）。',
       'reward_consent_agree': '同意并使用 +1',
       'reward_consent_cancel': '稍后',
       'reward_intro_title': '关于奖励系统',
       'reward_intro_body':
-          '为了持续运营服务，免费功能设有月度上限。阅读此提示并同意即可解锁额外使用。在未来版本中，此功能可能被可选的短视频奖励广告替换。',
+          '为了持续运营服务，免费方案功能设有月度上限。阅读此提示并同意即可解锁额外使用。正式发布后，此功能可能被可选奖励广告替换。',
       'reward_daily_limit_reached': '已达今日奖励上限（{daily} 次/天）。请明日再试。',
 
       // Force update
@@ -3366,7 +3406,18 @@ class AppLocalizations {
       'subscription_recommended': 'Empfohlen',
       'subscription_coming_soon': 'Abonnement-Funktion kommt bald.',
       'subscription_beta_notice':
-          'Kostenpflichtige Pläne sind während der Beta nicht verfügbar. Sie werden nach Ende der Beta verfügbar sein.',
+          'Während der Beta ist nur der kostenlose Plan verfügbar. Suche, Karten und Alarm-Auslösungen werden derzeit als Beta-Vorteil praktisch ohne monatliche Limits angeboten.',
+      'subscription_beta_free_price': 'Während der Beta verfügbar',
+      'subscription_beta_free_feature_alarm_30':
+          'Beta-Vorteil: Suche, Karten und Alarm-Auslösungen kostenlos großzügig nutzbar',
+      'subscription_beta_free_feature_relaxed':
+          'Wenn Nutzung oder Betriebskosten unerwartet steigen, können Fair-Use-Limits auch während der Beta eingeführt werden',
+      'subscription_beta_free_feature_no_paid':
+          'Während der Beta werden keine kostenpflichtigen Pläne angeboten',
+      'subscription_beta_free_feature_ads_future':
+          'Beim offiziellen Start können Plus/Pro-Pläne und Limits im kostenlosen Plan eingeführt werden',
+      'subscription_beta_free_footer':
+          'Nach dem offiziellen Start kann der kostenlose Plan Limits enthalten; Plus/Pro können höhere Kontingente und kostenpflichtige Vorteile bieten.',
       'subscription_per_month': '/ Monat',
       'subscription_policy': 'Abonnementrichtlinie',
       'subscription_refund_policy': 'Rückerstattungsrichtlinie',
@@ -3375,7 +3426,7 @@ class AppLocalizations {
           'Fair-Use-Richtlinie: max. 500 Kartenöffnungen pro Monat zur Missbrauchsprävention.',
       'subscription_map_opens_500': '500 Kartenöffnungen/Monat',
       'subscription_plan_desc_free':
-          '15 Alarm-Auslösungen/Mo · 100 Kartenöffnungen/Mo',
+          'Beta: Suche, Karten und Alarm-Auslösungen kostenlos offen',
       'subscription_plan_desc_plus':
           '100 Alarm-Auslösungen/Mo · 300 Kartenöffnungen/Mo · werbefrei',
       'subscription_plan_desc_pro':
@@ -3539,7 +3590,7 @@ class AppLocalizations {
       'subscribe_btn': 'Abonnieren',
       'auto_subscribe_btn': 'Automatisch abonnieren',
       'beta_no_paid_plans':
-          'Kostenpflichtige Pläne sind während der Beta nicht verfügbar. Sie werden nach Ende der Beta verfügbar sein.',
+          'Während der Beta ist nur der kostenlose Plan verfügbar.',
       'places_5': '5 Orte',
       'active_alarms_10': '10 aktive Alarme',
       'ad_free_included': 'Werbefrei inklusive',
@@ -3588,7 +3639,7 @@ class AppLocalizations {
       'map_free_limit_exceeded_body':
           'Sie haben alle {limit} Google Maps-Öffnungen diesen Monat verbraucht.\n\n'
           'OSM ist immer kostenlos verfügbar.\n'
-          'Upgraden Sie auf einen kostenpflichtigen Plan für unbegrenzten Zugang.',
+          'Nach dem offiziellen Start können kostenpflichtige Pläne höhere Limits bieten.',
       'map_switch_confirm_title': 'Zu Google Maps wechseln',
       'map_switch_confirm_body':
           'Der kostenlose Plan erlaubt {limit} Google Maps-Öffnungen pro Monat.\n\n'
@@ -4146,7 +4197,18 @@ class AppLocalizations {
       'subscription_recommended': 'Recommandé',
       'subscription_coming_soon': 'Fonction d\'abonnement bientôt disponible.',
       'subscription_beta_notice':
-          'Les plans payants ne sont pas disponibles pendant la bêta. Ils seront disponibles après la fin de la bêta.',
+          'Pendant la bêta, seul le plan gratuit est proposé. La recherche, les cartes et les déclenchements d\'alarme sont actuellement proposés sans limites mensuelles pratiques comme avantage bêta.',
+      'subscription_beta_free_price': 'Disponible pendant la bêta',
+      'subscription_beta_free_feature_alarm_30':
+          'Avantage bêta : recherche, cartes et alarmes largement disponibles gratuitement',
+      'subscription_beta_free_feature_relaxed':
+          'Si l\'usage ou les coûts augmentent plus que prévu, des limites d\'usage équitable peuvent être introduites pendant la bêta',
+      'subscription_beta_free_feature_no_paid':
+          'Aucun plan payant n\'est proposé pendant la bêta',
+      'subscription_beta_free_feature_ads_future':
+          'La version officielle pourra introduire des plans Plus/Pro et des limites pour le plan gratuit',
+      'subscription_beta_free_footer':
+          'Après le lancement officiel, le plan gratuit pourra inclure des limites; Plus/Pro pourront offrir des quotas plus élevés et des avantages payants.',
       'subscription_per_month': '/ mois',
       'subscription_policy': 'Politique d\'abonnement',
       'subscription_refund_policy': 'Politique de remboursement',
@@ -4155,7 +4217,7 @@ class AppLocalizations {
           'Politique d\'usage équitable : jusqu\'à 500 ouvertures de carte par mois pour prévenir les abus.',
       'subscription_map_opens_500': '500 ouvertures de carte/mois',
       'subscription_plan_desc_free':
-          '15 déclenchements/mois · 100 ouvertures de carte/mois',
+          'Bêta : recherche, cartes et alarmes disponibles gratuitement',
       'subscription_plan_desc_plus':
           '100 déclenchements/mois · 300 ouvertures de carte/mois · sans pub',
       'subscription_plan_desc_pro':
@@ -4322,7 +4384,7 @@ class AppLocalizations {
       'subscribe_btn': 'S\'abonner',
       'auto_subscribe_btn': 'Abonnement automatique',
       'beta_no_paid_plans':
-          'Les plans payants ne sont pas disponibles pendant la bêta. Ils seront disponibles après la fin de la bêta.',
+          'Pendant la bêta, seul le plan gratuit est disponible.',
       'places_5': '5 lieux',
       'active_alarms_10': '10 alarmes actives',
       'ad_free_included': 'Sans publicité inclus',
@@ -4371,7 +4433,7 @@ class AppLocalizations {
       'map_free_limit_exceeded_body':
           'Vous avez utilisé toutes les {limit} ouvertures Google Maps ce mois-ci.\n\n'
           'OSM est toujours disponible gratuitement.\n'
-          'Passez à un plan payant pour un accès illimité.',
+          'Après le lancement officiel, les plans payants pourront offrir des limites plus élevées.',
       'map_switch_confirm_title': 'Passer à Google Maps',
       'map_switch_confirm_body':
           'Le plan gratuit permet {limit} ouvertures Google Maps par mois.\n\n'
@@ -4924,7 +4986,18 @@ class AppLocalizations {
       'subscription_recommended': 'Recomendado',
       'subscription_coming_soon': 'Función de suscripción próximamente.',
       'subscription_beta_notice':
-          'Los planes de pago no están disponibles durante la beta. Estarán disponibles después de que termine la beta.',
+          'Durante la beta solo está disponible el plan gratuito. La búsqueda, los mapas y las activaciones de alarma se ofrecen actualmente sin límites mensuales prácticos como beneficio beta.',
+      'subscription_beta_free_price': 'Disponible durante la beta',
+      'subscription_beta_free_feature_alarm_30':
+          'Beneficio beta: búsqueda, mapas y alarmas ampliamente disponibles gratis',
+      'subscription_beta_free_feature_relaxed':
+          'Si el uso o los costes crecen más de lo previsto, pueden introducirse límites de uso justo durante la beta',
+      'subscription_beta_free_feature_no_paid':
+          'Durante la beta no se ofrecen planes de pago',
+      'subscription_beta_free_feature_ads_future':
+          'El lanzamiento oficial puede introducir planes Plus/Pro y límites en el plan gratuito',
+      'subscription_beta_free_footer':
+          'Tras el lanzamiento oficial, el plan gratuito puede incluir límites; Plus/Pro pueden ofrecer mayores cuotas y beneficios de pago.',
       'subscription_per_month': '/ mes',
       'subscription_policy': 'Política de suscripción',
       'subscription_refund_policy': 'Política de reembolso',
@@ -4933,7 +5006,7 @@ class AppLocalizations {
           'Política de uso justo: hasta 500 aperturas de mapa al mes para prevenir abusos.',
       'subscription_map_opens_500': '500 aperturas de mapa/mes',
       'subscription_plan_desc_free':
-          '15 activaciones de alarma/mes · 100 aperturas de mapa/mes',
+          'Beta: búsqueda, mapas y alarmas disponibles gratis',
       'subscription_plan_desc_plus':
           '100 activaciones/mes · 300 aperturas de mapa/mes · sin anuncios',
       'subscription_plan_desc_pro':
@@ -5101,7 +5174,7 @@ class AppLocalizations {
       'subscribe_btn': 'Suscribirse',
       'auto_subscribe_btn': 'Suscripción automática',
       'beta_no_paid_plans':
-          'Los planes de pago no están disponibles durante la beta. Estarán disponibles después de que termine la beta.',
+          'Durante la beta solo está disponible el plan gratuito.',
       'places_5': '5 lugares',
       'active_alarms_10': '10 alarmas activas',
       'ad_free_included': 'Sin anuncios incluido',
@@ -5150,7 +5223,7 @@ class AppLocalizations {
       'map_free_limit_exceeded_body':
           'Ha utilizado todas las {limit} aperturas de Google Maps este mes.\n\n'
           'OSM siempre está disponible de forma gratuita.\n'
-          'Actualice a un plan de pago para acceso ilimitado.',
+          'Tras el lanzamiento oficial, los planes de pago pueden ofrecer límites más altos.',
       'map_switch_confirm_title': 'Cambiar a Google Maps',
       'map_switch_confirm_body':
           'El plan gratuito permite {limit} aperturas de Google Maps por mes.\n\n'

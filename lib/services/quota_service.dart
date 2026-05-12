@@ -24,6 +24,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:ringinout/config/app_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ringinout/services/subscription_service.dart';
 
@@ -82,6 +83,16 @@ class QuotaService {
     final cap = _absoluteCap(category, plan);
     final used = await _getUsed(category);
     final rewards = await _getRewards(category);
+
+    if (AppConfig.isBetaVersion && plan == SubscriptionPlan.free) {
+      return QuotaCheck(
+        status: QuotaStatus.ok,
+        used: used,
+        baseLimit: base ?? cap,
+        absoluteCap: cap,
+        rewardCredits: rewards,
+      );
+    }
 
     // special 플랜: base가 null이면 무제한, 단 cap은 적용
     final effectiveBase = base ?? cap;

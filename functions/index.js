@@ -325,9 +325,10 @@ exports.incrementQuota = functions.https.onRequest(async (req, res) => {
         const plan = subSnap.exists ? (subSnap.data().plan || 'free') : 'free';
 
         // 플랜별 absolute cap (Flutter SubscriptionService와 동기화)
+        // 베타 기간에는 무료 플랜 검색/알람 제한을 내부 안전 상한 수준으로 완화한다.
         const CAPS = {
-            search: { free: 15, plus: 50, pro: 150, special: 100000 },
-            alarm: { free: 30, plus: 200, pro: 500, special: 100000 },
+            search: { free: 100000, plus: 50, pro: 150, special: 100000 },
+            alarm: { free: 100000, plus: 200, pro: 500, special: 100000 },
         };
         const cap = CAPS[category][plan] ?? CAPS[category].free;
 

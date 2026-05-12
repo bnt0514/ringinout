@@ -35,6 +35,7 @@ import 'package:ringinout/services/app_log_buffer.dart';
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/holiday_service.dart';
 import 'package:ringinout/services/quota_service.dart';
+import 'package:ringinout/services/wifi_service.dart';
 
 // ═══════════════════════════════════════════════════════════
 //  v3 상태 열거형
@@ -399,6 +400,12 @@ class LocationMonitorService {
       _log(
         '📡 [$placeId] GPS ENTER — Wi-Fi 등록 장소 → 상태 insideIdle, 알람은 Wi-Fi 연결 대기',
       );
+      _log(
+        '🔎 [$placeId] Wi-Fi 진단: 등록 ${wifiNetworks.length}개, '
+        'pending=${_pendingGpsEntryPlaces.contains(placeId)}, '
+        'timer=${_wifiWaitTimers.containsKey(placeId)}, '
+        'trackedConnected=${_wifiConnectedPlaceIds.contains(placeId)}',
+      );
       _setStatesForAlarms(alarmIds, PlaceState.insideIdle);
 
       // ★ pendingGpsEntry 기록 → Wi-Fi ENTER 시 insideIdle이어도 알람 발동 허용
@@ -426,6 +433,12 @@ class LocationMonitorService {
     }
 
     final currentState = _getAggregatePlaceState(alarmIds);
+    _log(
+      '🔎 [$placeId] GPS EXIT 진단: state=${currentState.name}, '
+      'pending=${_pendingGpsEntryPlaces.contains(placeId)}, '
+      'timer=${_wifiWaitTimers.containsKey(placeId)}, '
+      'trackedConnected=${_wifiConnectedPlaceIds.contains(placeId)}',
+    );
 
     if (currentState == PlaceState.outside) {
       _log('⏭️ [$placeId] 이미 OUTSIDE — EXIT 무시');
@@ -456,12 +469,24 @@ class LocationMonitorService {
   /// Wi-Fi 기반 장소 진입/진출 이벤트
   /// GPS 지오펜스와 동일한 경로로 처리 — 6-gate validation이 중복 알람을 방지
   void onWifiEvent(String placeId, bool isEnter) {
-    if (!_isRunning) return;
+    if (!_isRunning) {
+      _log(
+        '🔴 Wi-Fi 이벤트 수신: $placeId (${isEnter ? "ENTER" : "EXIT"}) — 그러나 _isRunning=false → 이벤트 드롭!',
+      );
+      return;
+    }
 
     _log('📶 Wi-Fi: $placeId ${isEnter ? "ENTER" : "EXIT"}');
 
     final activeAlarms = HiveHelper.getActiveAlarmsForMonitoring();
     final alarmIds = _getAlarmIdsForPlace(placeId, activeAlarms);
+    _log(
+      '🔎 [$placeId] Wi-Fi 이벤트 진단: activeAlarms=${activeAlarms.length}, '
+      'matchedAlarms=${alarmIds.length}, '
+      'pending=${_pendingGpsEntryPlaces.contains(placeId)}, '
+      'timer=${_wifiWaitTimers.containsKey(placeId)}, '
+      'trackedConnected=${_wifiConnectedPlaceIds.contains(placeId)}',
+    );
 
     if (alarmIds.isEmpty) {
       _log('⚠️ Wi-Fi placeId "$placeId" 에 연결된 활성 알람 없음');
@@ -722,6 +747,11 @@ class LocationMonitorService {
     // ★ Wi-Fi 연결 상태 추적 (GPS EXIT 방어용)
     _wifiConnectedPlaceIds.add(placeId);
     _log('📶 [$placeId] Wi-Fi 연결 추적 등록 (총 ${_wifiConnectedPlaceIds.length}개)');
+    _log(
+      '🔎 [$placeId] Wi-Fi ENTER 처리 전: state=${_getAggregatePlaceState(alarmIds).name}, '
+      'pending=${_pendingGpsEntryPlaces.contains(placeId)}, '
+      'timer=${_wifiWaitTimers.containsKey(placeId)}',
+    );
 
     // Init Guard 체크 (GPS와 동일)
     if (_initGuardUntil != null && DateTime.now().isBefore(_initGuardUntil!)) {
@@ -768,6 +798,11 @@ class LocationMonitorService {
     // ★ Wi-Fi 연결 해제 추적
     _wifiConnectedPlaceIds.remove(placeId);
     _log('📶 [$placeId] Wi-Fi 연결 추적 해제 (남은 ${_wifiConnectedPlaceIds.length}개)');
+    _log(
+      '🔎 [$placeId] Wi-Fi EXIT 처리 전: state=${_getAggregatePlaceState(alarmIds).name}, '
+      'pending=${_pendingGpsEntryPlaces.contains(placeId)}, '
+      'timer=${_wifiWaitTimers.containsKey(placeId)}',
+    );
 
     final currentState = _getAggregatePlaceState(alarmIds);
 
@@ -2040,7 +2075,11 @@ class LocationMonitorService {
   void _startWifiWaitTimer(String placeId) {
     _cancelWifiWaitTimer(placeId); // 기존 타이머 취소
 
-    _log('⏱️ [$placeId] Wi-Fi 대기 타이머 시작 (15분)');
+    _log(
+      '⏱️ [$placeId] Wi-Fi 대기 타이머 시작 (15분) '
+      'pending=${_pendingGpsEntryPlaces.contains(placeId)}, '
+      'trackedConnected=${_wifiConnectedPlaceIds.contains(placeId)}',
+    );
     _wifiWaitTimers[placeId] = Timer(
       const Duration(minutes: 15),
       () => _onWifiWaitTimeout(placeId),
@@ -2052,6 +2091,8 @@ class LocationMonitorService {
     if (timer != null) {
       timer.cancel();
       _log('⏱️ [$placeId] Wi-Fi 대기 타이머 취소');
+    } else {
+      _log('🔎 [$placeId] Wi-Fi 대기 타이머 취소 요청 — 활성 타이머 없음');
     }
   }
 
@@ -2066,6 +2107,7 @@ class LocationMonitorService {
     }
 
     _log('⏱️ [$placeId] Wi-Fi 대기 15분 만료 — GPS 위치 재확인');
+    await _logWifiTimeoutDiagnostic(placeId);
 
     try {
       final position = await _getPosition(timeout: const Duration(seconds: 10));
@@ -2117,6 +2159,49 @@ class LocationMonitorService {
       _log('⏱️ [$placeId] Wi-Fi 대기 GPS 확인 실패: $e');
       _pendingGpsEntryPlaces.remove(placeId);
     }
+  }
+
+  /// Wi-Fi 대기 타임아웃 시점에 현재 연결 Wi-Fi와 등록 Wi-Fi의 일치 여부만 기록한다.
+  /// 알람 발동/상태 변경에는 관여하지 않는 순수 진단용 로그다.
+  Future<void> _logWifiTimeoutDiagnostic(String placeId) async {
+    try {
+      final registeredNetworks = HiveHelper.getWifiNetworksForPlace(placeId);
+      final connected = await WifiService.getConnectedWifi();
+      if (connected == null) {
+        _log(
+          '🔎 [$placeId] Wi-Fi 타임아웃 진단: 현재 연결 Wi-Fi 없음, '
+          'registered=${registeredNetworks.length}, '
+          'trackedConnected=${_wifiConnectedPlaceIds.contains(placeId)}',
+        );
+        return;
+      }
+
+      final connectedBssid = (connected['bssid'] ?? '').toLowerCase();
+      final connectedSsid = (connected['ssid'] ?? '').toLowerCase();
+      final bssidMatched = registeredNetworks.any((net) {
+        final bssid = (net['bssid'] ?? '').toString().toLowerCase();
+        return bssid.isNotEmpty && bssid == connectedBssid;
+      });
+      final ssidMatched = registeredNetworks.any((net) {
+        final ssid = (net['ssid'] ?? '').toString().toLowerCase();
+        return ssid.isNotEmpty && ssid == connectedSsid;
+      });
+
+      _log(
+        '🔎 [$placeId] Wi-Fi 타임아웃 진단: connectedSsidLen=${connectedSsid.length}, '
+        'connectedBssid=${_maskBssid(connectedBssid)}, '
+        'registered=${registeredNetworks.length}, '
+        'bssidMatched=$bssidMatched, ssidMatched=$ssidMatched, '
+        'trackedConnected=${_wifiConnectedPlaceIds.contains(placeId)}',
+      );
+    } catch (e) {
+      _log('🔎 [$placeId] Wi-Fi 타임아웃 진단 실패: $e');
+    }
+  }
+
+  String _maskBssid(String bssid) {
+    if (bssid.length < 5) return 'unknown';
+    return '***${bssid.substring(bssid.length - 5)}';
   }
 
   // ═══════════════════════════════════════════════════════════

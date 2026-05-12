@@ -136,35 +136,18 @@ class _ServerSubscriptionViewState extends State<_ServerSubscriptionView> {
               ),
               const SizedBox(height: 16),
 
-              // Plus 플랜 (가격 추후 안내)
+              // 베타 기간에는 무료 플랜만 제공
               _PlanCard(
-                title: 'Plus',
-                price: l10n.get('subscription_price_tbd'),
+                title: l10n.get('subscription_free_plan'),
+                price: l10n.get('subscription_beta_free_price'),
                 features: [
-                  l10n.getWithArgs('subscription_places_n', {'n': '5'}),
-                  l10n.getWithArgs('subscription_alarms_n', {'n': '10'}),
-                  l10n.get('subscription_map_opens_50'),
-                  l10n.get('subscription_no_ads'),
+                  l10n.get('subscription_beta_free_feature_alarm_30'),
+                  l10n.get('subscription_beta_free_feature_relaxed'),
+                  l10n.get('subscription_beta_free_feature_no_paid'),
+                  l10n.get('subscription_beta_free_feature_ads_future'),
                 ],
-                isCurrentPlan: plan == SubscriptionPlan.plus,
-                l10n: l10n,
-                onTap: () => _showComingSoon(context),
-              ),
-              const SizedBox(height: 12),
-              // Pro 플랜 (가격 추후 안내 + 공정 사용 정책)
-              _PlanCard(
-                title: 'Pro',
-                price: l10n.get('subscription_price_tbd'),
-                features: [
-                  l10n.get('subscription_places_unlimited'),
-                  l10n.get('subscription_alarms_unlimited'),
-                  l10n.get('subscription_map_opens_500'),
-                  l10n.get('subscription_no_ads'),
-                ],
-                footerNote: l10n.get('subscription_pro_fair_use'),
-                isCurrentPlan:
-                    plan == SubscriptionPlan.pro ||
-                    plan == SubscriptionPlan.special,
+                footerNote: l10n.get('subscription_beta_free_footer'),
+                isCurrentPlan: plan == SubscriptionPlan.free,
                 recommended: true,
                 l10n: l10n,
                 onTap: () => _showComingSoon(context),
@@ -252,35 +235,16 @@ class _ServerSubscriptionViewState extends State<_ServerSubscriptionView> {
                     ),
                     const SizedBox(height: 16),
                     _PlanCard(
-                      title: 'Plus',
-                      price: l10n.get('subscription_price_tbd'),
+                      title: l10n.get('subscription_free_plan'),
+                      price: l10n.get('subscription_beta_free_price'),
                       features: [
-                        l10n.getWithArgs('subscription_places_n', {'n': '5'}),
-                        l10n.getWithArgs('subscription_alarms_n', {'n': '10'}),
-                        l10n.get('subscription_map_opens_50'),
-                        l10n.get('subscription_no_ads'),
+                        l10n.get('subscription_beta_free_feature_alarm_30'),
+                        l10n.get('subscription_beta_free_feature_relaxed'),
+                        l10n.get('subscription_beta_free_feature_no_paid'),
+                        l10n.get('subscription_beta_free_feature_ads_future'),
                       ],
-                      isCurrentPlan: currentPlan == SubscriptionPlan.plus,
-                      l10n: l10n,
-                      onTap: () {
-                        Navigator.of(ctx).pop();
-                        _showComingSoon(context);
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    _PlanCard(
-                      title: 'Pro',
-                      price: l10n.get('subscription_price_tbd'),
-                      features: [
-                        l10n.get('subscription_places_unlimited'),
-                        l10n.get('subscription_alarms_unlimited'),
-                        l10n.get('subscription_map_opens_500'),
-                        l10n.get('subscription_no_ads'),
-                      ],
-                      footerNote: l10n.get('subscription_pro_fair_use'),
-                      isCurrentPlan:
-                          currentPlan == SubscriptionPlan.pro ||
-                          currentPlan == SubscriptionPlan.special,
+                      footerNote: l10n.get('subscription_beta_free_footer'),
+                      isCurrentPlan: currentPlan == SubscriptionPlan.free,
                       recommended: true,
                       l10n: l10n,
                       onTap: () {
