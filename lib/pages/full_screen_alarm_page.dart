@@ -303,8 +303,8 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
     int? selectedMinutes = await showDialog<int>(
       context: context,
       barrierDismissible: true,
-      builder: (context) {
-        final l10n = AppLocalizations.of(context);
+      builder: (ctx) {
+        final l10n = AppLocalizations.of(ctx);
         return AlertDialog(
           title: Text(l10n.get('snooze_time_title')),
           content: Column(
@@ -313,8 +313,19 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
               ...[1, 3, 5, 10, 30].map(
                 (m) => ListTile(
                   title: Text(l10n.getWithArgs('snooze_min', {'m': '$m'})),
-                  onTap: () => Navigator.pop(context, m),
+                  onTap: () => Navigator.pop(ctx, m),
                 ),
+              ),
+              ListTile(
+                title: Text(l10n.get('snooze_min_custom')),
+                trailing: const Icon(Icons.edit, size: 18),
+                onTap: () async {
+                  final custom = await _showCustomSnoozeDialog();
+                  if (custom != null && custom > 0) {
+                    if (!ctx.mounted) return;
+                    Navigator.pop(ctx, custom);
+                  }
+                },
               ),
             ],
           ),
@@ -775,6 +786,45 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
   }
 
   /// 직접 입력 다이얼로그 (1~720분)
+  Future<int?> _showCustomSnoozeDialog() async {
+    final l10n = AppLocalizations.of(context);
+    final controller = TextEditingController();
+    return showDialog<int>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text(l10n.get('snooze_custom_title')),
+          content: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: l10n.get('snooze_custom_hint'),
+              suffixText: l10n.get('pause_custom_unit'),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, null),
+              child: Text(l10n.get('cancel_btn')),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final v = int.tryParse(controller.text.trim());
+                if (v == null || v <= 0 || v > 720) {
+                  Navigator.pop(ctx, null);
+                  return;
+                }
+                Navigator.pop(ctx, v);
+              },
+              child: Text(l10n.get('confirm')),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<int?> _showCustomPauseDialog() async {
     final l10n = AppLocalizations.of(context);
     final controller = TextEditingController();

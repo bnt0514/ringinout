@@ -541,8 +541,8 @@ class AlarmFullscreenActivity : Activity() {
 
     private fun showSnoozeOptions() {
         // 스누즈 시간 선택 다이얼로그
-        val options = arrayOf("1분 후", "3분 후", "5분 후", "10분 후", "30분 후")
-        val minutes = arrayOf(1, 3, 5, 10, 30)
+        val options = arrayOf("1분 후", "3분 후", "5분 후", "10분 후", "30분 후", "직접 입력...")
+        val minutes = arrayOf(1, 3, 5, 10, 30, -1)
 
         val builder =
                 android.app.AlertDialog.Builder(
@@ -552,12 +552,17 @@ class AlarmFullscreenActivity : Activity() {
         builder.setTitle("다시 울림 시간 선택")
         builder.setItems(options) { dialog, which ->
             val selectedMinutes = minutes[which]
-            scheduleSnooze(selectedMinutes)
-            // ✅ 큐에 대기 중인 알람이 있으면 다음 알람으로 전환
-            if (pendingAlarms.isNotEmpty()) {
-                showNextQueuedAlarm()
+            if (selectedMinutes == -1) {
+                // 직접 입력
+                showCustomSnoozeInput()
             } else {
-                stopAlarmAndGoHome()
+                scheduleSnooze(selectedMinutes)
+                // ✅ 큐에 대기 중인 알람이 있으면 다음 알람으로 전환
+                if (pendingAlarms.isNotEmpty()) {
+                    showNextQueuedAlarm()
+                } else {
+                    stopAlarmAndGoHome()
+                }
             }
         }
         // ✅ 취소 버튼 추가 — 알람 화면으로 돌아감
@@ -571,6 +576,45 @@ class AlarmFullscreenActivity : Activity() {
         }
         builder.setCancelable(false) // ✅ 바깥 터치로 닫기 방지 (취소 버튼으로만 닫기)
         builder.show()
+    }
+
+    private fun showCustomSnoozeInput() {
+        val editText = android.widget.EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            hint = "분 입력 (1~720)"
+            setPadding(40, 24, 40, 24)
+        }
+        val dialog = android.app.AlertDialog.Builder(
+                this,
+                android.R.style.Theme_DeviceDefault_Dialog_Alert
+        )
+                .setTitle("직접 입력")
+                .setView(editText)
+                .setPositiveButton("확인") { _, _ ->
+                    val v = editText.text.toString().toIntOrNull()
+                    if (v != null && v in 1..720) {
+                        scheduleSnooze(v)
+                        if (pendingAlarms.isNotEmpty()) {
+                            showNextQueuedAlarm()
+                        } else {
+                            stopAlarmAndGoHome()
+                        }
+                    } else {
+                        // 잘못된 값 → 다시 옵션 표시
+                        showSnoozeOptions()
+                    }
+                }
+                .setNegativeButton("취소") { _, _ ->
+                    // 취소 → 원래 목록으로 복귀
+                    showSnoozeOptions()
+                }
+                .create()
+        dialog.show()
+        // 키보드 자동 열기
+        editText.requestFocus()
+        dialog.window?.setSoftInputMode(
+                android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE
+        )
     }
 
     private fun scheduleSnooze(minutes: Int) {

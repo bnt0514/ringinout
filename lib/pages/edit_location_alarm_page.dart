@@ -8,6 +8,8 @@ import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/location_monitor_service.dart'; // ✅ Heartbeat 전송용
 import 'package:ringinout/services/smart_location_monitor.dart'; // ✅ Flutter LMS + 네이티브 동시 갱신
 import 'package:ringinout/widgets/false_trigger_info_tile.dart';
+import 'package:ringinout/utils/alarm_activation_notice.dart';
+import 'package:ringinout/utils/alarm_detection_mode.dart';
 
 class EditLocationAlarmPage extends StatefulWidget {
   final int? alarmIndex;
@@ -36,6 +38,7 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
   String alarmSound = 'default';
   bool alarmSoundEnabled = true;
   bool vibrationEnabled = true;
+  String detectionMode = AlarmDetectionMode.gps;
 
   List<String> _getWeekdays(AppLocalizations l10n) => [
     'sun',
@@ -120,6 +123,11 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
 
     // 장소 목록 로드
     _loadPlaces(alarmData['place']);
+    detectionMode = AlarmDetectionMode.resolve(
+      alarmData,
+      place: selectedPlace,
+      places: places,
+    );
   }
 
   @override
@@ -168,6 +176,120 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
         if (triggerOnExit) triggerOnEntry = false;
       }
     });
+  }
+
+  bool get _selectedPlaceHasWifi =>
+      AlarmDetectionMode.placeHasWifi(selectedPlace);
+
+  void _selectDetectionMode(String mode) {
+    if (mode == AlarmDetectionMode.wifi && !_selectedPlaceHasWifi) return;
+    setState(() => detectionMode = mode);
+  }
+
+  Widget _buildDetectionModeSelector() {
+    final l10n = AppLocalizations.of(context);
+    final wifiEnabled = _selectedPlaceHasWifi;
+    if (!wifiEnabled && detectionMode == AlarmDetectionMode.wifi) {
+      detectionMode = AlarmDetectionMode.gps;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.get('detection_mode_title'),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildDetectionModeTile(
+                title: l10n.get('detection_mode_gps'),
+                subtitle: l10n.get('detection_mode_gps_desc'),
+                icon: Icons.gps_fixed,
+                selected: detectionMode == AlarmDetectionMode.gps,
+                enabled: true,
+                onTap: () => _selectDetectionMode(AlarmDetectionMode.gps),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildDetectionModeTile(
+                title: l10n.get('detection_mode_wifi'),
+                subtitle:
+                    wifiEnabled
+                        ? l10n.get('detection_mode_wifi_desc')
+                        : l10n.get('detection_mode_wifi_disabled'),
+                icon: Icons.wifi,
+                selected: detectionMode == AlarmDetectionMode.wifi,
+                enabled: wifiEnabled,
+                onTap: () => _selectDetectionMode(AlarmDetectionMode.wifi),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetectionModeTile({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required bool selected,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    final color =
+        !enabled
+            ? AppColors.divider
+            : selected
+            ? AppColors.primary
+            : AppColors.textSecondary;
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color:
+              selected
+                  ? AppColors.primary.withValues(alpha: 0.08)
+                  : AppColors.card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? AppColors.primary : AppColors.divider,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: color, size: 18),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(fontWeight: FontWeight.w600, color: color),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              style: TextStyle(fontSize: 11, color: color, height: 1.25),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   String getSelectedDaySummary() {
@@ -410,6 +532,9 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
               onChanged: (place) {
                 setState(() {
                   selectedPlace = place;
+                  if (!AlarmDetectionMode.placeHasWifi(place)) {
+                    detectionMode = AlarmDetectionMode.gps;
+                  }
                 });
                 print('📍 장소 변경: ${place?['name']}');
               },
@@ -427,6 +552,8 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
                 return null;
               },
             ),
+            const SizedBox(height: 20),
+            _buildDetectionModeSelector(),
             const SizedBox(height: 20),
             _buildToggleRow(
               AppLocalizations.of(context).get('alarm_on_entry_label'),
@@ -821,6 +948,10 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
                                   'place': selectedPlace?['name'] ?? '',
                                   'placeId': selectedPlace?['id']?.toString(),
                                   'trigger': triggerOnEntry ? 'entry' : 'exit',
+                                  'detectionMode': AlarmDetectionMode.forSave(
+                                    detectionMode,
+                                    selectedPlace,
+                                  ),
                                   'repeat':
                                       selectedDate != null
                                           ? selectedDate!.toIso8601String()
@@ -858,10 +989,16 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
                                 );
                                 print('✅ 알람 업데이트 완료: ${updatedAlarm['name']}');
 
+                                if (!context.mounted) return;
+                                await AlarmActivationNotice.showIfNeeded(
+                                  context,
+                                  updatedAlarm,
+                                  selectedPlace,
+                                );
+
                                 // ✅ 저장 즉시 화면 이탈 (UX 개선)
-                                if (mounted) {
-                                  Navigator.pop(context);
-                                }
+                                if (!context.mounted) return;
+                                Navigator.pop(context);
 
                                 // ✅ 백그라운드에서 서비스 업데이트 (화면 이탈 후 처리)
                                 // Flutter LMS + 네이티브 지오펜스 동시 갱신

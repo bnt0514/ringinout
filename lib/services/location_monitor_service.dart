@@ -36,6 +36,7 @@ import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/holiday_service.dart';
 import 'package:ringinout/services/quota_service.dart';
 import 'package:ringinout/services/wifi_service.dart';
+import 'package:ringinout/utils/alarm_detection_mode.dart';
 
 // ═══════════════════════════════════════════════════════════
 //  v3 상태 열거형
@@ -335,6 +336,41 @@ class LocationMonitorService {
         .toList();
   }
 
+  List<String> _getAlarmIdsForPlaceByMode(
+    String placeId,
+    List<Map<String, dynamic>> activeAlarms,
+    String detectionMode,
+  ) {
+    final places = HiveHelper.getSavedLocations();
+    return activeAlarms
+        .where((alarm) {
+          final alarmId = alarm['id']?.toString();
+          if (alarmId == null || alarmId.isEmpty) return false;
+          if (!_alarmMatchesPlace(placeId, alarm)) return false;
+          final place = AlarmDetectionMode.findPlaceForAlarm(alarm, places);
+          return AlarmDetectionMode.resolve(
+                alarm,
+                place: place,
+                places: places,
+              ) ==
+              detectionMode;
+        })
+        .map((alarm) => alarm['id'].toString())
+        .toList();
+  }
+
+  bool _alarmMatchesPlace(String placeId, Map<String, dynamic> alarm) {
+    final alarmPlaceId = alarm['placeId']?.toString();
+    if (alarmPlaceId != null && alarmPlaceId.isNotEmpty) {
+      return alarmPlaceId == placeId;
+    }
+
+    final alarmPlaceName =
+        (alarm['place'] ?? alarm['locationName'])?.toString();
+    final fallbackPlaceName = _getSavedPlaceName(placeId);
+    return fallbackPlaceName != null && alarmPlaceName == fallbackPlaceName;
+  }
+
   String? _getSavedPlaceName(String placeId) {
     try {
       final places = HiveHelper.getSavedLocations();
@@ -377,10 +413,29 @@ class LocationMonitorService {
       return;
     }
 
+    final activeAlarms = HiveHelper.getActiveAlarmsForMonitoring();
+    final gpsAlarmIds = _getAlarmIdsForPlaceByMode(
+      placeId,
+      activeAlarms,
+      AlarmDetectionMode.gps,
+    );
+    final wifiAlarmIds = _getAlarmIdsForPlaceByMode(
+      placeId,
+      activeAlarms,
+      AlarmDetectionMode.wifi,
+    );
     final currentState = _getAggregatePlaceState(alarmIds);
+    final gpsState =
+        gpsAlarmIds.isEmpty
+            ? PlaceState.insideIdle
+            : _getAggregatePlaceState(gpsAlarmIds);
+    final wifiState =
+        wifiAlarmIds.isEmpty
+            ? PlaceState.insideIdle
+            : _getAggregatePlaceState(wifiAlarmIds);
 
-    if (currentState == PlaceState.insideIdle ||
-        currentState == PlaceState.insideMoving) {
+    if ((gpsAlarmIds.isEmpty || gpsState != PlaceState.outside) &&
+        (wifiAlarmIds.isEmpty || wifiState != PlaceState.outside)) {
       // 이미 INSIDE 계열 → ENTER 무시
       if (currentState == PlaceState.insideMoving) {
         // INSIDE_MOVING 중에 다시 ENTER 수신 → 아직 안 나감 → IDLE로 안정화
@@ -394,11 +449,11 @@ class LocationMonitorService {
     }
 
     // OUTSIDE → ENTER
-    // Wi-Fi가 등록된 장소면: 상태만 insideIdle로 변경, 알람은 Wi-Fi 연결 확인 후 발동
+    // GPS 알람은 즉시 발동, Wi-Fi 알람은 Wi-Fi 연결 확인 후 발동
     final wifiNetworks = HiveHelper.getWifiNetworksForPlace(placeId);
-    if (wifiNetworks.isNotEmpty) {
+    if (wifiAlarmIds.isNotEmpty && wifiNetworks.isNotEmpty) {
       _log(
-        '📡 [$placeId] GPS ENTER — Wi-Fi 등록 장소 → 상태 insideIdle, 알람은 Wi-Fi 연결 대기',
+        '📡 [$placeId] GPS ENTER — GPS알람=${gpsAlarmIds.length}, Wi-Fi알람=${wifiAlarmIds.length} → Wi-Fi 알람은 연결 대기',
       );
       _log(
         '🔎 [$placeId] Wi-Fi 진단: 등록 ${wifiNetworks.length}개, '
@@ -406,7 +461,12 @@ class LocationMonitorService {
         'timer=${_wifiWaitTimers.containsKey(placeId)}, '
         'trackedConnected=${_wifiConnectedPlaceIds.contains(placeId)}',
       );
-      _setStatesForAlarms(alarmIds, PlaceState.insideIdle);
+      if (gpsAlarmIds.isNotEmpty) {
+        _setStatesForAlarms(gpsAlarmIds, PlaceState.insideIdle);
+        _processEntryAlarm(placeId, detectionMode: AlarmDetectionMode.gps);
+      }
+
+      _setStatesForAlarms(wifiAlarmIds, PlaceState.insideIdle);
 
       // ★ pendingGpsEntry 기록 → Wi-Fi ENTER 시 insideIdle이어도 알람 발동 허용
       _pendingGpsEntryPlaces.add(placeId);
@@ -417,10 +477,12 @@ class LocationMonitorService {
       return;
     }
 
-    // Wi-Fi 미등록 장소: 즉시 알람!
-    _log('🎯 [$placeId] OUTSIDE → ENTER → 즉시 알람! (Wi-Fi 미등록)');
+    // Wi-Fi 미등록/대상 없음: GPS 알람만 즉시 알람
+    _log(
+      '🎯 [$placeId] OUTSIDE → ENTER → GPS 알람 즉시 처리 (${gpsAlarmIds.length}개)',
+    );
     _setStatesForAlarms(alarmIds, PlaceState.insideIdle);
-    _processEntryAlarm(placeId);
+    _processEntryAlarm(placeId, detectionMode: AlarmDetectionMode.gps);
   }
 
   // ─── EXIT 처리 ───
@@ -445,21 +507,24 @@ class LocationMonitorService {
       return;
     }
 
-    // ★ Wi-Fi 연결 중이면 GPS EXIT 무시 (Wi-Fi 절대 우선)
-    if (_wifiConnectedPlaceIds.contains(placeId)) {
-      _log(
-        '🛡️📶 [$placeId] GPS 지오펜스 EXIT 수신 — 그러나 Wi-Fi 연결 중 → EXIT 무시! '
-        '(Wi-Fi 우선 정책)',
-      );
+    final activeAlarms = HiveHelper.getActiveAlarmsForMonitoring();
+    final gpsAlarmIds = _getAlarmIdsForPlaceByMode(
+      placeId,
+      activeAlarms,
+      AlarmDetectionMode.gps,
+    );
+
+    if (gpsAlarmIds.isEmpty) {
+      _log('⏭️ [$placeId] GPS EXIT — GPS 모드 알람 없음, Wi-Fi 알람 상태 유지');
       return;
     }
 
     // INSIDE_IDLE 또는 INSIDE_MOVING → 지오펜스 EXIT 수신
     // 즉시 EXIT 알람 + OUTSIDE 전환
     _log('🎯 [$placeId] ${currentState.name} → 지오펜스 EXIT → 즉시 진출 처리!');
-    _setStatesForAlarms(alarmIds, PlaceState.outside);
+    _setStatesForAlarms(gpsAlarmIds, PlaceState.outside);
     _evaluateMovingGpsNeed();
-    _processExitAlarm(placeId);
+    _processExitAlarm(placeId, detectionMode: AlarmDetectionMode.gps);
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -479,10 +544,14 @@ class LocationMonitorService {
     _log('📶 Wi-Fi: $placeId ${isEnter ? "ENTER" : "EXIT"}');
 
     final activeAlarms = HiveHelper.getActiveAlarmsForMonitoring();
-    final alarmIds = _getAlarmIdsForPlace(placeId, activeAlarms);
+    final alarmIds = _getAlarmIdsForPlaceByMode(
+      placeId,
+      activeAlarms,
+      AlarmDetectionMode.wifi,
+    );
     _log(
       '🔎 [$placeId] Wi-Fi 이벤트 진단: activeAlarms=${activeAlarms.length}, '
-      'matchedAlarms=${alarmIds.length}, '
+      'matchedWifiAlarms=${alarmIds.length}, '
       'pending=${_pendingGpsEntryPlaces.contains(placeId)}, '
       'timer=${_wifiWaitTimers.containsKey(placeId)}, '
       'trackedConnected=${_wifiConnectedPlaceIds.contains(placeId)}',
@@ -773,7 +842,7 @@ class LocationMonitorService {
         _log(
           '📶 [$placeId] Wi-Fi ENTER — GPS 대기 해소! (${currentState.name}) → 진입 알람 발동',
         );
-        _processEntryAlarm(placeId);
+        _processEntryAlarm(placeId, detectionMode: AlarmDetectionMode.wifi);
         return;
       }
       // 일반적인 INSIDE 상태 (Wi-Fi 끊겼다 재연결 등) → 알람 없음
@@ -789,7 +858,7 @@ class LocationMonitorService {
     // ★ 타이머/pending 정리는 _triggerAlarm 에서 알람 실제 발동 후 수행
     _log('📶 [$placeId] Wi-Fi ENTER (OUTSIDE→INSIDE_IDLE) — 진입 알람 gate 체크 위임');
     _setStatesForAlarms(alarmIds, PlaceState.insideIdle);
-    _processEntryAlarm(placeId);
+    _processEntryAlarm(placeId, detectionMode: AlarmDetectionMode.wifi);
   }
 
   // ─── Wi-Fi EXIT 처리 ───
@@ -815,7 +884,7 @@ class LocationMonitorService {
     _log('🎯 [$placeId] Wi-Fi EXIT → 즉시 진출 처리!');
     _setStatesForAlarms(alarmIds, PlaceState.outside);
     _evaluateMovingGpsNeed();
-    _processExitAlarm(placeId);
+    _processExitAlarm(placeId, detectionMode: AlarmDetectionMode.wifi);
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -1034,7 +1103,10 @@ class LocationMonitorService {
   //  ENTER 알람 즉시 처리
   // ═══════════════════════════════════════════════════════════
 
-  Future<void> _processEntryAlarm(String placeId) async {
+  Future<void> _processEntryAlarm(
+    String placeId, {
+    String? detectionMode,
+  }) async {
     final activeAlarms = await _getActiveAlarms();
     final placeInfo = await _getPlaceInfo(placeId);
     final placeName = placeInfo?['name'] as String?;
@@ -1058,6 +1130,11 @@ class LocationMonitorService {
           final alarmPlace = alarm['place'] ?? alarm['locationName'];
           final trigger = alarm['trigger'] ?? 'entry';
           if (trigger != 'entry') return false;
+          if (detectionMode != null &&
+              AlarmDetectionMode.resolve(alarm, place: placeInfo) !=
+                  detectionMode) {
+            return false;
+          }
           // ★ 원래 placeId와 실제 장소 UUID 양쪽으로 매칭
           return alarmPlaceId == placeId ||
               alarmPlaceId == resolvedPlaceId ||
@@ -1082,7 +1159,9 @@ class LocationMonitorService {
         continue;
       }
 
-      _log('🚨 [$placeName] ENTRY 알람 트리거!');
+      _log(
+        '🚨 [$placeName] ENTRY 알람 트리거! mode=${AlarmDetectionMode.resolve(alarm, place: placeInfo)}',
+      );
       await _triggerAlarm(
         Map<String, dynamic>.from(alarm),
         'entry',
@@ -1095,7 +1174,10 @@ class LocationMonitorService {
   //  EXIT 알람 처리
   // ═══════════════════════════════════════════════════════════
 
-  Future<void> _processExitAlarm(String placeId) async {
+  Future<void> _processExitAlarm(
+    String placeId, {
+    String? detectionMode,
+  }) async {
     final activeAlarms = await _getActiveAlarms();
     final placeInfo = await _getPlaceInfo(placeId);
     final placeName = placeInfo?['name'] as String?;
@@ -1113,6 +1195,11 @@ class LocationMonitorService {
           final alarmPlace = alarm['place'] ?? alarm['locationName'];
           final trigger = alarm['trigger'] ?? 'entry';
           if (trigger != 'exit') return false;
+          if (detectionMode != null &&
+              AlarmDetectionMode.resolve(alarm, place: placeInfo) !=
+                  detectionMode) {
+            return false;
+          }
           // ★ 원래 placeId와 실제 장소 UUID 양쪽으로 매칭
           return alarmPlaceId == placeId ||
               alarmPlaceId == resolvedPlaceId ||
@@ -1137,7 +1224,9 @@ class LocationMonitorService {
         continue;
       }
 
-      _log('🚨 [$placeName] EXIT 알람 트리거!');
+      _log(
+        '🚨 [$placeName] EXIT 알람 트리거! mode=${AlarmDetectionMode.resolve(alarm, place: placeInfo)}',
+      );
       await _triggerAlarm(
         Map<String, dynamic>.from(alarm),
         'exit',
@@ -1606,13 +1695,16 @@ class LocationMonitorService {
     }
 
     // ★ 알람 실제 발동 확인 → Wi-Fi 대기 타이머 + pending GPS 정리
-    //   WiFi ENTER 시점이 아닌, 알람이 진짜 울린 후에만 정리하여
-    //   WiFi 연결됐지만 gate에 의해 알람 미발동 시 15분 GPS 보조가 살아남음
+    //   ★ Wi-Fi 모드 알람이 울렸을 때만 정리!
+    //     GPS 모드 알람이 울려도 pending/timer는 건드리지 않음.
+    //     (GPS 알람이 먼저 울렸을 때 Wi-Fi 알람 대기가 소멸되던 버그 수정)
     {
       final triggerPlaceId = alarmData['placeId']?.toString();
-      if (triggerPlaceId != null) {
+      final resolvedMode = AlarmDetectionMode.resolve(alarmData);
+      if (triggerPlaceId != null && resolvedMode == AlarmDetectionMode.wifi) {
         _pendingGpsEntryPlaces.remove(triggerPlaceId);
         _cancelWifiWaitTimer(triggerPlaceId);
+        _log('📶 [$triggerPlaceId] Wi-Fi 알람 발동 → pending/timer 정리');
       }
     }
 

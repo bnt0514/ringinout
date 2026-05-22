@@ -18,6 +18,7 @@ import 'package:ringinout/services/app_log_buffer.dart';
 import 'package:ringinout/services/location_monitor_service.dart';
 import 'package:ringinout/services/background_service.dart';
 import 'package:ringinout/services/hive_helper.dart';
+import 'package:ringinout/utils/alarm_detection_mode.dart';
 
 class SmartLocationMonitor {
   // 타이머
@@ -408,10 +409,24 @@ class SmartLocationMonitor {
         final radius = (place['radius'] ?? place['geofenceRadius'] ?? 100);
         if (lat == null || lng == null) continue;
 
+        final hasWifiModeAlarm = alarms.any((candidate) {
+          final candidatePlaceId = candidate['placeId']?.toString();
+          final candidatePlaceName =
+              (candidate['place'] ?? candidate['locationName'])?.toString();
+          final matchesPlace =
+              (candidatePlaceId != null &&
+                  candidatePlaceId.isNotEmpty &&
+                  candidatePlaceId == nativePlaceId) ||
+              candidatePlaceName == place['name']?.toString();
+          return matchesPlace &&
+              AlarmDetectionMode.resolve(candidate, place: place) ==
+                  AlarmDetectionMode.wifi;
+        });
+
         seen.add(nativePlaceId);
         AppLogBuffer.record(
           'SLM',
-          '✅ 장소 추가: ${place["name"]} (id=$nativePlaceId)',
+          '✅ 장소 추가: ${place["name"]} (id=$nativePlaceId, wifiMode=$hasWifiModeAlarm)',
         );
         result.add({
           'id': nativePlaceId,
@@ -424,17 +439,19 @@ class SmartLocationMonitor {
           'isFirstOnly': alarm['isFirstOnly'] ?? false,
           'startTimeMs': alarm['startTimeMs'] ?? 0,
           'isTimeSpecified': alarm['isTimeSpecified'] ?? false,
-          // Wi-Fi 네트워크 데이터 전달 (장소에 등록된 Wi-Fi 목록)
+          // Wi-Fi 모드 알람이 있는 장소에만 Wi-Fi 네트워크 데이터 전달
           'wifiNetworks':
-              (place['wifiNetworks'] as List?)
-                  ?.map(
-                    (w) => {
-                      'ssid': (w as Map)['ssid'] ?? '',
-                      'bssid': w['bssid'] ?? '',
-                    },
-                  )
-                  .toList() ??
-              [],
+              hasWifiModeAlarm
+                  ? ((place['wifiNetworks'] as List?)
+                          ?.map(
+                            (w) => {
+                              'ssid': (w as Map)['ssid'] ?? '',
+                              'bssid': w['bssid'] ?? '',
+                            },
+                          )
+                          .toList() ??
+                      [])
+                  : [],
           // ✅ 블루투스 기기 데이터 전달 (장소에 등록된 BT 기기 목록)
           'bluetoothDevices':
               (place['bluetoothDevices'] as List?)

@@ -4,6 +4,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:path_provider/path_provider.dart'; // ✅ 추가
+import 'package:ringinout/utils/alarm_detection_mode.dart';
 import 'package:ringinout/utils/geocoding_cache.dart';
 import 'package:ringinout/utils/report_rate_limiter.dart';
 
@@ -826,6 +827,12 @@ class HiveHelper {
       normalized['repeat'] =
           repeat.map((e) => _toWeekdayCode(e.toString())).toList();
     }
+
+    normalized['detectionMode'] = AlarmDetectionMode.resolve(
+      normalized,
+      place: matchedPlace,
+      places: placeList,
+    );
 
     return normalized;
   }

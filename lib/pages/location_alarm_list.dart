@@ -10,6 +10,8 @@ import 'package:ringinout/services/smart_location_service.dart';
 import 'package:ringinout/services/location_monitor_service.dart';
 import 'package:ringinout/services/permissions.dart';
 import 'package:ringinout/services/subscription_service.dart';
+import 'package:ringinout/utils/alarm_activation_notice.dart';
+import 'package:ringinout/utils/alarm_detection_mode.dart';
 import 'package:ringinout/widgets/subscription_limit_dialog.dart';
 
 // 컨트롤러
@@ -207,9 +209,16 @@ class AlarmListItem extends StatelessWidget {
   Widget _buildTriggerIcon() {
     final Color iconColor = isLocked ? AppColors.divider : AppColors.primary;
     final bool isExit = alarm['trigger'] == 'exit';
+    final places = HiveHelper.getSavedLocations();
+    final place = AlarmDetectionMode.findPlaceForAlarm(alarm, places);
+    final mode = AlarmDetectionMode.resolve(
+      alarm,
+      place: place,
+      places: places,
+    );
 
     return SizedBox(
-      width: 24,
+      width: 36,
       height: 24,
       child: Stack(
         alignment: Alignment.center,
@@ -239,11 +248,20 @@ class AlarmListItem extends StatelessWidget {
             ),
           ),
           Positioned(
-            right: 0,
+            right: 10,
             child: Icon(
               isExit ? Icons.arrow_forward_rounded : Icons.arrow_back_rounded,
               color: iconColor,
               size: 16,
+            ),
+          ),
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Icon(
+              mode == AlarmDetectionMode.wifi ? Icons.wifi : Icons.gps_fixed,
+              color: iconColor.withValues(alpha: 0.75),
+              size: 12,
             ),
           ),
         ],
@@ -342,6 +360,18 @@ class AlarmListItem extends StatelessWidget {
             await HiveHelper.updateLocationAlarm(index, updatedAlarm);
           }
           print('🔄 알람 활성화: ${alarm['name']}');
+
+          final place = AlarmDetectionMode.findPlaceForAlarm(
+            updatedAlarm,
+            HiveHelper.getSavedLocations(),
+          );
+          if (context.mounted) {
+            await AlarmActivationNotice.showIfNeeded(
+              context,
+              updatedAlarm,
+              place,
+            );
+          }
 
           // 구독 한도 체크는 백그라운드에서
           Future.microtask(() async {
@@ -1138,6 +1168,14 @@ class _PlaceGroupCardState extends State<_PlaceGroupCard> {
               child: Row(
                 children: [
                   Icon(Icons.place, color: AppColors.primary, size: 22),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Icon(
+                      Icons.gps_fixed,
+                      color: AppColors.primary.withValues(alpha: 0.7),
+                      size: 16,
+                    ),
+                  ),
                   if (widget.hasWifi)
                     Padding(
                       padding: const EdgeInsets.only(left: 4),

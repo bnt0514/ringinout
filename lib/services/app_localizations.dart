@@ -101,6 +101,12 @@ class AppLocalizations {
       'on_entry': 'On Entry',
       'on_exit': 'On Exit',
       'both': 'Both',
+      'detection_mode_title': 'Detection Method',
+      'detection_mode_gps': 'GPS Alarm',
+      'detection_mode_gps_desc': 'Uses the place radius.',
+      'detection_mode_wifi': 'Wi-Fi Alarm',
+      'detection_mode_wifi_desc': 'Uses registered Wi-Fi.',
+      'detection_mode_wifi_disabled': 'Register Wi-Fi for this place first.',
       'alarm_saved': '✅ Alarm saved',
       'alarm_deleted': '🗑 Alarm deleted',
 
@@ -644,6 +650,9 @@ class AppLocalizations {
       'pause_toast_exit': 'Exit alarm paused for {time}',
       'snooze_time_title': 'Snooze Duration',
       'snooze_min': '{m} min',
+      'snooze_min_custom': 'Custom...',
+      'snooze_custom_title': 'Custom snooze duration',
+      'snooze_custom_hint': 'Enter minutes (1-720)',
       // 오발동 안내 타일
       'false_trigger_info_title': '⚡ What is False Trigger?',
       'false_trigger_info_subtitle':
@@ -878,6 +887,12 @@ class AppLocalizations {
       'on_entry': '진입 시',
       'on_exit': '이탈 시',
       'both': '모두',
+      'detection_mode_title': '감지 방식',
+      'detection_mode_gps': 'GPS 알람',
+      'detection_mode_gps_desc': '장소 반경 기준으로 울립니다.',
+      'detection_mode_wifi': 'Wi-Fi 알람',
+      'detection_mode_wifi_desc': '등록된 Wi-Fi 기준으로 울립니다.',
+      'detection_mode_wifi_disabled': '이 장소에 Wi-Fi를 먼저 등록해야 합니다.',
       'alarm_saved': '✅ 알람이 저장되었습니다',
       'alarm_deleted': '🗑 알람이 삭제되었습니다',
 
@@ -1406,6 +1421,9 @@ class AppLocalizations {
       'pause_toast_exit': '이탈 알람을 {time} 동안 멈췄어요',
       'snooze_time_title': '다시 울림 시간 선택',
       'snooze_min': '{m}분 후',
+      'snooze_min_custom': '직접 입력...',
+      'snooze_custom_title': '다시 울림 시간 직접 입력',
+      'snooze_custom_hint': '분 입력 (1~720)',
       // 오발동 안내 타일
       'false_trigger_info_title': '⚡ 오발동 버튼이란?',
       'false_trigger_info_subtitle': 'GPS 오류로 잘못 울린 경우 알람을 유지하며 종료',
@@ -2151,6 +2169,9 @@ class AppLocalizations {
       'pause_toast_exit': '退出アラームを{time}停止しました',
       'snooze_time_title': 'スヌーズ時間を選択',
       'snooze_min': '{m}分後',
+      'snooze_min_custom': '直接入力...',
+      'snooze_custom_title': 'スヌーズ時間を入力',
+      'snooze_custom_hint': '分を入力 (1~720)',
       // 誤発動 案内タイル
       'false_trigger_info_title': '⚡ 誤発動ボタンとは？',
       'false_trigger_info_subtitle': 'GPSエラーで誤作動した場合、アラームを維持して終了',
@@ -2882,6 +2903,9 @@ class AppLocalizations {
       'pause_toast_exit': '离开闹钟已暂停 {time}',
       'snooze_time_title': '选择稍后提醒时间',
       'snooze_min': '{m}分钟后',
+      'snooze_min_custom': '自定义...',
+      'snooze_custom_title': '自定义稍后提醒时间',
+      'snooze_custom_hint': '输入分钟数 (1~720)',
       // 误触发 说明
       'false_trigger_info_title': '⚡ 什么是误触发？',
       'false_trigger_info_subtitle': 'GPS误差触发时保持闹钟并退出',
@@ -3671,6 +3695,9 @@ class AppLocalizations {
       'pause_toast_exit': 'Austrittsalarm für {time} pausiert',
       'snooze_time_title': 'Schlummerdauer',
       'snooze_min': '{m} Min.',
+      'snooze_min_custom': 'Benutzerdefiniert...',
+      'snooze_custom_title': 'Schlummerdauer eingeben',
+      'snooze_custom_hint': 'Minuten eingeben (1-720)',
 
       // Fehlauslösungs-Info
       'false_trigger_info_title': '⚡ Was ist Fehlauslösung?',
@@ -4466,6 +4493,9 @@ class AppLocalizations {
       'pause_toast_exit': 'Alarme de sortie mise en pause pendant {time}',
       'snooze_time_title': 'Durée de répétition',
       'snooze_min': '{m} min',
+      'snooze_min_custom': 'Personnalisé...',
+      'snooze_custom_title': 'Durée personnalisée',
+      'snooze_custom_hint': 'Entrer les minutes (1-720)',
 
       // Info faux déclenchement
       'false_trigger_info_title': '⚡ Qu\'est-ce que le faux déclenchement ?',
@@ -5255,6 +5285,9 @@ class AppLocalizations {
       'pause_toast_exit': 'Alarma de salida pausada por {time}',
       'snooze_time_title': 'Duración de posposición',
       'snooze_min': '{m} min',
+      'snooze_min_custom': 'Personalizado...',
+      'snooze_custom_title': 'Duración personalizada',
+      'snooze_custom_hint': 'Introducir minutos (1-720)',
 
       // Info de falso disparo
       'false_trigger_info_title': '⚡ ¿Qué es Falso disparo?',
