@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:ringinout/config/app_theme.dart';
 import 'package:ringinout/services/app_localizations.dart';
@@ -367,8 +368,11 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  void _showAppInfoDialog() {
+  void _showAppInfoDialog() async {
     final l10n = AppLocalizations.of(context);
+    final info = await PackageInfo.fromPlatform();
+    final version = '${info.version}+${info.buildNumber}';
+    if (!mounted) return;
 
     showDialog(
       context: context,
@@ -384,7 +388,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                Text('${l10n.get('version')}: 1.0.0'),
+                Text('${l10n.get('version')}: $version'),
                 const SizedBox(height: 4),
                 Text(l10n.get('location_based_alarm')),
                 const SizedBox(height: 16),
