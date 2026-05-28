@@ -122,6 +122,8 @@ class WifiMonitorManager(private val context: Context) {
         // 디바운스 타이머 모두 취소
         cancelAllExitDebounce()
         cancelAllEnterDebounce()
+        for ((_, r) in enterCancelGraceRunnables) mainHandler.removeCallbacks(r)
+        enterCancelGraceRunnables.clear()
         connectedPlaceIds.clear()
     }
 
@@ -159,7 +161,17 @@ class WifiMonitorManager(private val context: Context) {
 
             val wifiInfo = networkCapabilities.transportInfo as? WifiInfo ?: return
             val bssid = wifiInfo.bssid ?: return
-            val ssid = cleanSsid(wifiInfo.ssid)
+            var ssid = cleanSsid(wifiInfo.ssid)
+
+            // ★ Android 12+ unknown ssid 대응: WifiManager.connectionInfo fallback
+            if (ssid.isEmpty() || ssid == "<unknown ssid>") {
+                @Suppress("DEPRECATION")
+                val fallbackSsid = cleanSsid(wifiManager.connectionInfo?.ssid)
+                if (fallbackSsid.isNotEmpty() && fallbackSsid != "<unknown ssid>") {
+                    ssid = fallbackSsid
+                    Log.d(TAG, "📶 SSID fallback (WifiManager): $ssid")
+                }
+            }
 
             Log.d(TAG, "📶 Wi-Fi 연결: SSID=$ssid, BSSID=$bssid")
 
@@ -244,7 +256,16 @@ class WifiMonitorManager(private val context: Context) {
                 val wifiInfo = caps.transportInfo as? WifiInfo
                 if (wifiInfo != null) {
                     val bssid = wifiInfo.bssid ?: return
-                    val ssid = cleanSsid(wifiInfo.ssid)
+                    var ssid = cleanSsid(wifiInfo.ssid)
+                    // ★ Android 12+ unknown ssid 대응: WifiManager.connectionInfo fallback
+                    if (ssid.isEmpty() || ssid == "<unknown ssid>") {
+                        @Suppress("DEPRECATION")
+                        val fallbackSsid = cleanSsid(wifiManager.connectionInfo?.ssid)
+                        if (fallbackSsid.isNotEmpty() && fallbackSsid != "<unknown ssid>") {
+                            ssid = fallbackSsid
+                            Log.d(TAG, "📶 SSID fallback (WifiManager): $ssid")
+                        }
+                    }
                     Log.d(TAG, "📶 현재 Wi-Fi: SSID=$ssid, BSSID=$bssid")
                     handleWifiConnected(ssid, bssid)
                 }
@@ -255,28 +276,44 @@ class WifiMonitorManager(private val context: Context) {
     }
 
     private fun handleWifiConnected(ssid: String, bssid: String) {
+        val isUnknownSsid = ssid.isEmpty() || ssid == "<unknown ssid>"
         // 매칭되는 장소 찾기
+        // ★ BSSID 우선 매칭, BSSID 미매칭 시 SSID로도 매칭 (같은 SSID 다른 AP 지원)
         val matchedPlaces = alarmPlaces.filter { place ->
             place.wifiNetworks.any { wifi ->
-                wifi.bssid.equals(bssid, ignoreCase = true) ||
-                        (wifi.bssid.isEmpty() && wifi.ssid.equals(ssid, ignoreCase = true))
+                val bssidMatch = wifi.bssid.isNotEmpty() &&
+                        wifi.bssid.equals(bssid, ignoreCase = true)
+                val ssidMatch = !isUnknownSsid &&
+                        wifi.ssid.isNotEmpty() &&
+                        wifi.ssid.equals(ssid, ignoreCase = true)
+                bssidMatch || ssidMatch
             }
+        }
+        if (matchedPlaces.isEmpty()) {
+            Log.d(TAG, "📶 Wi-Fi 매칭 없음: SSID=${if (isUnknownSsid) "<unknown>" else ssid}, BSSID=$bssid")
         }
 
         for (place in matchedPlaces) {
             // ★ Wi-Fi 연결 이벤트 → EXIT 타이머 취소 (아직 나가지 않았음)
             cancelExitDebounce(place.id)
 
+            // ★ ENTER 취소 유예 타이머가 있으면 취소 (재연결로 유예 해소)
+            enterCancelGraceRunnables[place.id]?.let {
+                mainHandler.removeCallbacks(it)
+                enterCancelGraceRunnables.remove(place.id)
+                Log.d(TAG, "📶 ENTER 취소 유예 해소 (재연결): ${place.name}")
+            }
+
             if (!connectedPlaceIds.contains(place.id)) {
                 connectedPlaceIds.add(place.id)
 
                 // ★ ENTER 타이머가 없으면 15초 후 ENTER 확정 예약
                 if (!enterDebounceRunnables.containsKey(place.id)) {
-                    Log.d(TAG, "🎯 Wi-Fi 연결 감지: ${place.name} (SSID=$ssid) → ENTER 15초 타이머 시작")
+                    Log.d(TAG, "🎯 Wi-Fi 연결 감지: ${place.name} (SSID=$ssid, BSSID=$bssid) → ENTER 15초 타이머 시작")
                     startEnterDebounce(place.id)
                 } else {
                     // 이미 ENTER 타이머 진행 중 → 그대로 둘 (순간 끊김 후 재연결)
-                    Log.d(TAG, "📶 Wi-Fi 재연결: ${place.name} — ENTER 타이머 진행 중")
+                    Log.d(TAG, "📶 Wi-Fi 재연결: ${place.name} — ENTER 타이머 진행 중 (유지)")
                 }
             } else {
                 Log.d(TAG, "📶 Wi-Fi 이미 연결 중: ${place.name}")
@@ -284,13 +321,36 @@ class WifiMonitorManager(private val context: Context) {
         }
     }
 
+    /** AP 로밍/순간 끊김 유예 타이머: placeId → Runnable */
+    private val enterCancelGraceRunnables = mutableMapOf<String, Runnable>()
+
+    /** ENTER 디바운스 취소 유예 시간 (ms) — 이 시간 안에 재연결 시 ENTER 타이머 유지 */
+    private val ENTER_CANCEL_GRACE_MS = 5000L
+
     private fun handleWifiDisconnected() {
         // ★ Wi-Fi 끊김 이벤트 → 모든 연결 장소에 대해:
-        //   - ENTER 타이머 취소 (끊겼으므로 진입 아님)
+        //   - ENTER 타이머: 5초 유예 후 취소 (AP 로밍/순간 끊김 대응)
         //   - EXIT 타이머 시작 (15초 후 EXIT 확정)
         val placesToCheck = connectedPlaceIds.toSet()
         for (placeId in placesToCheck) {
-            cancelEnterDebounce(placeId)
+            // ★ ENTER 타이머가 진행 중이면 즉시 취소 대신 5초 유예
+            if (enterDebounceRunnables.containsKey(placeId) &&
+                    !enterCancelGraceRunnables.containsKey(placeId)) {
+                val place = alarmPlaces.find { it.id == placeId }
+                Log.d(TAG, "📶 ENTER 취소 유예 시작 (${ENTER_CANCEL_GRACE_MS}ms): ${place?.name ?: placeId}")
+                val grace = Runnable {
+                    enterCancelGraceRunnables.remove(placeId)
+                    // 유예 만료 후에도 여전히 ENTER 타이머 중 → 취소
+                    if (enterDebounceRunnables.containsKey(placeId)) {
+                        cancelEnterDebounce(placeId)
+                        Log.d(TAG, "📶 ENTER 유예 만료 → ENTER 취소: ${place?.name ?: placeId}")
+                    }
+                }
+                enterCancelGraceRunnables[placeId] = grace
+                mainHandler.postDelayed(grace, ENTER_CANCEL_GRACE_MS)
+            } else if (!enterDebounceRunnables.containsKey(placeId)) {
+                // ENTER 타이머 없는 경우만 즉시 처리
+            }
 
             // EXIT 타이머가 없으면 시작 (이미 진행 중이면 그대로)
             if (!exitDebounceRunnables.containsKey(placeId)) {
