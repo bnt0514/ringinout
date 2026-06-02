@@ -5,7 +5,7 @@
  * Firebase Admin SDK로 검증 후 req.anonUserId를 설정
  */
 
-const { admin } = require('../index');
+const { admin } = require('../firebaseAdmin');
 const { generateAnonUserId } = require('../utils/crypto');
 
 async function authenticateToken(req, res, next) {

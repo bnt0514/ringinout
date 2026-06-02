@@ -7,7 +7,7 @@
 const express = require('express');
 const { generateAnonUserId } = require('../utils/crypto');
 const { upsertUser, upsertSubscription } = require('../db/database');
-const { admin } = require('../index');
+const { admin } = require('../firebaseAdmin');
 
 const router = express.Router();
 

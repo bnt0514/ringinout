@@ -45,14 +45,18 @@ function upsertUser(anonUserId) {
 }
 
 // 구독 생성 또는 업데이트
-function upsertSubscription({ anonUserId, store, plan, status, expiresAt }) {
+function upsertSubscription(subscriptionOrAnonUserId, fields = {}) {
+    const data = typeof subscriptionOrAnonUserId === 'string'
+        ? { anonUserId: subscriptionOrAnonUserId, ...fields }
+        : subscriptionOrAnonUserId;
+    const { anonUserId, store, plan, status, expiresAt, expires_at } = data;
     const now = Date.now();
 
     subscriptions.set(anonUserId, {
         store,
         plan,
         status,
-        expires_at: expiresAt || null,
+        expires_at: expiresAt ?? expires_at ?? null,
         last_verified_at: now
     });
 
