@@ -1,5 +1,6 @@
 // lib/services/hive_helper.dart
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -16,6 +17,8 @@ class HiveHelper {
   static late Box _myDevicesBox; // ✅ 내 기기 박스
   static bool _isInitialized = false; // ✅ 초기화 상태 추가
   static const Uuid _uuid = Uuid();
+  static String? _activeOwnerUid;
+  static const String _activeOwnerKey = 'active_owner_uid';
 
   // ✅ 앱 시작 시 반드시 호출해야 함
   static Future<void> init() async {
@@ -201,15 +204,216 @@ class HiveHelper {
   // ✅ 초기화 상태 확인
   static bool get isInitialized => _isInitialized;
 
+  static String? get activeOwnerUid {
+    final firebaseUid = FirebaseAuth.instance.currentUser?.uid;
+    if (firebaseUid != null && firebaseUid.isNotEmpty) {
+      _activeOwnerUid = firebaseUid;
+      return firebaseUid;
+    }
+    return null;
+  }
+
+  static String? get storedActiveOwnerUid {
+    final cached = _activeOwnerUid;
+    if (cached != null && cached.isNotEmpty) return cached;
+    try {
+      final saved = _settingsBox.get(_activeOwnerKey)?.toString();
+      if (saved != null && saved.isNotEmpty) {
+        _activeOwnerUid = saved;
+        return saved;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  static bool get hasStoredActiveOwnerUid {
+    final stored = storedActiveOwnerUid;
+    return stored != null && stored.isNotEmpty;
+  }
+
+  static Future<void> setActiveOwnerUid(String? uid) async {
+    _activeOwnerUid = uid;
+    if (!_isInitialized) return;
+    final prefs = await SharedPreferences.getInstance();
+    if (uid == null || uid.isEmpty) {
+      await _settingsBox.delete(_activeOwnerKey);
+      await prefs.remove(_activeOwnerKey);
+    } else {
+      await _settingsBox.put(_activeOwnerKey, uid);
+      await prefs.setString(_activeOwnerKey, uid);
+      await attachLegacyLocalDataToCurrentOwner();
+    }
+  }
+
+  static bool isOwnedByCurrentUser(Map<String, dynamic> data) {
+    final uid = activeOwnerUid;
+    if (uid == null || uid.isEmpty) return false;
+    return data['ownerUid']?.toString() == uid;
+  }
+
+  static Map<String, dynamic> _withCurrentOwner(Map<String, dynamic> data) {
+    final normalized = Map<String, dynamic>.from(data);
+    final uid = activeOwnerUid;
+    final existingOwner = normalized['ownerUid']?.toString().trim();
+    if ((existingOwner == null || existingOwner.isEmpty) &&
+        uid != null &&
+        uid.isNotEmpty) {
+      normalized['ownerUid'] = uid;
+    }
+    return normalized;
+  }
+
+  static Future<void> attachLegacyLocalDataToCurrentOwner() async {
+    final uid = activeOwnerUid;
+    if (uid == null || uid.isEmpty || !_isInitialized) return;
+
+    var changed = false;
+    for (var index = 0; index < _placeBox.length; index++) {
+      final raw = _placeBox.getAt(index);
+      if (raw is! Map) continue;
+      final data = Map<String, dynamic>.from(raw);
+      final owner = data['ownerUid']?.toString().trim();
+      if (owner == null || owner.isEmpty) {
+        data['ownerUid'] = uid;
+        await _placeBox.putAt(index, data);
+        changed = true;
+      }
+    }
+
+    for (final key in _alarmBox.keys.toList()) {
+      final raw = _alarmBox.get(key);
+      if (raw is! Map) continue;
+      final data = Map<String, dynamic>.from(raw);
+      final owner = data['ownerUid']?.toString().trim();
+      if (owner == null || owner.isEmpty) {
+        data['ownerUid'] = uid;
+        await _alarmBox.put(key, data);
+        changed = true;
+      }
+    }
+
+    for (final key in _deviceAlarmBox.keys.toList()) {
+      final raw = _deviceAlarmBox.get(key);
+      if (raw is! Map) continue;
+      final data = Map<String, dynamic>.from(raw);
+      final owner = data['ownerUid']?.toString().trim();
+      if (owner == null || owner.isEmpty) {
+        data['ownerUid'] = uid;
+        await _deviceAlarmBox.put(key, data);
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      debugPrint('📦 Legacy local alarms/places attached to current user');
+    }
+  }
+
+  static Map<String, Map<String, int>> getLocalOwnerSummary() {
+    final summary = <String, Map<String, int>>{};
+
+    Map<String, int> bucket(String ownerUid) => summary.putIfAbsent(
+      ownerUid,
+      () => {'places': 0, 'alarms': 0, 'devices': 0},
+    );
+
+    String ownerOf(dynamic raw) {
+      if (raw is! Map) return '(invalid)';
+      final owner = raw['ownerUid']?.toString().trim();
+      return owner == null || owner.isEmpty ? '(none)' : owner;
+    }
+
+    for (var index = 0; index < _placeBox.length; index++) {
+      final owner = ownerOf(_placeBox.getAt(index));
+      final counts = bucket(owner);
+      counts['places'] = (counts['places'] ?? 0) + 1;
+    }
+    for (final key in _alarmBox.keys) {
+      final owner = ownerOf(_alarmBox.get(key));
+      final counts = bucket(owner);
+      counts['alarms'] = (counts['alarms'] ?? 0) + 1;
+    }
+    for (final key in _deviceAlarmBox.keys) {
+      final owner = ownerOf(_deviceAlarmBox.get(key));
+      final counts = bucket(owner);
+      counts['devices'] = (counts['devices'] ?? 0) + 1;
+    }
+    return summary;
+  }
+
+  static Future<Map<String, int>> reassignAllLocalDataToCurrentOwner() async {
+    final uid = activeOwnerUid;
+    if (uid == null || uid.isEmpty || !_isInitialized) {
+      return {'places': 0, 'alarms': 0, 'devices': 0};
+    }
+
+    var places = 0;
+    var alarms = 0;
+    var devices = 0;
+
+    for (var index = 0; index < _placeBox.length; index++) {
+      final raw = _placeBox.getAt(index);
+      if (raw is! Map) continue;
+      final data = Map<String, dynamic>.from(raw);
+      if (data['ownerUid']?.toString() == uid) continue;
+      data['ownerUid'] = uid;
+      await _placeBox.putAt(index, data);
+      places++;
+    }
+
+    for (final key in _alarmBox.keys.toList()) {
+      final raw = _alarmBox.get(key);
+      if (raw is! Map) continue;
+      final data = Map<String, dynamic>.from(raw);
+      if (data['ownerUid']?.toString() == uid) continue;
+      data['ownerUid'] = uid;
+      await _alarmBox.put(key, data);
+      alarms++;
+    }
+
+    for (final key in _deviceAlarmBox.keys.toList()) {
+      final raw = _deviceAlarmBox.get(key);
+      if (raw is! Map) continue;
+      final data = Map<String, dynamic>.from(raw);
+      if (data['ownerUid']?.toString() == uid) continue;
+      data['ownerUid'] = uid;
+      await _deviceAlarmBox.put(key, data);
+      devices++;
+    }
+
+    return {'places': places, 'alarms': alarms, 'devices': devices};
+  }
+
+  static List<MapEntry<int, Map<String, dynamic>>> getVisiblePlaceEntries() {
+    final entries = <MapEntry<int, Map<String, dynamic>>>[];
+    for (var index = 0; index < _placeBox.length; index++) {
+      final raw = _placeBox.getAt(index);
+      if (raw is! Map) continue;
+      final data = Map<String, dynamic>.from(raw);
+      if (isOwnedByCurrentUser(data)) {
+        entries.add(MapEntry(index, _normalizePlaceRecord(data)));
+      }
+    }
+    return entries;
+  }
+
+  static List<MapEntry<int, Map<String, dynamic>>> getVisibleAlarmEntries() {
+    final entries = <MapEntry<int, Map<String, dynamic>>>[];
+    for (var index = 0; index < _alarmBox.length; index++) {
+      final raw = _alarmBox.getAt(index);
+      if (raw is! Map) continue;
+      final data = Map<String, dynamic>.from(raw);
+      if (isOwnedByCurrentUser(data)) {
+        entries.add(MapEntry(index, _normalizeAlarmRecord(data)));
+      }
+    }
+    return entries;
+  }
+
   // ✅ MyPlaces 관련 (안전한 접근)
   static List<Map<String, dynamic>> getSavedLocations() {
     try {
-      final values = _placeBox.values.toList();
-      return values
-          .map(
-            (e) => _normalizePlaceRecord(Map<String, dynamic>.from(e as Map)),
-          )
-          .toList();
+      return getVisiblePlaceEntries().map((entry) => entry.value).toList();
     } catch (e) {
       debugPrint('❌ getSavedLocations 에러: $e');
       return [];
@@ -283,7 +487,9 @@ class HiveHelper {
 
   static Future<void> addLocation(Map<String, dynamic> location) async {
     try {
-      final normalizedLocation = _normalizePlaceRecord(location);
+      final normalizedLocation = _normalizePlaceRecord(
+        _withCurrentOwner(location),
+      );
       await _placeBox.add(normalizedLocation);
       debugPrint('✅ Hive에 저장 완료: $normalizedLocation');
       debugPrint('📦 현재 Hive 상태 (저장 후): ${_placeBox.values.toList()}');
@@ -302,7 +508,7 @@ class HiveHelper {
       if (index >= 0 && index < box.length) {
         final existing = Map<String, dynamic>.from(box.getAt(index) as Map);
         final normalizedLocation = _normalizePlaceRecord(
-          newLocation,
+          _withCurrentOwner(newLocation),
           fallbackId: existing['id']?.toString(),
         );
         await box.putAt(index, normalizedLocation);
@@ -334,6 +540,7 @@ class HiveHelper {
       int count = 0;
       for (final alarm in _alarmBox.values) {
         final a = Map<String, dynamic>.from(alarm);
+        if (!isOwnedByCurrentUser(a)) continue;
         final aPlaceId = a['placeId']?.toString() ?? '';
         final aPlaceName = a['placeName']?.toString() ?? '';
         if ((placeId.isNotEmpty && aPlaceId == placeId) ||
@@ -354,6 +561,9 @@ class HiveHelper {
   static Future<void> deleteLocationWithLinkedAlarms(int index) async {
     try {
       final place = Map<String, dynamic>.from(_placeBox.getAt(index));
+      if (!isOwnedByCurrentUser(place)) {
+        throw StateError('Cannot delete a place owned by another account.');
+      }
       final placeId = place['id']?.toString() ?? '';
       final placeName = place['name']?.toString() ?? '';
 
@@ -361,6 +571,7 @@ class HiveHelper {
       final alarmKeysToDelete = <dynamic>[];
       for (final key in _alarmBox.keys) {
         final alarm = Map<String, dynamic>.from(_alarmBox.get(key));
+        if (!isOwnedByCurrentUser(alarm)) continue;
         final aPlaceId = alarm['placeId']?.toString() ?? '';
         final aPlaceName = alarm['placeName']?.toString() ?? '';
         if ((placeId.isNotEmpty && aPlaceId == placeId) ||
@@ -429,7 +640,9 @@ class HiveHelper {
           alarmData['id']?.toString().trim().isNotEmpty == true
               ? alarmData['id'].toString()
               : _uuid.v4();
-      final normalizedAlarm = _normalizeAlarmRecord({...alarmData, 'id': id});
+      final normalizedAlarm = _normalizeAlarmRecord(
+        _withCurrentOwner({...alarmData, 'id': id}),
+      );
 
       await _alarmBox.put(id, normalizedAlarm); // 이미 열린 박스 사용
       return id;
@@ -441,7 +654,7 @@ class HiveHelper {
 
   static List<Map<String, dynamic>> getLocationAlarms() {
     try {
-      return _alarmBox.values.map((e) => Map<String, dynamic>.from(e)).toList();
+      return getVisibleAlarmEntries().map((entry) => entry.value).toList();
     } catch (e) {
       debugPrint('❌ getLocationAlarms 에러: $e');
       return [];
@@ -549,7 +762,9 @@ class HiveHelper {
     Map<String, dynamic> updatedAlarm,
   ) async {
     try {
-      final normalizedAlarm = _normalizeAlarmRecord(updatedAlarm);
+      final normalizedAlarm = _normalizeAlarmRecord(
+        _withCurrentOwner(updatedAlarm),
+      );
       await _alarmBox.putAt(index, normalizedAlarm);
     } catch (e) {
       debugPrint('❌ updateLocationAlarm 에러: $e');
@@ -569,7 +784,7 @@ class HiveHelper {
 
       // ✅ ID를 키로 사용하여 업데이트 (putAt이 아닌 put 사용)
       final normalizedAlarm = _normalizeAlarmRecord({
-        ...updatedAlarm,
+        ..._withCurrentOwner(updatedAlarm),
         'id': id,
       });
       await _alarmBox.put(id, normalizedAlarm);
@@ -749,7 +964,7 @@ class HiveHelper {
     Map<String, dynamic> place, {
     String? fallbackId,
   }) {
-    final normalized = Map<String, dynamic>.from(place);
+    final normalized = _withCurrentOwner(place);
     final existingId = normalized['id']?.toString().trim();
     normalized['id'] =
         (existingId != null && existingId.isNotEmpty)
@@ -780,7 +995,7 @@ class HiveHelper {
     Map<String, dynamic> alarm, {
     List<Map<String, dynamic>>? places,
   }) {
-    final normalized = Map<String, dynamic>.from(alarm);
+    final normalized = _withCurrentOwner(alarm);
     final existingAlarmId = normalized['id']?.toString().trim();
     if (existingAlarmId == null || existingAlarmId.isEmpty) {
       normalized['id'] = _uuid.v4();
@@ -931,7 +1146,7 @@ class HiveHelper {
           alarmData['id']?.toString().trim().isNotEmpty == true
               ? alarmData['id'].toString()
               : _uuid.v4();
-      final normalized = Map<String, dynamic>.from(alarmData);
+      final normalized = _withCurrentOwner(alarmData);
       normalized['id'] = id;
       normalized['enabled'] ??= true;
       normalized['trigger'] ??= 'connect';
@@ -951,6 +1166,7 @@ class HiveHelper {
     try {
       return _deviceAlarmBox.values
           .map((e) => Map<String, dynamic>.from(e as Map))
+          .where(isOwnedByCurrentUser)
           .toList();
     } catch (e) {
       debugPrint('❌ getDeviceAlarms 에러: $e');
@@ -979,7 +1195,7 @@ class HiveHelper {
       if (!_deviceAlarmBox.containsKey(id)) {
         throw Exception('기기 알람 ID를 찾을 수 없습니다: $id');
       }
-      final normalized = Map<String, dynamic>.from(updatedAlarm);
+      final normalized = _withCurrentOwner(updatedAlarm);
       normalized['id'] = id;
       await _deviceAlarmBox.put(id, normalized);
       debugPrint('✅ 기기 알람 업데이트 완료 (ID: $id)');

@@ -10,6 +10,7 @@ import 'package:ringinout/pages/admin_dashboard_page.dart';
 import 'package:ringinout/services/app_log_buffer.dart';
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/location_monitor_service.dart';
+import 'package:ringinout/services/secure_http_headers.dart';
 import 'package:ringinout/services/smart_location_monitor.dart';
 import 'package:ringinout/services/app_localizations.dart';
 import 'package:ringinout/utils/report_rate_limiter.dart';
@@ -191,10 +192,7 @@ class _GpsPageState extends State<GpsPage> {
       '${t.second.toString().padLeft(2, '0')}';
 
   Map<String, dynamic>? _getFirstAlarm() {
-    final all =
-        HiveHelper.alarmBox.values
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList();
+    final all = HiveHelper.getLocationAlarms();
     return all.isNotEmpty ? all.first : null;
   }
 
@@ -234,7 +232,8 @@ class _GpsPageState extends State<GpsPage> {
       if (id != null) {
         try {
           final cur = HiveHelper.alarmBox.get(id);
-          if (cur != null) {
+          if (cur is Map &&
+              HiveHelper.isOwnedByCurrentUser(Map<String, dynamic>.from(cur))) {
             final upd = Map<String, dynamic>.from(cur);
             upd['enabled'] = true;
             upd['snoozePending'] = false;
@@ -248,7 +247,10 @@ class _GpsPageState extends State<GpsPage> {
       }
 
       final refreshed = HiveHelper.alarmBox.get(alarm['id']);
-      if (refreshed != null) {
+      if (refreshed is Map &&
+          HiveHelper.isOwnedByCurrentUser(
+            Map<String, dynamic>.from(refreshed),
+          )) {
         await _doTrigger(Map<String, dynamic>.from(refreshed));
       }
     } else {
@@ -544,10 +546,7 @@ class _GpsPageState extends State<GpsPage> {
     final lms = LocationMonitorService.instance;
     final ps = lms.placeStates;
     final places = HiveHelper.getSavedLocations();
-    final allAlarms =
-        HiveHelper.alarmBox.values
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList();
+    final allAlarms = HiveHelper.getLocationAlarms();
 
     final infoMap = <String, Map<String, String>>{};
     for (final a in allAlarms) {
@@ -1027,20 +1026,36 @@ class _GpsPageState extends State<GpsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '최근 30분간의 로그가 서버로 전송됩니다.\n'
-                    '상황을 간단히 메모해 주세요. (선택)\n'
-                    '오늘 남은 전송 횟수: $remaining/${ReportRateLimiter.maxPerDay}회',
+                    '${l10n.get('gps_bug_report_log_notice')}\n'
+                    '${l10n.getWithArgs('report_remaining_count', {'remaining': '$remaining', 'max': '${ReportRateLimiter.maxPerDay}'})}',
                     style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.amber.shade200),
+                    ),
+                    child: Text(
+                      l10n.get('gps_bug_report_guide'),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.amber.shade900,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   TextField(
                     controller: memoCtrl,
-                    decoration: const InputDecoration(
-                      hintText: '예: 알람이 울리지 않았습니다',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      hintText: l10n.get('gps_bug_report_hint'),
+                      border: const OutlineInputBorder(),
                       isDense: true,
                     ),
-                    maxLines: 3,
+                    maxLines: 4,
                     maxLength: 500,
                     onChanged: (_) => setDialogState(() {}),
                   ),
@@ -1079,6 +1094,7 @@ class _GpsPageState extends State<GpsPage> {
   Future<void> _sendBugReport(String memo) async {
     if (!mounted) return;
     setState(() => _bugReportSending = true);
+    final l10n = AppLocalizations.of(context);
 
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -1109,18 +1125,15 @@ class _GpsPageState extends State<GpsPage> {
 
       final response = await http.post(
         Uri.parse(serverUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $idToken',
-        },
+        headers: await SecureHttpHeaders.json(idToken: idToken),
         body: jsonEncode({
           'logs': logStrings,
           'deviceInfo': {
-            'gps':
+            'accuracy':
                 _pos != null
-                    ? '${_pos!.latitude.toStringAsFixed(4)},${_pos!.longitude.toStringAsFixed(4)}'
+                    ? '${_pos!.accuracy.toStringAsFixed(1)}m'
                     : 'unknown',
-            'accuracy': _pos?.accuracy.toStringAsFixed(1) ?? 'unknown',
+            'hasGpsSignal': _pos != null,
             'alarmCount': _alarmCount,
             'lmsRunning': _lmsRunning,
           },
@@ -1136,6 +1149,26 @@ class _GpsPageState extends State<GpsPage> {
         _showSnack(
           '✅ 버그 리포트 전송 완료 (ID: ${reportId.toString().substring(0, 8)}…)',
         );
+      } else if (response.statusCode == 429) {
+        if (mounted) {
+          await showDialog(
+            context: context,
+            builder:
+                (ctx) => AlertDialog(
+                  title: const Text('📋 접수 마감'),
+                  content: Text(
+                    l10n.get('bug_report_monthly_limit'),
+                    style: const TextStyle(height: 1.6),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: Text(l10n.get('ok')),
+                    ),
+                  ],
+                ),
+          );
+        }
       } else {
         _showSnack('❌ 전송 실패: ${response.statusCode}');
       }

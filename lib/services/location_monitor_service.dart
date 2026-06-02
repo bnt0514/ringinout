@@ -864,24 +864,35 @@ class LocationMonitorService {
   // ─── Wi-Fi EXIT 처리 ───
 
   void _handleWifiExit(String placeId, List<String> alarmIds) {
+    final wasTrackedConnected = _wifiConnectedPlaceIds.contains(placeId);
+
     // ★ Wi-Fi 연결 해제 추적
     _wifiConnectedPlaceIds.remove(placeId);
     _log('📶 [$placeId] Wi-Fi 연결 추적 해제 (남은 ${_wifiConnectedPlaceIds.length}개)');
     _log(
       '🔎 [$placeId] Wi-Fi EXIT 처리 전: state=${_getAggregatePlaceState(alarmIds).name}, '
       'pending=${_pendingGpsEntryPlaces.contains(placeId)}, '
-      'timer=${_wifiWaitTimers.containsKey(placeId)}',
+      'timer=${_wifiWaitTimers.containsKey(placeId)}, '
+      'wasTrackedConnected=$wasTrackedConnected',
     );
 
     final currentState = _getAggregatePlaceState(alarmIds);
 
     if (currentState == PlaceState.outside) {
-      _log('⏭️ [$placeId] Wi-Fi EXIT — 이미 OUTSIDE');
-      return;
+      if (!wasTrackedConnected) {
+        _log('⏭️ [$placeId] Wi-Fi EXIT — 이미 OUTSIDE');
+        return;
+      }
+
+      _log(
+        '📶 [$placeId] Wi-Fi EXIT — state는 OUTSIDE지만 연결 추적이 있었음 '
+        '→ stale 상태로 보고 진출 알람 gate 체크 위임',
+      );
+    } else {
+      _log('🎯 [$placeId] Wi-Fi EXIT → 즉시 진출 처리!');
     }
 
     // INSIDE → Wi-Fi EXIT (이미 5s×3 디바운스 완료)
-    _log('🎯 [$placeId] Wi-Fi EXIT → 즉시 진출 처리!');
     _setStatesForAlarms(alarmIds, PlaceState.outside);
     _evaluateMovingGpsNeed();
     _processExitAlarm(placeId, detectionMode: AlarmDetectionMode.wifi);
@@ -1159,11 +1170,14 @@ class LocationMonitorService {
         continue;
       }
 
-      _log(
-        '🚨 [$placeName] ENTRY 알람 트리거! mode=${AlarmDetectionMode.resolve(alarm, place: placeInfo)}',
-      );
+      final resolvedMode = AlarmDetectionMode.resolve(alarm, place: placeInfo);
+      _log('🚨 [$placeName] ENTRY 알람 트리거! mode=$resolvedMode');
+      final triggerAlarmData =
+          Map<String, dynamic>.from(alarm)
+            ..['_resolvedDetectionMode'] = resolvedMode
+            ..['_resolvedPlaceId'] = resolvedPlaceId;
       await _triggerAlarm(
-        Map<String, dynamic>.from(alarm),
+        triggerAlarmData,
         'entry',
         _onTriggerCallback ?? (_, __) {},
       );
@@ -1224,11 +1238,14 @@ class LocationMonitorService {
         continue;
       }
 
-      _log(
-        '🚨 [$placeName] EXIT 알람 트리거! mode=${AlarmDetectionMode.resolve(alarm, place: placeInfo)}',
-      );
+      final resolvedMode = AlarmDetectionMode.resolve(alarm, place: placeInfo);
+      _log('🚨 [$placeName] EXIT 알람 트리거! mode=$resolvedMode');
+      final triggerAlarmData =
+          Map<String, dynamic>.from(alarm)
+            ..['_resolvedDetectionMode'] = resolvedMode
+            ..['_resolvedPlaceId'] = resolvedPlaceId;
       await _triggerAlarm(
-        Map<String, dynamic>.from(alarm),
+        triggerAlarmData,
         'exit',
         _onTriggerCallback ?? (_, __) {},
       );
@@ -1439,7 +1456,12 @@ class LocationMonitorService {
   Future<bool> _isAlarmStillActive(String alarmId) async {
     try {
       final latestAlarm = HiveHelper.alarmBox.get(alarmId);
-      if (latestAlarm == null || latestAlarm['enabled'] != true) {
+      if (latestAlarm == null ||
+          latestAlarm is! Map ||
+          !HiveHelper.isOwnedByCurrentUser(
+            Map<String, dynamic>.from(latestAlarm),
+          ) ||
+          latestAlarm['enabled'] != true) {
         _log('⏭️ 알람 비활성화됨: ${_shortId(alarmId)}');
         return false;
       }
@@ -1460,7 +1482,10 @@ class LocationMonitorService {
         _log('🔒 네이티브 비활성화 감지: ${_shortId(alarmId)}');
         final box = HiveHelper.alarmBox;
         final current = box.get(alarmId);
-        if (current != null) {
+        if (current is Map &&
+            HiveHelper.isOwnedByCurrentUser(
+              Map<String, dynamic>.from(current),
+            )) {
           final updated = Map<String, dynamic>.from(current);
           // ✅ 반복 알람이면 enabled=false 하지 않음 (safety check)
           final repeat = current['repeat'];
@@ -1616,6 +1641,9 @@ class LocationMonitorService {
     bool isSnoozeAlarm = false,
   }) async {
     final alarmId = alarmData['id'];
+    final preResolvedDetectionMode =
+        alarmData['_resolvedDetectionMode']?.toString();
+    final preResolvedPlaceId = alarmData['_resolvedPlaceId']?.toString();
 
     // Hive 최신 상태 확인
     if (alarmId is String) {
@@ -1624,6 +1652,13 @@ class LocationMonitorService {
         final latestAlarm = box.get(alarmId);
         if (latestAlarm == null) {
           _log('⛔ 알람 삭제됨 — 중단: ${alarmData['name']}');
+          return;
+        }
+        if (latestAlarm is! Map ||
+            !HiveHelper.isOwnedByCurrentUser(
+              Map<String, dynamic>.from(latestAlarm),
+            )) {
+          _log('⛔ 다른 계정 알람 — 중단: ${alarmData['name']}');
           return;
         }
 
@@ -1640,6 +1675,12 @@ class LocationMonitorService {
           }
           alarmData = Map<String, dynamic>.from(latestAlarm);
         }
+        if (preResolvedDetectionMode != null) {
+          alarmData['_resolvedDetectionMode'] = preResolvedDetectionMode;
+        }
+        if (preResolvedPlaceId != null) {
+          alarmData['_resolvedPlaceId'] = preResolvedPlaceId;
+        }
       } catch (e) {
         _log('⚠️ 최신 알람 확인 실패: $e');
       }
@@ -1655,7 +1696,10 @@ class LocationMonitorService {
           try {
             final box = HiveHelper.alarmBox;
             final current = box.get(alarmId);
-            if (current != null) {
+            if (current is Map &&
+                HiveHelper.isOwnedByCurrentUser(
+                  Map<String, dynamic>.from(current),
+                )) {
               final updated = Map<String, dynamic>.from(current);
               // ✅ 반복 알람이면 enabled=false 하지 않음
               final repeat = current['repeat'];
@@ -1699,8 +1743,18 @@ class LocationMonitorService {
     //     GPS 모드 알람이 울려도 pending/timer는 건드리지 않음.
     //     (GPS 알람이 먼저 울렸을 때 Wi-Fi 알람 대기가 소멸되던 버그 수정)
     {
-      final triggerPlaceId = alarmData['placeId']?.toString();
-      final resolvedMode = AlarmDetectionMode.resolve(alarmData);
+      final triggerPlaceId =
+          alarmData['_resolvedPlaceId']?.toString() ??
+          alarmData['placeId']?.toString();
+      final resolvedMode =
+          alarmData['_resolvedDetectionMode']?.toString() ??
+          AlarmDetectionMode.resolve(
+            alarmData,
+            place:
+                triggerPlaceId == null
+                    ? null
+                    : await _getPlaceInfo(triggerPlaceId),
+          );
       if (triggerPlaceId != null && resolvedMode == AlarmDetectionMode.wifi) {
         _pendingGpsEntryPlaces.remove(triggerPlaceId);
         _cancelWifiWaitTimer(triggerPlaceId);
@@ -1737,7 +1791,10 @@ class LocationMonitorService {
         triggerCount = int.tryParse(currentCount) ?? 0;
       }
 
-      final updated = Map<String, dynamic>.from(alarmData);
+      final updated =
+          Map<String, dynamic>.from(alarmData)
+            ..remove('_resolvedDetectionMode')
+            ..remove('_resolvedPlaceId');
       updated['triggerCount'] = triggerCount + 1;
 
       if (alarmId is String) {
@@ -2456,7 +2513,8 @@ class LocationMonitorService {
         final value = box.get(key);
         if (value is Map) {
           final converted = Map<String, dynamic>.from(value);
-          if (converted['enabled'] == true) {
+          if (HiveHelper.isOwnedByCurrentUser(converted) &&
+              converted['enabled'] == true) {
             count++;
           }
         }
@@ -2476,10 +2534,11 @@ class LocationMonitorService {
         final value = box.get(key);
         if (value is Map) {
           final converted = Map<String, dynamic>.from(value);
-          if (HiveHelper.isAlarmActiveForMonitoring(
-            converted,
-            DateTime.now(),
-          )) {
+          if (HiveHelper.isOwnedByCurrentUser(converted) &&
+              HiveHelper.isAlarmActiveForMonitoring(
+                converted,
+                DateTime.now(),
+              )) {
             count++;
           }
         }
@@ -2559,6 +2618,12 @@ class LocationMonitorService {
       for (var key in box.keys) {
         final alarm = box.get(key);
         if (alarm == null) continue;
+        if (alarm is! Map ||
+            !HiveHelper.isOwnedByCurrentUser(
+              Map<String, dynamic>.from(alarm),
+            )) {
+          continue;
+        }
         final alarmId = alarm['id']?.toString();
         if (alarmId == null || alarmId.isEmpty) continue;
 
@@ -2604,6 +2669,12 @@ class LocationMonitorService {
       for (var key in deviceBox.keys) {
         final alarm = deviceBox.get(key);
         if (alarm == null) continue;
+        if (alarm is! Map ||
+            !HiveHelper.isOwnedByCurrentUser(
+              Map<String, dynamic>.from(alarm),
+            )) {
+          continue;
+        }
         final alarmId = alarm['id']?.toString();
         if (alarmId == null || alarmId.isEmpty) continue;
 
@@ -2641,6 +2712,12 @@ class LocationMonitorService {
       for (var key in box.keys) {
         final alarm = box.get(key);
         if (alarm == null) continue;
+        if (alarm is! Map ||
+            !HiveHelper.isOwnedByCurrentUser(
+              Map<String, dynamic>.from(alarm),
+            )) {
+          continue;
+        }
         final alarmId = alarm['id']?.toString();
         if (alarmId == null || alarmId.isEmpty) continue;
 
@@ -2686,6 +2763,12 @@ class LocationMonitorService {
       for (var key in deviceBox.keys) {
         final alarm = deviceBox.get(key);
         if (alarm == null) continue;
+        if (alarm is! Map ||
+            !HiveHelper.isOwnedByCurrentUser(
+              Map<String, dynamic>.from(alarm),
+            )) {
+          continue;
+        }
         final alarmId = alarm['id']?.toString();
         if (alarmId == null || alarmId.isEmpty) continue;
 

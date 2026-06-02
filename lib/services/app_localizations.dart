@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 /// 앱 전체 다국어 지원 클래스
 class AppLocalizations {
@@ -25,6 +25,9 @@ class AppLocalizations {
       'close': 'Close',
       'send': 'Send',
       'confirm': 'Confirm',
+      'bug_report_monthly_limit':
+          'Bug report submissions for this month are now closed.\n\nDue to service operating costs, we can only accept up to 300 reports per month. Many users share similar issues, and we are committed to resolving them based on the reports received.\n\nSubmissions will reopen on the 1st of next month. We sincerely apologize for the inconvenience.',
+
       'ok': 'OK',
       'yes': 'Yes',
       'no': 'No',
@@ -84,6 +87,11 @@ class AppLocalizations {
       'no_places_desc': 'Tap the button below to add your first location.',
       'add_place_btn': 'Add Place',
       'add_place_hint': 'Add your favorite places!',
+      'place_map_loading': 'Loading map...\nPlease wait.',
+      'place_map_loading_short': 'Loading map...',
+      'google_map_language': 'Google language',
+      'google_map_language_ko': 'Korean',
+      'google_map_language_en': 'English',
       'search_address': 'Search address',
       'current_location': 'Current location',
       'radius': 'Radius',
@@ -145,7 +153,7 @@ class AppLocalizations {
           'Location-based alarm app.\nGet notified when you arrive or leave a place!',
       'login_data_security_title': 'Data Security Promise',
       'login_data_security_content':
-          'Only your encrypted account identifier and payment status are stored on our servers. Location and personal information are processed only on your device.',
+          'Location alarms are processed primarily on your device. Account, subscription, usage, and user-submitted diagnostic data are used only to provide and maintain app features.',
       'login_data_deletion_warning':
           'All saved places and alarm settings will be deleted when you uninstall the app.',
       'login_continue_with_google': 'Continue with Google',
@@ -157,23 +165,23 @@ class AppLocalizations {
 
       // Privacy Policy
       'privacy_policy_title': 'Privacy Policy',
-      'privacy_last_updated': 'Last updated: January 2026',
-      'privacy_section_1_title': '1. Information We Collect',
+      'privacy_last_updated': 'Last updated: May 2026',
+      'privacy_section_1_title': '1. Information We Process',
       'privacy_section_1_content':
-          'Ringinout does not collect personal information.\n\n'
-          '• Location data: Processed only on your device for alarm functionality. Not sent to external servers.\n\n'
-          '• Account info: When signing in with Google, your email is converted to an anonymized random ID. Original email is not stored.',
+          'Ringinout processes information only as needed to provide app features and does not use it for advertising tracking or unrelated purposes.\n\n'
+          '• Location data: Processed primarily on your device. Coordinates or search terms may be sent temporarily to map/geocoding providers when you use map, address search, or reverse-geocoding features. Ringinout does not store location history on its servers.\n\n'
+          '• Account, subscription, usage, and user-submitted diagnostic data: Used only for login, paid-plan features, quota management, service stability, and bug fixing.',
       'privacy_section_2_title': '2. Purpose of Anonymized ID',
       'privacy_section_2_content':
-          'The anonymized ID is used solely to verify premium subscription status. '
-          'This ID cannot be used to identify or track individuals.',
+          'The anonymized ID is used only for subscription checks, usage management, and service stability. '
+          'It is not used for advertising or unrelated tracking.',
       'privacy_section_3_title': '3. Data Storage',
       'privacy_section_3_content':
-          'All alarm and location data is stored only on your device '
-          'and is not transmitted to external servers.',
+          'Alarm and saved-place data is stored primarily on your device. '
+          'Ringinout servers store only operational data such as subscription status, anonymized account IDs, usage counters, and user-submitted bug reports.',
       'privacy_section_4_title': '4. Third-Party Sharing',
       'privacy_section_4_content':
-          'Ringinout does not share any user information with third parties.',
+          'Ringinout does not sell user information or share it for advertising. Map, geocoding, login, payment, and backend providers may process requests only as needed to provide app functionality.',
       'privacy_section_5_title': '5. Contact',
       'privacy_section_5_content':
           'For privacy-related inquiries, please use the \'Send Feedback\' feature in the app.',
@@ -385,6 +393,13 @@ class AppLocalizations {
       'gps_bug_report': 'Bug Report',
       'gps_bug_report_sending': 'Sending...',
       'gps_bug_report_title': 'Bug Report',
+      'gps_bug_report_log_notice':
+          'The last 30 minutes of activity logs will be sent.',
+      'gps_bug_report_guide':
+          '📝 Please describe the situation in as much detail as possible:\n• What were you doing at the time?\n• Where were you? (indoors, underground, etc.)\n• How was the GPS/Wi-Fi signal?\n• What was the alarm radius set to (meters)?',
+      'gps_bug_report_hint':
+          'e.g.) The alarm did not go off when I entered a large indoor shopping mall.\nWi-Fi connected automatically, and the radius was set to 100m.',
+      'report_remaining_count': 'Remaining sends today: {remaining}/{max}',
       'gps_refresh_tooltip': 'Refresh GPS',
       'subscription_current_plan': 'Current Plan',
       'subscription_expires': 'Expires: {date}',
@@ -489,6 +504,8 @@ class AppLocalizations {
       'select_on_map': 'Select location on map',
       'move_to_current': 'Move to current location',
       'search_hint': 'Address or place name (e.g., Starbucks)',
+      'search_address_only_hint':
+          'Address only (e.g., 62 Daeun-ro, Sadang-dong 1037-9)',
       'no_search_result': 'No search results',
       'address_label': 'Address: {address}',
       'place_add_no_search_hint':
@@ -617,15 +634,13 @@ class AppLocalizations {
       // 무료 플랜 맵 차감 안내 (해외: Google)
       'map_free_limit_exceeded_title': 'Free Plan Limit',
       'map_free_limit_exceeded_body':
-          'You have used all {limit} Google Maps opens this month.\n\n'
-          'OSM is always available for free.\n'
-          'Paid plans may offer higher limits after official release.',
+          'To protect service stability and operating costs, free map/search usage is temporarily limited after the monthly provider quota reaches the safety threshold.\n\n'
+          'Saved alarms continue to work. Rewarded ads may unlock limited map opening, address input, and reverse geocoding, but place search may remain unavailable.',
       'map_switch_confirm_title': 'Switch to Google Maps',
       'map_switch_confirm_body':
           'Free plan allows {limit} Google Maps opens per month.\n\n'
           'Remaining: {remaining}/{limit}\n\n'
-          'Switching to Google Maps uses 1 credit.\n'
-          'OSM is always free and unlimited.',
+          'Switching to Google Maps uses 1 credit.',
       'map_switch_btn_cancel': 'Cancel',
       'map_switch_btn_confirm': 'Switch',
       // 오발동 / 알람 화면
@@ -811,6 +826,9 @@ class AppLocalizations {
       'close': '닫기',
       'send': '보내기',
       'confirm': '확인',
+      'bug_report_monthly_limit':
+          '이번 달 버그 리포트 접수가 마감되었습니다.\n\n서비스 운영 비용 문제로 월 300건까지만 접수를 받고 있으며, 많은 분들이 비슷한 문제를 겪고 계십니다. 접수된 내용을 바탕으로 최선을 다해 개선해 나가겠습니다.\n\n다음 달 1일부터 다시 접수 가능합니다. 불편을 드려 대단히 죄송합니다.',
+
       'ok': '확인',
       'yes': '예',
       'no': '아니오',
@@ -870,6 +888,11 @@ class AppLocalizations {
       'no_places_desc': '아래 버튼을 눌러 첫 번째 장소를 추가하세요.',
       'add_place_btn': '장소 추가',
       'add_place_hint': '자주 가는 장소를 추가해보세요!',
+      'place_map_loading': '지도를 불러오는 중입니다.\n잠시만 기다려주세요.',
+      'place_map_loading_short': '지도 로딩 중...',
+      'google_map_language': '구글 표시/검색 언어',
+      'google_map_language_ko': '한국어',
+      'google_map_language_en': '영어',
       'search_address': '주소 검색',
       'current_location': '현재 위치',
       'radius': '반경',
@@ -931,7 +954,7 @@ class AppLocalizations {
       'login_app_description': '위치 기반 알람 앱\n특정 장소에 도착하거나 떠날 때 알림을 받으세요!',
       'login_data_security_title': '데이터 보안 약속',
       'login_data_security_content':
-          '암호화된 계정 식별자와 결제 상태만 서버에 저장됩니다. 위치 및 개인정보는 기기에서만 처리됩니다.',
+          '위치 알람은 주로 기기 내에서 처리됩니다. 계정, 구독, 사용량, 사용자가 제출한 진단 정보는 앱 기능 제공과 유지보수 목적으로만 사용됩니다.',
       'login_data_deletion_warning': '앱 삭제 시 저장된 장소와 알람 설정이 모두 삭제됩니다.',
       'login_continue_with_google': 'Google로 계속하기',
       'login_cancelled': '로그인이 취소되었습니다',
@@ -940,22 +963,23 @@ class AppLocalizations {
 
       // Privacy Policy
       'privacy_policy_title': '개인정보 처리방침',
-      'privacy_last_updated': '최종 업데이트: 2026년 1월',
-      'privacy_section_1_title': '1. 수집하는 정보',
+      'privacy_last_updated': '최종 업데이트: 2026년 5월',
+      'privacy_section_1_title': '1. 처리하는 정보',
       'privacy_section_1_content':
-          'Ringinout은 사용자의 개인정보를 수집하지 않습니다.\n\n'
-          '• 위치 정보: 알람 기능을 위해 기기 내에서만 처리되며, 외부 서버로 전송되지 않습니다.\n\n'
-          '• 계정 정보: Google 로그인 시 이메일 주소는 익명화된 랜덤 ID로 변환되어 저장됩니다. 원본 이메일은 저장되지 않습니다.',
+          'Ringinout은 앱 기능 제공에 필요한 범위에서만 정보를 처리하며, 광고 목적의 추적이나 다른 용도로 사용하지 않습니다.\n\n'
+          '• 위치 정보: 위치 알람을 위해 주로 기기 내에서 처리됩니다. 지도 표시, 주소 검색, 역지오코딩 기능을 사용할 때 좌표나 검색어가 외부 지도/지오코딩 제공자에게 일시적으로 전달될 수 있으나, Ringinout 서버에는 위치 이력으로 저장하지 않습니다.\n\n'
+          '• 계정, 구독, 사용량, 사용자가 제출한 진단 정보: 로그인, 유료 기능, 쿼터 관리, 서비스 안정성, 버그 수정을 위해서만 사용됩니다.',
       'privacy_section_2_title': '2. 익명화된 ID 사용 목적',
       'privacy_section_2_content':
-          '익명화된 ID는 오직 유료 구독 상태 확인 목적으로만 사용됩니다. '
-          '이 ID를 통해 개인을 식별하거나 추적할 수 없습니다.',
+          '익명화된 ID는 구독 상태 확인, 사용량 관리, 서비스 안정성 보호 목적으로만 사용됩니다. '
+          '광고나 다른 목적의 추적에 사용하지 않습니다.',
       'privacy_section_3_title': '3. 데이터 저장',
       'privacy_section_3_content':
-          '모든 알람 데이터와 장소 정보는 사용자의 기기 내에만 저장되며, '
-          '외부 서버로 전송되지 않습니다.',
+          '알람 데이터와 장소 정보는 기본적으로 사용자의 기기 내에 저장됩니다. '
+          '서버에는 구독 상태, 익명화된 계정 ID, 사용량 통계, 사용자가 직접 제출한 버그 리포트 등 앱 운영에 필요한 정보만 저장됩니다.',
       'privacy_section_4_title': '4. 제3자 공유',
-      'privacy_section_4_content': 'Ringinout은 어떠한 사용자 정보도 제3자와 공유하지 않습니다.',
+      'privacy_section_4_content':
+          'Ringinout은 사용자 정보를 판매하거나 광고 목적으로 제3자와 공유하지 않습니다. 지도, 주소 변환, 로그인, 결제, 백엔드 제공자는 앱 기능 제공에 필요한 요청에 한해 사용될 수 있습니다.',
       'privacy_section_5_title': '5. 문의',
       'privacy_section_5_content':
           '개인정보 관련 문의사항이 있으시면 앱 내 \'건의사항 보내기\' 기능을 이용해주세요.',
@@ -1163,6 +1187,13 @@ class AppLocalizations {
       'gps_bug_report': '버그 리포트',
       'gps_bug_report_sending': '전송 중…',
       'gps_bug_report_title': '버그 리포트',
+      'gps_bug_report_log_notice': '최근 30분간의 동작 로그가 전송됩니다.',
+      'gps_bug_report_guide':
+          '📝 아래 내용을 최대한 자세히 적어주시면 분석에 큰 도움이 됩니다:\n• 어떤 상황이었나요?\n• 어떤 장소였나요? (실내, 지하 등)\n• GPS/Wi-Fi 신호 상태는 어땠나요?\n• 알람 반경 설정은 몇 m였나요?',
+      'gps_bug_report_hint':
+          '예) 홈플러스 실내 진입 시 알람이 울리지 않았습니다.\nWi-Fi는 자동 연결됐고, 반경은 100m로 설정돼 있었습니다.',
+      'report_remaining_count':
+          '\uc624\ub298 \ub0a8\uc740 \uc804\uc1a1 \ud69f\uc218: {remaining}/{max}\ud68c',
       'gps_refresh_tooltip': 'GPS 갱신',
       'subscription_current_plan': '현재 플랜',
       'subscription_expires': '만료: {date}',
@@ -1262,6 +1293,7 @@ class AppLocalizations {
       'select_on_map': '지도에서 위치 선택',
       'move_to_current': '현재 위치로 이동',
       'search_hint': '주소 또는 지역+장소명 (예: 시흥 롯데마트)',
+      'search_address_only_hint': '주소만 입력 가능합니다 (예: 대은로 62, 사당동 1037-9)',
       'no_search_result': '검색 결과가 없습니다',
       'address_label': '주소: {address}',
       'place_add_no_search_hint':
@@ -1389,15 +1421,13 @@ class AppLocalizations {
       // 무료 플랜 맵 차감 안내 (한국: 네이버)
       'map_free_limit_exceeded_title': '무료 플랜 제한',
       'map_free_limit_exceeded_body':
-          '이번 달 네이버 지도 오픈 횟수({limit}회)를 모두 사용했습니다.\n\n'
-          'OSM 지도는 계속 무제한 이용 가능합니다.\n'
-          '정식 출시 후 유료 플랜에서 더 높은 한도가 제공될 수 있습니다.',
+          '서비스 안정성과 운영 비용 보호를 위해 지도/검색 제공자의 월간 안전 한도에 도달하면 무료 플랜의 지도·검색 기능이 일시적으로 제한됩니다.\n\n'
+          '저장된 알람은 계속 작동합니다. 보상형 광고 시청 시 제한적으로 지도 열기, 주소 입력, 역지오코딩을 사용할 수 있지만 장소 검색은 계속 제한될 수 있습니다.',
       'map_switch_confirm_title': '네이버 지도로 전환',
       'map_switch_confirm_body':
           '무료 플랜은 네이버 지도를 월 {limit}회 이용할 수 있습니다.\n\n'
           '남은 횟수: {remaining}/{limit}회\n\n'
-          '네이버 지도로 전환하면 1회가 차감됩니다.\n'
-          'OSM은 차감 없이 무제한 이용 가능합니다.',
+          '네이버 지도로 전환하면 1회가 차감됩니다.',
       'map_switch_btn_cancel': '취소',
       'map_switch_btn_confirm': '전환',
       // 오발동 / 알람 화면
@@ -1416,7 +1446,7 @@ class AppLocalizations {
       'pause_help_link': '왜 자꾸 울리지? 해결 팁 보기',
       'pause_help_title': '알람이 자꾸 울리는 이유',
       'pause_help_body':
-          '같은 알람이 반복해서 울린다면 아래를 시도해 보세요:\n\n• 장소 핀을 자주 머무는 곳에서 조금 더 떨어진 위치로 옮겨 보세요.\n• 반경을 더 크게 설정해 보세요 (예: 100m → 200m). 잠깐 들락날락하는 동작이 무시됩니다.\n• 트리거 타입을 바꿔 보세요. 예를 들어 떠날 때만 알면 된다면 진입 대신 이탈로 설정하세요.\n• 위치 정확도를 위해 GPS와 Wi-Fi가 켜져 있는지 확인하세요.',
+          '같은 알람이 반복해서 울린다면 아래를 시도해 보세요:\n\n• 반경 경계 근처에 머물면 GPS 오차 때문에 안팎을 반복해서 오가는 것처럼 인식될 수 있습니다.\n• 이때는 전체화면 알람의 "잠시멈춤"을 눌러 일정 시간 동안 같은 알람이 다시 울리지 않게 하세요.\n• 반경을 더 크게 설정해 보세요 (예: 100m → 200m). 잠깐 들락날락하는 동작이 무시됩니다.\n• 장소 핀을 자주 머무는 곳에서 조금 더 떨어진 위치로 옮겨 보세요.\n• 위치 정확도를 위해 GPS와 Wi-Fi가 켜져 있는지 확인하세요.',
       'pause_toast_entry': '진입 알람을 {time} 동안 멈췄어요',
       'pause_toast_exit': '이탈 알람을 {time} 동안 멈췄어요',
       'snooze_time_title': '다시 울림 시간 선택',
@@ -1446,9 +1476,8 @@ class AppLocalizations {
           '이런 경우 "⚡ 오발동" 버튼을 활용하시고,'
           ' 동일한 문제가 자주 반복된다면 반경을 10m씩 늘려서 테스트해 보세요.\n\n'
           '💡 설정 반경 경계 근처에서 머물거나 활동하는 경우\n'
-          '오발동 버튼을 누르면 알람이 계속 발동할 수 있으니,'
-          ' 일단 알람을 종료하고 필요할 때 다시 활성화하세요.\n'
-          '("대기" 모드 — 요청이 많을 시 도입 고려: 설정한 시간 이후 자동 재활성화)',
+          'GPS가 반경 안팎을 반복해서 오가는 것처럼 인식되어 알람이 다시 울릴 수 있습니다.\n'
+          '이때는 "오발동"보다 "잠시멈춤"을 사용하세요. 설정한 시간 동안 같은 알람이 다시 울리지 않아 의도치 않은 반복 발동을 줄일 수 있습니다.',
       'false_trigger_dialog_ok': '확인',
 
       // 블루투스 기기 알람 — 의도치 않은 발동 안내
@@ -1569,6 +1598,8 @@ class AppLocalizations {
       'send': '送信',
       'confirm': '確認',
       'ok': 'OK',
+      'bug_report_monthly_limit':
+          '今月のバグレポート受付は終了しました。\n\nサービス運営コストの関係で、月300件までの受付とさせていただいております。多くの方が同様の問題を抱えており、いただいたご報告をもとに誠心誠意改善してまいります。\n\n来月1日より受付を再開いたします。ご不便をおかけし、誠に申し訳ございません。',
       'yes': 'はい',
       'no': 'いいえ',
       'error': 'エラー',
@@ -1914,6 +1945,13 @@ class AppLocalizations {
       'gps_bug_report': 'バグレポート',
       'gps_bug_report_sending': '送信中…',
       'gps_bug_report_title': 'バグレポート',
+      'gps_bug_report_log_notice': '直近30分間の動作ログが送信されます。',
+      'gps_bug_report_guide':
+          '📝 以下の内容をできるだけ詳しく記入してください:\n• そのとき何をしていましたか？\n• どんな場所でしたか？（屋内・地下など）\n• GPS/Wi-Fiの電波状況はどうでしたか？\n• アラームの半径は何mに設定していましたか？',
+      'gps_bug_report_hint':
+          '例）大型ショッピングモールの屋内に入ったときアラームが鳴りませんでした。\nWi-Fiは自動接続され、半径は100mに設定していました。',
+      'report_remaining_count':
+          '\u672c\u65e5\u306e\u6b8b\u308a\u9001\u4fe1\u56de\u6570: {remaining}/{max}\u56de',
       'gps_refresh_tooltip': 'GPS更新',
       'subscription_current_plan': '現在のプラン',
       'subscription_expires': '期限: {date}',
@@ -2137,15 +2175,13 @@ class AppLocalizations {
       // 無料プラン マップ使用案内 (해외: Google)
       'map_free_limit_exceeded_title': '無料プランの上限',
       'map_free_limit_exceeded_body':
-          '今月のGoogleマップ起動回数（{limit}回）をすべて使い切りました。\n\n'
-          'OSMはいつでも無制限に利用できます。\n'
-          '正式リリース後、有料プランでより高い上限が提供される場合があります。',
+          'サービスの安定性と運用コストを保護するため、地図/検索プロバイダーの月間安全しきい値に達すると、無料プランの地図・検索機能が一時的に制限されます。\n\n'
+          '保存済みのアラームは引き続き動作します。リワード広告により、地図表示、住所入力、逆ジオコーディングを限定的に利用できる場合がありますが、場所検索は制限されることがあります。',
       'map_switch_confirm_title': 'Googleマップに切替',
       'map_switch_confirm_body':
           '無料プランはGoogleマップを月{limit}回利用できます。\n\n'
           '残り回数: {remaining}/{limit}回\n\n'
-          'Googleマップに切り替えると1回消費されます。\n'
-          'OSMは消費なしで無制限に利用できます。',
+          'Googleマップに切り替えると1回消費されます。',
       'map_switch_btn_cancel': 'キャンセル',
       'map_switch_btn_confirm': '切替',
       // 誤発動 / アラーム画面
@@ -2317,6 +2353,8 @@ class AppLocalizations {
       'send': '发送',
       'confirm': '确认',
       'ok': '确定',
+      'bug_report_monthly_limit':
+          '本月的错误报告提交已关闭。\n\n由于服务运营成本，每月最多只能接受300份报告。许多用户遇到类似问题，我们将根据收到的报告尽力改善。\n\n下月1日起恢复提交。给您带来不便，深表歉意。',
       'yes': '是',
       'no': '否',
       'error': '错误',
@@ -2655,6 +2693,12 @@ class AppLocalizations {
       'gps_bug_report': 'Bug报告',
       'gps_bug_report_sending': '发送中…',
       'gps_bug_report_title': 'Bug报告',
+      'gps_bug_report_log_notice': '将发送最近30分钟的运行日志。',
+      'gps_bug_report_guide':
+          '📝 请尽量详细描述以下内容：\n• 当时您在做什么？\n• 在什么地方？（室内、地下等）\n• GPS/Wi-Fi信号状况如何？\n• 警报半径设置为多少米？',
+      'gps_bug_report_hint': '例）进入大型室内商场时警报未响。\nWi-Fi自动连接，半径设置为100m。',
+      'report_remaining_count':
+          '\u4eca\u65e5\u5269\u4f59\u53d1\u9001\u6b21\u6570\uff1a{remaining}/{max}',
       'gps_refresh_tooltip': '刷新GPS',
       'subscription_current_plan': '当前方案',
       'subscription_expires': '到期: {date}',
@@ -2871,15 +2915,13 @@ class AppLocalizations {
       // 免费套餐 地图使用提示 (해외: Google)
       'map_free_limit_exceeded_title': '免费套餐限制',
       'map_free_limit_exceeded_body':
-          '本月Google地图打开次数（{limit}次）已全部用完。\n\n'
-          'OSM地图可以无限次免费使用。\n'
-          '正式发布后，付费套餐可能提供更高额度。',
+          '为保护服务稳定性和运营成本，当地图/搜索提供商的月度安全阈值达到后，免费计划的地图和搜索功能可能会暂时受限。\n\n'
+          '已保存的闹钟会继续工作。观看激励广告后，可能会有限解锁地图打开、地址输入和逆地理编码，但地点搜索仍可能不可用。',
       'map_switch_confirm_title': '切换到Google地图',
       'map_switch_confirm_body':
           '免费套餐每月可使用Google地图{limit}次。\n\n'
           '剩余次数: {remaining}/{limit}次\n\n'
-          '切换到Google地图将消耗1次。\n'
-          'OSM无需消耗，可无限使用。',
+          '切换到Google地图将消耗1次。',
       'map_switch_btn_cancel': '取消',
       'map_switch_btn_confirm': '切换',
       // 误触发 / 闹钟界面
@@ -3048,6 +3090,8 @@ class AppLocalizations {
       'send': 'Senden',
       'confirm': 'Bestätigen',
       'ok': 'OK',
+      'bug_report_monthly_limit':
+          'Die Einreichung von Fehlerberichten für diesen Monat ist abgeschlossen.\n\nAufgrund von Betriebskosten können wir nur bis zu 300 Berichte pro Monat annehmen. Viele Nutzer haben ähnliche Probleme, und wir werden auf Basis der eingegangenen Berichte unser Bestes tun.\n\nDie Einreichung wird am 1. des nächsten Monats wieder möglich sein. Wir entschuldigen uns aufrichtig für die Unannehmlichkeiten.',
       'yes': 'Ja',
       'no': 'Nein',
       'error': 'Fehler',
@@ -3411,6 +3455,14 @@ class AppLocalizations {
       'gps_bug_report': 'Fehlerbericht',
       'gps_bug_report_sending': 'Wird gesendet...',
       'gps_bug_report_title': 'Fehlerbericht',
+      'gps_bug_report_log_notice':
+          'Die Aktivitätsprotokolle der letzten 30 Minuten werden gesendet.',
+      'gps_bug_report_guide':
+          '📝 Bitte beschreiben Sie die Situation so genau wie möglich:\n• Was haben Sie gerade gemacht?\n• Wo waren Sie? (drinnen, unterirdisch usw.)\n• Wie war das GPS/Wi-Fi-Signal?\n• Auf wie viele Meter war der Alarmradius eingestellt?',
+      'gps_bug_report_hint':
+          'z.B.) Der Alarm hat nicht ausgelöst, als ich ein großes Einkaufszentrum betreten habe.\nWi-Fi hat sich automatisch verbunden und der Radius war auf 100m eingestellt.',
+      'report_remaining_count':
+          'Verbleibende \u00dcbertragungen heute: {remaining}/{max}',
       'gps_refresh_tooltip': 'GPS aktualisieren',
       'subscription_current_plan': 'Aktueller Plan',
       'subscription_expires': 'Läuft ab: {date}',
@@ -3661,15 +3713,13 @@ class AppLocalizations {
       // Kostenloser Plan Kartenlimit
       'map_free_limit_exceeded_title': 'Kostenloser Plan Limit',
       'map_free_limit_exceeded_body':
-          'Sie haben alle {limit} Google Maps-Öffnungen diesen Monat verbraucht.\n\n'
-          'OSM ist immer kostenlos verfügbar.\n'
-          'Nach dem offiziellen Start können kostenpflichtige Pläne höhere Limits bieten.',
+          'Zum Schutz der Dienststabilität und Betriebskosten werden Karten- und Suchfunktionen im kostenlosen Plan vorübergehend eingeschränkt, wenn das monatliche Sicherheitslimit des Anbieters erreicht ist.\n\n'
+          'Gespeicherte Alarme funktionieren weiter. Durch Reward-Anzeigen können Kartenöffnung, Adresseingabe und Reverse-Geocoding begrenzt freigeschaltet werden, die Ortssuche kann jedoch gesperrt bleiben.',
       'map_switch_confirm_title': 'Zu Google Maps wechseln',
       'map_switch_confirm_body':
           'Der kostenlose Plan erlaubt {limit} Google Maps-Öffnungen pro Monat.\n\n'
           'Verbleibend: {remaining}/{limit}\n\n'
-          'Der Wechsel zu Google Maps verbraucht 1 Guthaben.\n'
-          'OSM ist immer kostenlos und unbegrenzt.',
+          'Der Wechsel zu Google Maps verbraucht 1 Guthaben.',
       'map_switch_btn_cancel': 'Abbrechen',
       'map_switch_btn_confirm': 'Wechseln',
 
@@ -3837,6 +3887,8 @@ class AppLocalizations {
       'send': 'Envoyer',
       'confirm': 'Confirmer',
       'ok': 'OK',
+      'bug_report_monthly_limit':
+          "Les soumissions de rapports de bugs pour ce mois sont terminées.\n\nEn raison des coûts opérationnels, nous ne pouvons accepter que 300 rapports par mois. De nombreux utilisateurs rencontrent des problèmes similaires et nous ferons de notre mieux pour les résoudre.\n\nLes soumissions rouvriront le 1er du mois prochain. Nous nous excusons sincèrement pour la gêne occasionnée.",
       'yes': 'Oui',
       'no': 'Non',
       'error': 'Erreur',
@@ -4204,6 +4256,14 @@ class AppLocalizations {
       'gps_bug_report': 'Rapport de bug',
       'gps_bug_report_sending': 'Envoi...',
       'gps_bug_report_title': 'Rapport de bug',
+      'gps_bug_report_log_notice':
+          "Les journaux d'activité des 30 dernières minutes seront envoyés.",
+      'gps_bug_report_guide':
+          "📝 Veuillez décrire la situation aussi précisément que possible :\n• Que faisiez-vous à ce moment-là ?\n• Où étiez-vous ? (intérieur, souterrain, etc.)\n• Quel était l'état du signal GPS/Wi-Fi ?\n• Sur combien de mètres le rayon d'alarme était-il réglé ?",
+      'gps_bug_report_hint':
+          "ex.) L'alarme ne s'est pas déclenchée en entrant dans un grand centre commercial.\nLe Wi-Fi s'est connecté automatiquement et le rayon était réglé sur 100m.",
+      'report_remaining_count':
+          "Envois restants aujourd'hui : {remaining}/{max}",
       'gps_refresh_tooltip': 'Actualiser GPS',
       'subscription_current_plan': 'Plan actuel',
       'subscription_expires': 'Expire : {date}',
@@ -4458,15 +4518,13 @@ class AppLocalizations {
       // Limite de carte plan gratuit
       'map_free_limit_exceeded_title': 'Limite du plan gratuit',
       'map_free_limit_exceeded_body':
-          'Vous avez utilisé toutes les {limit} ouvertures Google Maps ce mois-ci.\n\n'
-          'OSM est toujours disponible gratuitement.\n'
-          'Après le lancement officiel, les plans payants pourront offrir des limites plus élevées.',
+          'Pour protéger la stabilité du service et les coûts d’exploitation, les fonctions carte/recherche du forfait gratuit peuvent être temporairement limitées lorsque le seuil de sécurité mensuel du fournisseur est atteint.\n\n'
+          'Les alarmes enregistrées continuent de fonctionner. Une publicité avec récompense peut débloquer de façon limitée l’ouverture de carte, la saisie d’adresse et le géocodage inverse, mais la recherche de lieux peut rester indisponible.',
       'map_switch_confirm_title': 'Passer à Google Maps',
       'map_switch_confirm_body':
           'Le plan gratuit permet {limit} ouvertures Google Maps par mois.\n\n'
           'Restant : {remaining}/{limit}\n\n'
-          'Passer à Google Maps utilise 1 crédit.\n'
-          'OSM est toujours gratuit et illimité.',
+          'Passer à Google Maps utilise 1 crédit.',
       'map_switch_btn_cancel': 'Annuler',
       'map_switch_btn_confirm': 'Passer',
 
@@ -4635,6 +4693,8 @@ class AppLocalizations {
       'send': 'Enviar',
       'confirm': 'Confirmar',
       'ok': 'OK',
+      'bug_report_monthly_limit':
+          'El envío de informes de errores para este mes ha finalizado.\n\nDebido a los costes operativos, solo podemos aceptar 300 informes al mes. Muchos usuarios comparten problemas similares y haremos todo lo posible para resolverlos.\n\nLas entregas se reanudarán el día 1 del próximo mes. Pedimos disculpas sinceramente por las molestias.',
       'yes': 'Sí',
       'no': 'No',
       'error': 'Error',
@@ -4996,6 +5056,13 @@ class AppLocalizations {
       'gps_bug_report': 'Informe de error',
       'gps_bug_report_sending': 'Enviando...',
       'gps_bug_report_title': 'Informe de error',
+      'gps_bug_report_log_notice':
+          'Se enviarán los registros de actividad de los últimos 30 minutos.',
+      'gps_bug_report_guide':
+          '📝 Por favor, describa la situación con el mayor detalle posible:\n• ¿Qué estaba haciendo en ese momento?\n• ¿Dónde estaba? (interior, subterráneo, etc.)\n• ¿Cómo era la señal de GPS/Wi-Fi?\n• ¿A cuántos metros estaba configurado el radio de la alarma?',
+      'gps_bug_report_hint':
+          'ej.) La alarma no sonó al entrar en un gran centro comercial cubierto.\nEl Wi-Fi se conectó automáticamente y el radio estaba configurado en 100m.',
+      'report_remaining_count': 'Env\u00edos restantes hoy: {remaining}/{max}',
       'gps_refresh_tooltip': 'Actualizar GPS',
       'subscription_current_plan': 'Plan actual',
       'subscription_expires': 'Expira: {date}',
@@ -5251,15 +5318,13 @@ class AppLocalizations {
       // Límite de mapa del plan gratuito
       'map_free_limit_exceeded_title': 'Límite del plan gratuito',
       'map_free_limit_exceeded_body':
-          'Ha utilizado todas las {limit} aperturas de Google Maps este mes.\n\n'
-          'OSM siempre está disponible de forma gratuita.\n'
-          'Tras el lanzamiento oficial, los planes de pago pueden ofrecer límites más altos.',
+          'Para proteger la estabilidad del servicio y los costes operativos, las funciones de mapa/búsqueda del plan gratuito pueden limitarse temporalmente cuando se alcanza el umbral mensual de seguridad del proveedor.\n\n'
+          'Las alarmas guardadas seguirán funcionando. Un anuncio recompensado puede desbloquear de forma limitada la apertura del mapa, la entrada de dirección y la geocodificación inversa, pero la búsqueda de lugares puede seguir no disponible.',
       'map_switch_confirm_title': 'Cambiar a Google Maps',
       'map_switch_confirm_body':
           'El plan gratuito permite {limit} aperturas de Google Maps por mes.\n\n'
           'Restante: {remaining}/{limit}\n\n'
-          'Cambiar a Google Maps usa 1 crédito.\n'
-          'OSM siempre es gratuito e ilimitado.',
+          'Cambiar a Google Maps usa 1 crédito.',
       'map_switch_btn_cancel': 'Cancelar',
       'map_switch_btn_confirm': 'Cambiar',
 

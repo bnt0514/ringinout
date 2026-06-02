@@ -1,4 +1,4 @@
-﻿// lib/services/alarm_notification_helper.dart
+// lib/services/alarm_notification_helper.dart
 // Flutter imports:
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +9,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 // App imports:
 import '../pages/full_screen_alarm_page.dart';
+import 'hive_helper.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -138,6 +139,10 @@ class AlarmNotificationHelper {
         'message': message,
         'alarmId': alarmId,
         'alarmKey': alarmData?['id']?.toString() ?? '',
+        'ownerUid':
+            alarmData?['ownerUid']?.toString() ??
+            HiveHelper.activeOwnerUid ??
+            '',
         'placeId': alarmData?['placeId']?.toString() ?? '',
         'isRepeat': isRepeat,
         'trigger': alarmData?['trigger']?.toString() ?? 'entry',

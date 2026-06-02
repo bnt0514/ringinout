@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -14,7 +14,9 @@ import 'package:ringinout/app/routes.dart';
 import 'package:ringinout/services/locale_provider.dart';
 import 'package:ringinout/services/app_localizations.dart';
 import 'package:ringinout/services/billing_service.dart';
+import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/map_provider_service.dart';
+import 'package:ringinout/services/smart_location_service.dart';
 import 'package:ringinout/config/app_theme.dart';
 import 'package:ringinout/config/app_config.dart';
 import 'package:ringinout/services/force_update_service.dart';
@@ -31,6 +33,7 @@ Future<void> _checkForceUpdate(BuildContext context) async {
 class RinginoutApp extends StatelessWidget {
   final GlobalKey<NavigatorState> navigatorKey;
   final Map<String, dynamic>? pendingLaunchAlarm;
+  static String? _lastAppliedOwnerUid;
 
   const RinginoutApp({
     super.key,
@@ -46,18 +49,21 @@ class RinginoutApp extends StatelessWidget {
         // localeProvider.locale이 null(시스템 기본)이면 시스템 언어로 해석
         WidgetsBinding.instance.addPostFrameCallback((_) {
           String resolvedCode;
+          final systemLocale =
+              WidgetsBinding.instance.platformDispatcher.locale;
           if (localeProvider.locale != null) {
             resolvedCode = localeProvider.locale!.languageCode;
           } else {
-            final systemLocale =
-                WidgetsBinding.instance.platformDispatcher.locale;
-            const supported = ['ko', 'en', 'ja', 'zh'];
+            const supported = ['ko', 'en', 'ja', 'zh', 'de', 'fr', 'es'];
             resolvedCode =
                 supported.contains(systemLocale.languageCode)
                     ? systemLocale.languageCode
                     : 'en';
           }
-          context.read<MapProviderService>().initForLocale(resolvedCode);
+          context.read<MapProviderService>().initForLocale(
+            resolvedCode,
+            countryCode: systemLocale.countryCode,
+          );
         });
         return MaterialApp(
           navigatorKey: navigatorKey,
@@ -76,19 +82,29 @@ class RinginoutApp extends StatelessWidget {
               final user = snapshot.data;
 
               if (user == null) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (_lastAppliedOwnerUid != null ||
+                      HiveHelper.hasStoredActiveOwnerUid) {
+                    _lastAppliedOwnerUid = null;
+                    HiveHelper.setActiveOwnerUid(null).then((_) async {
+                      await SmartLocationService.cancelAllSnoozes();
+                      await SmartLocationService.updatePlaces();
+                      await SmartLocationService.stopMonitoring();
+                    });
+                  }
+                });
                 return const LoginPage();
               }
 
-              // 로그인된 경우 메인 화면
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                _handlePendingAlarm(context);
-                // 로그인 상태 변경 시 플랜 강제 새로고침
-                context.read<BillingService>().fetchStatus(forceRefresh: true);
-                // 강제 업데이트 체크
-                _checkForceUpdate(context);
-              });
-              return const PermissionGate(
-                child: TermsGate(child: MainNavigationPage()),
+              return _AuthenticatedHome(
+                userUid: user.uid,
+                onReady: (readyContext) {
+                  _handlePendingAlarm(readyContext);
+                  readyContext.read<BillingService>().fetchStatus(
+                    forceRefresh: true,
+                  );
+                  _checkForceUpdate(readyContext);
+                },
               );
             },
           ),
@@ -188,6 +204,82 @@ class RinginoutApp extends StatelessWidget {
     }
   }
 }
+
+class _AuthenticatedHome extends StatefulWidget {
+  final String userUid;
+  final ValueChanged<BuildContext> onReady;
+
+  const _AuthenticatedHome({required this.userUid, required this.onReady});
+
+  @override
+  State<_AuthenticatedHome> createState() => _AuthenticatedHomeState();
+}
+
+class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
+  Future<void>? _ownerFuture;
+  String? _ownerFutureUid;
+  String? _notifiedReadyUid;
+
+  @override
+  void initState() {
+    super.initState();
+    _ownerFuture = _ensureOwnerApplied();
+    _ownerFutureUid = widget.userUid;
+  }
+
+  @override
+  void didUpdateWidget(covariant _AuthenticatedHome oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_ownerFutureUid != widget.userUid) {
+      _ownerFuture = _ensureOwnerApplied();
+      _ownerFutureUid = widget.userUid;
+      _notifiedReadyUid = null;
+    }
+  }
+
+  Future<void> _ensureOwnerApplied() async {
+    final previousOwnerUid =
+        RinginoutApp._lastAppliedOwnerUid ?? HiveHelper.storedActiveOwnerUid;
+
+    if (previousOwnerUid != null && previousOwnerUid != widget.userUid) {
+      await SmartLocationService.cancelAllSnoozes();
+      await SmartLocationService.stopMonitoring();
+    }
+
+    RinginoutApp._lastAppliedOwnerUid = widget.userUid;
+    await HiveHelper.setActiveOwnerUid(widget.userUid);
+    await SmartLocationService.updatePlaces();
+    await SmartLocationService.startMonitoring();
+  }
+
+  void _notifyReadyOnce() {
+    if (_notifiedReadyUid == widget.userUid) return;
+    _notifiedReadyUid = widget.userUid;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onReady(context);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<void>(
+      future: _ownerFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        _notifyReadyOnce();
+        return const PermissionGate(
+          child: TermsGate(child: MainNavigationPage()),
+        );
+      },
+    );
+  }
+}
+
 //앱의 기본 설정(테마, 로케일 등)//
 //라우팅 설정
 ///보류 중인 알람 처리

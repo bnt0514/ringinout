@@ -283,6 +283,15 @@ class SmartLocationMonitor {
   // ========== 외부 인터페이스 ==========
 
   /// 상태 정보
+  static Future<void> cancelAllSnoozes() async {
+    try {
+      await _nativeChannel.invokeMethod('cancelAllSnoozes');
+      AppLogBuffer.record('SLM', 'native snoozes cancelled');
+    } catch (e) {
+      AppLogBuffer.record('SLM', 'native snooze cancel failed: $e');
+    }
+  }
+
   static Map<String, dynamic> getStatus() {
     return {
       'isRunning': _locationService?.isRunning ?? false,
@@ -321,7 +330,9 @@ class SmartLocationMonitor {
       await _nativeChannel.invokeMethod('startMonitoring', {
         'places': places,
         'deviceAlarmMacs': deviceAlarmMacs,
+        'ownerUid': HiveHelper.activeOwnerUid ?? '',
       });
+      await _recordNativeStatus('startMonitoring');
       AppLogBuffer.record(
         'SLM',
         '✅ 네이티브 지오펜스 등록 완료 (${places.length}개) — BT 기기: ${deviceAlarmMacs.length}개',
@@ -345,7 +356,9 @@ class SmartLocationMonitor {
       await _nativeChannel.invokeMethod('updatePlaces', {
         'places': places,
         'deviceAlarmMacs': deviceAlarmMacs,
+        'ownerUid': HiveHelper.activeOwnerUid ?? '',
       });
+      await _recordNativeStatus('updatePlaces');
       AppLogBuffer.record(
         'SLM',
         '✅ 네이티브 지오펜스 재등록 완료 (${places.length}개, BT 기기: ${deviceAlarmMacs.length}개)',
@@ -430,6 +443,7 @@ class SmartLocationMonitor {
         );
         result.add({
           'id': nativePlaceId,
+          'ownerUid': place['ownerUid']?.toString() ?? '',
           'name': place['name'] ?? placeName,
           'latitude': (lat as num).toDouble(),
           'longitude': (lng as num).toDouble(),
@@ -475,6 +489,26 @@ class SmartLocationMonitor {
   }
 
   /// 활성화된 독립형 기기 알람의 MAC 주소 목록 반환 (네이티브 전달용)
+  static Future<void> _recordNativeStatus(String source) async {
+    try {
+      final status = await _nativeChannel.invokeMethod('getStatus');
+      if (status is! Map) return;
+      final wifi = status['wifi'];
+      final wifiCount =
+          wifi is Map ? (wifi['wifiPlaceCount']?.toString() ?? '?') : '?';
+      final wifiMonitoring =
+          wifi is Map ? (wifi['isMonitoring']?.toString() ?? '?') : '?';
+      AppLogBuffer.record(
+        'SLM',
+        'native status after $source: places=${status['placeCount']}, '
+            'monitoring=${status['isMonitoring']}, '
+            'wifiPlaces=$wifiCount, wifiMonitoring=$wifiMonitoring',
+      );
+    } catch (e) {
+      AppLogBuffer.record('SLM', 'native status read failed after $source: $e');
+    }
+  }
+
   static List<String> _buildDeviceAlarmMacList() {
     try {
       return HiveHelper.getActiveDeviceAlarms()

@@ -311,7 +311,10 @@ class _SettingsPageState extends State<SettingsPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '오늘 남은 전송 횟수: $remaining/${ReportRateLimiter.maxPerDay}회',
+                    l10n.getWithArgs('report_remaining_count', {
+                      'remaining': '$remaining',
+                      'max': '${ReportRateLimiter.maxPerDay}',
+                    }),
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                   const SizedBox(height: 8),

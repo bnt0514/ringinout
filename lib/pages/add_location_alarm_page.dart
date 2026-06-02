@@ -99,8 +99,7 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
     );
     alarmName = widget.prefilledMessage ?? '';
 
-    final box = HiveHelper.placeBox;
-    places = box.values.map((e) => Map<String, dynamic>.from(e)).toList();
+    places = HiveHelper.getSavedLocations();
 
     // 잠긴 장소 파악용 플랜 로드
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1208,7 +1207,8 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
                         final plan = await SubscriptionService.getCurrentPlan();
                         final limit = SubscriptionService.alarmLimit(plan);
                         if (limit != null) {
-                          final totalCount = HiveHelper.alarmBox.length;
+                          final totalCount =
+                              HiveHelper.getLocationAlarms().length;
                           if (totalCount >= limit && mounted) {
                             await SubscriptionLimitDialog.showAlarmLimit(
                               context,
@@ -1271,7 +1271,7 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
                         };
 
                         // ✅ 저장 완료 후 pop
-                        await HiveHelper.alarmBox.put(id, alarm);
+                        await HiveHelper.saveLocationAlarm(alarm);
 
                         final prefs = await SharedPreferences.getInstance();
                         await prefs.setString(

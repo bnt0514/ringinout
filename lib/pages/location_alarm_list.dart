@@ -38,13 +38,13 @@ class AlarmListController {
     isSelectionMode.value = newSet.isNotEmpty;
   }
 
-  void toggleAll(int totalCount) {
-    if (selectedIndexes.value.length == totalCount) {
+  void toggleAll(Iterable<int> indexes) {
+    final allIndexes = indexes.toSet();
+    if (selectedIndexes.value.length == allIndexes.length &&
+        selectedIndexes.value.containsAll(allIndexes)) {
       selectedIndexes.value = {};
     } else {
-      selectedIndexes.value = Set<int>.from(
-        List.generate(totalCount, (index) => index),
-      );
+      selectedIndexes.value = allIndexes;
     }
   }
 
@@ -378,7 +378,7 @@ class AlarmListItem extends StatelessWidget {
             final plan = await SubscriptionService.getCurrentPlan();
             final limit = SubscriptionService.alarmLimit(plan);
             if (limit != null) {
-              final totalCount = HiveHelper.alarmBox.length;
+              final totalCount = HiveHelper.getLocationAlarms().length;
               if (totalCount > limit) {
                 // 한도 초과: 롤백
                 final rollback = Map<String, dynamic>.from(alarm);
@@ -590,12 +590,10 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
     setState(() => _plan = plan);
   }
 
-  List<MapEntry<int, Map<String, dynamic>>> _sortAlarms(List alarms) {
-    // 원본 인덱스를 유지하면서 정렬
-    final indexed =
-        alarms.asMap().entries.map((e) {
-          return MapEntry(e.key, Map<String, dynamic>.from(e.value));
-        }).toList();
+  List<MapEntry<int, Map<String, dynamic>>> _sortAlarms(
+    List<MapEntry<int, Map<String, dynamic>>> alarms,
+  ) {
+    final indexed = [...alarms];
 
     switch (_sortOption) {
       case 'place_asc':
@@ -738,6 +736,10 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
     return ValueListenableBuilder(
       valueListenable: HiveHelper.alarmBox.listenable(),
       builder: (context, Box alarmBox, _) {
+        final visibleAlarmIndexes =
+            HiveHelper.getVisibleAlarmEntries()
+                .map((entry) => entry.key)
+                .toSet();
         return ValueListenableBuilder(
           valueListenable: _controller.isSelectionMode,
           builder: (context, isSelectionMode, _) {
@@ -753,7 +755,7 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
                 children: [
                   if (isSelectionMode) _buildSelectionHeader(),
                   Expanded(child: _buildAlarmList()),
-                  if (!isSelectionMode && alarmBox.isNotEmpty)
+                  if (!isSelectionMode && visibleAlarmIndexes.isNotEmpty)
                     _buildFixedAddBar(),
                   if (isSelectionMode) _buildDeleteBar(),
                 ],
@@ -773,7 +775,7 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
           (context, _, __) => ValueListenableBuilder(
             valueListenable: HiveHelper.alarmBox.listenable(),
             builder: (context, Box box, _) {
-              final alarms = box.values.toList();
+              final alarms = HiveHelper.getVisibleAlarmEntries();
               if (alarms.isEmpty) {
                 final l10n = AppLocalizations.of(context);
                 return Center(
@@ -823,7 +825,7 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
 
               // ✅ 활성 알람 개수 확인
               final activeCount =
-                  alarms.where((a) => a['enabled'] == true).length;
+                  alarms.where((a) => a.value['enabled'] == true).length;
               final sorted = _sortAlarms(alarms);
 
               // ✅ 장소별 그룹핑 (정렬된 순서 유지)
@@ -1000,11 +1002,13 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
   }
 
   Widget _buildSelectionHeader() {
+    final visibleIndexes =
+        HiveHelper.getVisibleAlarmEntries().map((entry) => entry.key).toSet();
     return Container(
       alignment: Alignment.centerLeft,
       padding: const EdgeInsets.fromLTRB(16, 10, 0, 4),
       child: GestureDetector(
-        onTap: () => _controller.toggleAll(HiveHelper.alarmBox.length),
+        onTap: () => _controller.toggleAll(visibleIndexes),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1012,7 +1016,9 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
               valueListenable: _controller.selectedIndexes,
               builder: (context, selectedIndexes, _) {
                 final allSelected =
-                    selectedIndexes.length == HiveHelper.alarmBox.length;
+                    visibleIndexes.isNotEmpty &&
+                    selectedIndexes.length == visibleIndexes.length &&
+                    selectedIndexes.containsAll(visibleIndexes);
                 return Icon(
                   allSelected ? Icons.check_box : Icons.check_box_outline_blank,
                   size: 20,

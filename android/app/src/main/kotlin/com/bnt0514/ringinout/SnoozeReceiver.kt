@@ -20,6 +20,7 @@ class SnoozeReceiver : BroadcastReceiver() {
         const val EXTRA_ALARM_DATA = "alarm_data"
         const val EXTRA_ALARM_KEY = "alarm_key"
         const val EXTRA_PLACE_ID = "place_id"
+        const val EXTRA_OWNER_UID = "owner_uid"
         const val EXTRA_IS_REPEAT = "is_repeat"
     }
 
@@ -31,6 +32,7 @@ class SnoozeReceiver : BroadcastReceiver() {
             val alarmTitle = intent.getStringExtra(EXTRA_ALARM_TITLE) ?: "위치 알람"
             val alarmKey = intent.getStringExtra(EXTRA_ALARM_KEY) ?: ""
             val placeId = intent.getStringExtra(EXTRA_PLACE_ID) ?: ""
+            val ownerUid = intent.getStringExtra(EXTRA_OWNER_UID) ?: ""
             val isRepeat = intent.getBooleanExtra(EXTRA_IS_REPEAT, false)
 
             Log.d(
@@ -38,8 +40,13 @@ class SnoozeReceiver : BroadcastReceiver() {
                     "📢 스누즈 알람 트리거: $alarmTitle (ID: $alarmId, alarmKey: $alarmKey, placeId: $placeId, isRepeat: $isRepeat)"
             )
 
+            if (!isCurrentOwner(context, ownerUid)) {
+                Log.w("SnoozeReceiver", "⛔ 스누즈 폐기 — 현재 계정 알람 아님: $alarmKey")
+                return
+            }
+
             // 1. 전체화면 알람 Activity 시작 (벨소리도 Activity 내에서 재생)
-            launchFullScreenAlarm(context, alarmId, alarmTitle, alarmKey, placeId, isRepeat)
+            launchFullScreenAlarm(context, alarmId, alarmTitle, alarmKey, placeId, ownerUid, isRepeat)
 
             // ✅ 제거: startAlarmService()가 MainActivity를 띄워서
             //    AlarmFullscreenActivity를 가리는 문제 해결
@@ -53,6 +60,7 @@ class SnoozeReceiver : BroadcastReceiver() {
             title: String,
             alarmKey: String,
             placeId: String,
+            ownerUid: String,
             isRepeat: Boolean = false
     ) {
         try {
@@ -63,6 +71,7 @@ class SnoozeReceiver : BroadcastReceiver() {
                         putExtra("alarmId", alarmId)
                         putExtra("alarmKey", alarmKey)
                         putExtra("placeId", placeId)
+                        putExtra("ownerUid", ownerUid)
                         putExtra("isSnoozeAlarm", true)
                         putExtra("isRepeat", isRepeat) // ✅ 반복 알람 여부 전달
                         // ✅ 스택 호환: CLEAR_TOP 제거
@@ -136,5 +145,18 @@ class SnoozeReceiver : BroadcastReceiver() {
         } catch (e: Exception) {
             Log.e("SnoozeReceiver", "❌ 폴백 알림도 실패: ${e.message}")
         }
+    }
+
+    private fun isCurrentOwner(context: Context, ownerUid: String): Boolean {
+        val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val current = prefs.getString("flutter.active_owner_uid", "") ?: ""
+        if (current.isEmpty()) return false
+
+        if (ownerUid.isEmpty()) {
+            Log.w("SnoozeReceiver", "⚠️ ownerUid 없는 기존 스누즈 허용: 현재 로그인 세션에서만 처리")
+            return true
+        }
+
+        return current == ownerUid
     }
 }

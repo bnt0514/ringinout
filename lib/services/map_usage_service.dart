@@ -5,38 +5,59 @@
 // - 기기 로컬(SharedPreferences)에 provider별 월간 카운트 저장
 // - 주 1회 Firestore map_usage/{yyyy-MM} 에 increment 업로드
 // - Firestore admin_config/map_settings 읽어서 킬스위치 적용
-// - 플랜별 지도 오픈 한도 적용 (beta free=unlimited, free=100, plus=300, pro=1000)
-// - 전체 사용량이 무료 한도 95% 도달 시 자동 차단
+// - 개인별 지도 오픈 제한은 적용하지 않음
+// - 전체 사용량이 무료 한도 80% 도달 시 무료 사용자만 자동 차단
+
+import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ringinout/services/subscription_service.dart';
 import 'package:ringinout/config/app_config.dart';
+import 'package:ringinout/services/secure_http_headers.dart';
 
 /// 한 달치 전체 지도 사용량 통계 (Firestore에서 읽어온 값)
 class MapUsageStats {
   final int google;
   final int naver;
-  final int osm;
+  final int geoGoogleFwd;
+  final int geoGoogleReverse;
+  final int geoGooglePlace;
+  final int geoNaverFwd;
+  final int geoNaverReverse;
+  final int geoNaverPlace;
   final DateTime fetchedAt;
 
   MapUsageStats({
     required this.google,
     required this.naver,
-    required this.osm,
+    this.geoGoogleFwd = 0,
+    this.geoGoogleReverse = 0,
+    this.geoGooglePlace = 0,
+    this.geoNaverFwd = 0,
+    this.geoNaverReverse = 0,
+    this.geoNaverPlace = 0,
     required this.fetchedAt,
   });
 
   static MapUsageStats get empty =>
-      MapUsageStats(google: 0, naver: 0, osm: 0, fetchedAt: DateTime(2000));
+      MapUsageStats(google: 0, naver: 0, fetchedAt: DateTime(2000));
 
-  /// Google Maps 무료 한도 (월) — $200/$7*1000
-  static const int googleFreeLimit = 28571;
+  /// Google Maps Platform 2026 pricing free usage caps.
+  /// Mobile Maps SDK billing may appear as unlimited in Google's pricing table;
+  /// this value is kept as a conservative Dynamic Maps safety cap for admin ops.
+  static const int googleFreeLimit = 10000;
+  static const int googleGeocodingCreditLimit = 10000;
+  static const int googlePlacesTextCreditLimit = 5000;
 
-  /// 네이버 Maps 무료 한도 (월)
+  /// 네이버 NCP 월 무료 한도.
   static const int naverFreeLimit = 6000000;
+  static const int naverGeocodingFreeLimit = 3000000;
+  static const int naverReverseGeocodingFreeLimit = 3000000;
+  static const int naverLocalSearchFreeLimit = 25000;
 
   double get googleUsageRatio => google / googleFreeLimit;
   double get naverUsageRatio => naver / naverFreeLimit;
@@ -47,16 +68,14 @@ class WeeklyMapStats {
   final String week;
   final int google;
   final int naver;
-  final int osm;
 
   WeeklyMapStats({
     required this.week,
     required this.google,
     required this.naver,
-    required this.osm,
   });
 
-  int get total => google + naver + osm;
+  int get total => google + naver;
 }
 
 // SharedPreferences 키
@@ -69,9 +88,11 @@ const _kForceUploadCheckedKey = 'map_force_upload_checked';
 // geo_gfwd = Google forward, geo_gplace = Google place search
 // geo_nfwd = Naver forward, geo_nrev = Naver reverse
 const _kGeoGoogleFwd = 'geo_gfwd_'; // + month
+const _kGeoGoogleReverse = 'geo_grev_'; // + month
 const _kGeoGooglePlace = 'geo_gplace_'; // + month
 const _kGeoNaverFwd = 'geo_nfwd_'; // + month
 const _kGeoNaverRev = 'geo_nrev_'; // + month
+const _kGeoNaverPlace = 'geo_nplace_'; // + month
 
 /// 이전호환용 상수 — 실제 제한은 SubscriptionService.mapOpenMonthlyLimit 사용
 /// (legacy only; current limits come from SubscriptionService)
@@ -79,6 +100,9 @@ const _kGeoNaverRev = 'geo_nrev_'; // + month
 const int kFreeMapOpenLimit = 20;
 
 class MapUsageService {
+  static const String _functionsBaseUrl =
+      'https://us-central1-ringgo-485705.cloudfunctions.net';
+
   // ──────────────────────────────────────────────
   // 전역 통계 캐시 (30분)
   // ──────────────────────────────────────────────
@@ -122,38 +146,31 @@ class MapUsageService {
     return prefs.getInt(key) ?? 0;
   }
 
-  /// 해당 provider로 지도를 열 수 있는지 확인 (모든 플랜 공통)
-  /// OSM은 항상 true (비용 없음)
+  /// 해당 provider로 지도를 열 수 있는지 확인.
+  /// 개인별 월 제한은 없고, 전체 무료 한도 80% 도달 시 무료 사용자만 차단한다.
   static Future<bool> canOpenMap({String provider = 'naver'}) async {
-    if (provider == 'osm') return true;
     final plan = await SubscriptionService.getCurrentPlan();
-    final limit = SubscriptionService.mapOpenMonthlyLimit(plan);
-    if (limit == null) return true; // special = 무제한
-    final count = await getMapOpenCount();
-    return count < limit;
+    return SubscriptionService.canUseGeocoding(plan: plan, provider: provider);
   }
 
   /// 이전 호환용 — canOpenMap으로 대체
   static Future<bool> canFreeUserOpenMap({String provider = 'naver'}) =>
       canOpenMap(provider: provider);
 
-  /// 지도 오픈 카운트 증가 (OSM 제외, 모든 유료 플랜 포함)
+  /// 지도 오픈 카운트 증가 (분석용). 개인별 제한에는 사용하지 않는다.
   static Future<void> incrementFreeUserOpenCount({
     String provider = 'naver',
   }) async {
-    if (provider == 'osm') return;
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
     final plan = await SubscriptionService.getCurrentPlan();
-    final limit = SubscriptionService.mapOpenMonthlyLimit(plan);
-    if (limit == null) return; // special users: 카운트 불필요
 
     final prefs = await SharedPreferences.getInstance();
     final key = '$_kFreeOpensPrefix${uid}_${_currentMonth()}';
     final current = prefs.getInt(key) ?? 0;
     await prefs.setInt(key, current + 1);
     debugPrint(
-      '🗺️ [PlanLimit] ${plan.name} 오픈 ${current + 1}/$limit (provider: $provider)',
+      '🗺️ [MapUsage] ${plan.name} 오픈 ${current + 1} (provider: $provider)',
     );
   }
 
@@ -171,26 +188,49 @@ class MapUsageService {
     }
 
     try {
-      // ✅ devices 서브컨렉션을 순회하면서 합산
-      final devicesSnap =
+      final snap =
           await FirebaseFirestore.instance
               .collection('map_usage')
               .doc(_currentMonth())
-              .collection('devices')
               .get();
-
-      int google = 0, naver = 0, osm = 0;
-      for (final doc in devicesSnap.docs) {
-        final d = doc.data();
-        google += (d['google'] as num?)?.toInt() ?? 0;
-        naver += (d['naver'] as num?)?.toInt() ?? 0;
-        osm += (d['osm'] as num?)?.toInt() ?? 0;
+      final totals = Map<String, dynamic>.from(snap.data()?['totals'] ?? {});
+      var google = (totals['google'] as num?)?.toInt() ?? 0;
+      var naver = (totals['naver'] as num?)?.toInt() ?? 0;
+      var geoGoogleFwd = (totals['geo_google_fwd'] as num?)?.toInt() ?? 0;
+      var geoGoogleReverse = (totals['geo_google_rev'] as num?)?.toInt() ?? 0;
+      var geoGooglePlace = (totals['geo_google_place'] as num?)?.toInt() ?? 0;
+      var geoNaverFwd = (totals['geo_naver_fwd'] as num?)?.toInt() ?? 0;
+      var geoNaverReverse = (totals['geo_naver_rev'] as num?)?.toInt() ?? 0;
+      var geoNaverPlace = (totals['geo_naver_place'] as num?)?.toInt() ?? 0;
+      if (totals.isEmpty) {
+        final devicesSnap =
+            await FirebaseFirestore.instance
+                .collection('map_usage')
+                .doc(_currentMonth())
+                .collection('devices')
+                .get();
+        for (final doc in devicesSnap.docs) {
+          final d = doc.data();
+          google += (d['google'] as num?)?.toInt() ?? 0;
+          naver += (d['naver'] as num?)?.toInt() ?? 0;
+          geoGoogleFwd += (d['geo_google_fwd'] as num?)?.toInt() ?? 0;
+          geoGoogleReverse += (d['geo_google_rev'] as num?)?.toInt() ?? 0;
+          geoGooglePlace += (d['geo_google_place'] as num?)?.toInt() ?? 0;
+          geoNaverFwd += (d['geo_naver_fwd'] as num?)?.toInt() ?? 0;
+          geoNaverReverse += (d['geo_naver_rev'] as num?)?.toInt() ?? 0;
+          geoNaverPlace += (d['geo_naver_place'] as num?)?.toInt() ?? 0;
+        }
       }
 
       _statsCache = MapUsageStats(
         google: google,
         naver: naver,
-        osm: osm,
+        geoGoogleFwd: geoGoogleFwd,
+        geoGoogleReverse: geoGoogleReverse,
+        geoGooglePlace: geoGooglePlace,
+        geoNaverFwd: geoNaverFwd,
+        geoNaverReverse: geoNaverReverse,
+        geoNaverPlace: geoNaverPlace,
         fetchedAt: now,
       );
       _statsCacheTime = now;
@@ -285,15 +325,17 @@ class MapUsageService {
   // 지오코딩 호출 추적 (SharedPreferences 월별 카운터)
   // ──────────────────────────────────────────────
 
-  /// 지오코딩 API 호출 시 기록 (provider: google_fwd / google_place / naver_fwd / naver_rev)
+  /// 지오코딩 API 호출 시 기록.
   static Future<void> trackGeocodingCall(String type) async {
     final month = _currentMonth();
     final prefs = await SharedPreferences.getInstance();
     final key = switch (type) {
       'google_fwd' => '$_kGeoGoogleFwd$month',
+      'google_rev' => '$_kGeoGoogleReverse$month',
       'google_place' => '$_kGeoGooglePlace$month',
       'naver_fwd' => '$_kGeoNaverFwd$month',
       'naver_rev' => '$_kGeoNaverRev$month',
+      'naver_place' => '$_kGeoNaverPlace$month',
       _ => null,
     };
     if (key == null) return;
@@ -307,9 +349,11 @@ class MapUsageService {
     final prefs = await SharedPreferences.getInstance();
     return {
       'google_fwd': prefs.getInt('$_kGeoGoogleFwd$month') ?? 0,
+      'google_rev': prefs.getInt('$_kGeoGoogleReverse$month') ?? 0,
       'google_place': prefs.getInt('$_kGeoGooglePlace$month') ?? 0,
       'naver_fwd': prefs.getInt('$_kGeoNaverFwd$month') ?? 0,
       'naver_rev': prefs.getInt('$_kGeoNaverRev$month') ?? 0,
+      'naver_place': prefs.getInt('$_kGeoNaverPlace$month') ?? 0,
     };
   }
 
@@ -343,71 +387,52 @@ class MapUsageService {
       final week = _currentWeek();
       final google = prefs.getInt('${_kLocalPrefix}google_$month') ?? 0;
       final naver = prefs.getInt('${_kLocalPrefix}naver_$month') ?? 0;
-      final osm = prefs.getInt('${_kLocalPrefix}osm_$month') ?? 0;
 
       // 지오코딩 카운트
       final geoGFwd = prefs.getInt('$_kGeoGoogleFwd$month') ?? 0;
+      final geoGRev = prefs.getInt('$_kGeoGoogleReverse$month') ?? 0;
       final geoGPlace = prefs.getInt('$_kGeoGooglePlace$month') ?? 0;
       final geoNFwd = prefs.getInt('$_kGeoNaverFwd$month') ?? 0;
       final geoNRev = prefs.getInt('$_kGeoNaverRev$month') ?? 0;
+      final geoNPlace = prefs.getInt('$_kGeoNaverPlace$month') ?? 0;
 
       if (google == 0 &&
           naver == 0 &&
-          osm == 0 &&
           geoGFwd == 0 &&
+          geoGRev == 0 &&
           geoGPlace == 0 &&
           geoNFwd == 0 &&
-          geoNRev == 0) {
+          geoNRev == 0 &&
+          geoNPlace == 0) {
         debugPrint('🗺️ [MapUsage] 업로드할 데이터 없음 — 스킵');
         return;
       }
 
-      // ✅ 기기별 문서에 덮어쓰기 (중복 집계 방지)
-      // map_usage/{month}/devices/{uid}
-      final deviceMonthRef = FirebaseFirestore.instance
-          .collection('map_usage')
-          .doc(month)
-          .collection('devices')
-          .doc(uid);
+      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+      if (idToken == null) return;
 
-      final deviceWeekRef = FirebaseFirestore.instance
-          .collection('map_usage_weekly')
-          .doc(week)
-          .collection('devices')
-          .doc(uid);
-
-      final batch = FirebaseFirestore.instance.batch();
-
-      batch.set(deviceMonthRef, {
-        'google': google,
-        'naver': naver,
-        'osm': osm,
-        'geo_google_fwd': geoGFwd,
-        'geo_google_place': geoGPlace,
-        'geo_naver_fwd': geoNFwd,
-        'geo_naver_rev': geoNRev,
-        'uid': uid,
-        'last_updated': FieldValue.serverTimestamp(),
-      });
-
-      batch.set(deviceWeekRef, {
-        'google': google,
-        'naver': naver,
-        'osm': osm,
-        'geo_google_fwd': geoGFwd,
-        'geo_google_place': geoGPlace,
-        'geo_naver_fwd': geoNFwd,
-        'geo_naver_rev': geoNRev,
-        'uid': uid,
-        'month': month,
-        'last_updated': FieldValue.serverTimestamp(),
-      });
-
-      await batch.commit();
-
-      debugPrint(
-        '🗺️ [MapUsage] Firestore 업로드 완료: G=$google N=$naver O=$osm ($week)',
+      final response = await http.post(
+        Uri.parse('$_functionsBaseUrl/uploadMapUsage'),
+        headers: await SecureHttpHeaders.json(idToken: idToken),
+        body: jsonEncode({
+          'google': google,
+          'naver': naver,
+          'geo_google_fwd': geoGFwd,
+          'geo_google_rev': geoGRev,
+          'geo_google_place': geoGPlace,
+          'geo_naver_fwd': geoNFwd,
+          'geo_naver_rev': geoNRev,
+          'geo_naver_place': geoNPlace,
+        }),
       );
+
+      if (response.statusCode >= 400) {
+        throw Exception(
+          'uploadMapUsage failed: ${response.statusCode} ${response.body}',
+        );
+      }
+
+      debugPrint('🗺️ [MapUsage] Firestore 업로드 완료: G=$google N=$naver ($week)');
     } catch (e) {
       debugPrint('⚠️ [MapUsage] Firestore 업로드 실패: $e');
       rethrow;
@@ -415,25 +440,27 @@ class MapUsageService {
   }
 
   // ──────────────────────────────────────────────
-  // 내부: 95% 자동 차단
+  // 내부: 80% 도달 시 무료 사용자만 자동 차단
   // ──────────────────────────────────────────────
   static Future<void> _checkAutoDisable(MapUsageStats stats) async {
-    const threshold = 0.95;
+    const threshold = 0.80;
     bool changed = false;
 
-    if (AppConfig.isGoogleMapsEnabled && stats.googleUsageRatio >= threshold) {
+    if (!SubscriptionService.freeGoogleBlocked &&
+        stats.googleUsageRatio >= threshold) {
       debugPrint(
-        '🚨 [MapUsage] Google Maps 95% 초과! (${stats.google}/${MapUsageStats.googleFreeLimit}) → 자동 차단',
+        '🚨 [MapUsage] Google Maps 80% 도달! (${stats.google}/${MapUsageStats.googleFreeLimit}) → Free 자동 차단',
       );
-      await setProviderEnabled('google', false);
+      await setFreeProviderBlocked(google: true);
       changed = true;
     }
 
-    if (AppConfig.isNaverMapsEnabled && stats.naverUsageRatio >= threshold) {
+    if (!SubscriptionService.freeNaverBlocked &&
+        stats.naverUsageRatio >= threshold) {
       debugPrint(
-        '🚨 [MapUsage] Naver Maps 95% 초과! (${stats.naver}/${MapUsageStats.naverFreeLimit}) → 자동 차단',
+        '🚨 [MapUsage] Naver Maps 80% 도달! (${stats.naver}/${MapUsageStats.naverFreeLimit}) → Free 자동 차단',
       );
-      await setProviderEnabled('naver', false);
+      await setFreeProviderBlocked(naver: true);
       changed = true;
     }
 
@@ -541,25 +568,31 @@ class MapUsageService {
       });
 
       for (final weekId in weekIds) {
-        final devicesSnap =
+        final snap =
             await FirebaseFirestore.instance
                 .collection('map_usage_weekly')
                 .doc(weekId)
-                .collection('devices')
                 .get();
 
-        if (devicesSnap.docs.isEmpty) continue;
-
-        int google = 0, naver = 0, osm = 0;
-        for (final doc in devicesSnap.docs) {
-          final d = doc.data();
-          google += (d['google'] as num?)?.toInt() ?? 0;
-          naver += (d['naver'] as num?)?.toInt() ?? 0;
-          osm += (d['osm'] as num?)?.toInt() ?? 0;
+        if (!snap.exists) continue;
+        final totals = Map<String, dynamic>.from(snap.data()?['totals'] ?? {});
+        var google = (totals['google'] as num?)?.toInt() ?? 0;
+        var naver = (totals['naver'] as num?)?.toInt() ?? 0;
+        if (totals.isEmpty) {
+          final devicesSnap =
+              await FirebaseFirestore.instance
+                  .collection('map_usage_weekly')
+                  .doc(weekId)
+                  .collection('devices')
+                  .get();
+          for (final doc in devicesSnap.docs) {
+            final d = doc.data();
+            google += (d['google'] as num?)?.toInt() ?? 0;
+            naver += (d['naver'] as num?)?.toInt() ?? 0;
+          }
         }
-        results.add(
-          WeeklyMapStats(week: weekId, google: google, naver: naver, osm: osm),
-        );
+        if (google == 0 && naver == 0) continue;
+        results.add(WeeklyMapStats(week: weekId, google: google, naver: naver));
       }
     } catch (e) {
       debugPrint('⚠️ [MapUsage] getWeeklyHistory 실패: $e');

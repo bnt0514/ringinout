@@ -11,15 +11,14 @@ service cloud.firestore {
           && request.auth.uid == 'IPf2TW0c62et7bwi8B5hZGyKLlc2';
     }
 
-    // ── 지도 사용량: 부모 문서는 어드민만 쓸 수 있음, 기기별 서브컬렉션은 본인만
+    // ── 지도 사용량: 클라이언트 직접 쓰기 차단, Cloud Functions 전용
     match /map_usage/{month} {
       allow read: if isAdmin();
       allow write: if isAdmin();
 
-      // 기기별 서브컬렉션 — 본인 문서만 쓰기 가능
       match /devices/{uid} {
         allow read: if isAdmin();
-        allow write: if isAuthenticated() && request.auth.uid == uid;
+        allow write: if false;
       }
     }
 
@@ -29,7 +28,7 @@ service cloud.firestore {
 
       match /devices/{uid} {
         allow read: if isAdmin();
-        allow write: if isAuthenticated() && request.auth.uid == uid;
+        allow write: if false;
       }
     }
 
@@ -39,10 +38,23 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // ── 사용자 데이터: 본인 것만
+    // ── 사용자 데이터: parent doc은 플랜 조작 방지를 위해 클라이언트 직접 쓰기 차단
     match /users/{userId} {
-      allow read, write: if request.auth != null
-          && request.auth.uid == userId;
+      allow read, delete: if isAdmin()
+          || (request.auth != null && request.auth.uid == userId);
+      allow create, update: if isAdmin();
+
+      match /agreements/{agreementId} {
+        allow read: if isAdmin()
+            || (request.auth != null && request.auth.uid == userId);
+        allow create, update: if request.auth != null
+            && request.auth.uid == userId
+            && agreementId == 'terms'
+            && request.resource.data.keys().hasOnly(['version', 'agreedAt'])
+            && request.resource.data.version is string;
+        allow delete: if isAdmin()
+            || (request.auth != null && request.auth.uid == userId);
+      }
     }
 
     // ── 구독 정보: 읽기만 본인 허용, 쓰기는 Cloud Functions 전용
@@ -52,10 +64,10 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // ── 버그 리포트: 쓰기는 인증된 모든 유저, 읽기는 어드민만
+    // ── 버그 리포트: 클라이언트 직접 쓰기 차단, Cloud Functions 전용
     match /bug_reports/{reportId} {
       allow read: if isAdmin();
-      allow write: if isAuthenticated();
+      allow write: if false;
     }
 
     // ── Cloud Functions 내부 컬렉션: 서버(Admin SDK)만 접근, 클라이언트 차단
@@ -64,6 +76,20 @@ service cloud.firestore {
     }
     match /cf_subscriptions/{docId} {
       allow read, write: if false;
+    }
+    match /purchase_tokens/{docId} {
+      allow read, write: if false;
+    }
+    match /rate_limits/{docId} {
+      allow read, write: if false;
+    }
+    match /ops_alerts/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /ops_reports/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     // ── 쿼터 (월간 검색/알람 사용량): 본인 읽기 + 제한적 쓰기, 어드민 전체 가시
@@ -76,21 +102,17 @@ service cloud.firestore {
 
       match /months/{month} {
         allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == uid);
-        // 클라이언트가 FieldValue.increment로 +1만 올릴 수 있도록 보수적 허용
-        allow create, update: if isAuthenticated()
-            && request.auth.uid == uid;
-        allow delete: if isAdmin();
+        // Cloud Functions incrementQuota 전용
+        allow create, update, delete: if false;
       }
     }
 
-    // ── 글로벌 풀 (월간 전사 합계): 어드민만 읽기, 쓰기는 클라이언트 증감 허용
+    // ── 글로벌 풀 (월간 전사 합계): Cloud Functions incrementQuota 전용
     //    경로: pools/{yyyy-MM}
     //    필드: search_total, alarm_total, last_updated
     match /pools/{month} {
       allow read: if isAdmin();
-      // 쓰기는 인증된 유저라면 증분 허용 (필드 위조 방지는 Cloud Function에서 강화)
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow create, update, delete: if false;
     }
   }
 }

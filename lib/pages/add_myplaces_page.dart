@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:ringinout/config/app_config.dart';
 import 'package:ringinout/config/app_theme.dart';
-import 'package:flutter_map/flutter_map.dart' as fmap;
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:geolocator/geolocator.dart' as geo;
 import 'package:google_maps_flutter/google_maps_flutter.dart' as gmap;
@@ -14,11 +13,8 @@ import 'package:ringinout/services/google_geocoding_service.dart';
 import 'package:ringinout/services/map_provider_service.dart';
 import 'package:ringinout/services/map_usage_service.dart';
 import 'package:ringinout/services/naver_geocoding_service.dart';
-import 'package:ringinout/services/osm_geocoding_service.dart';
-import 'package:ringinout/services/quota_service.dart';
 import 'package:ringinout/services/smart_location_service.dart';
 import 'package:ringinout/services/subscription_service.dart';
-import 'package:ringinout/widgets/reward_consent_dialog.dart';
 import 'package:ringinout/widgets/subscription_limit_dialog.dart';
 import 'package:ringinout/widgets/unified_map_widget.dart';
 import 'package:ringinout/widgets/map_toggle_button.dart';
@@ -51,10 +47,6 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
   Set<gmap.Marker> _googleMarkers = {};
   Set<gmap.Circle> _googleCircles = {};
 
-  // OSM 전용 마커/서클 상태
-  List<fmap.Marker> _osmMarkers = [];
-  List<fmap.CircleMarker> _osmCircles = [];
-
   /// 사용자가 직접 지도를 조작(탭/검색 결과 선택)했는지 여부
   /// true이면 현재 위치 자동 이동을 하지 않는다
   bool _userInteracted = false;
@@ -65,6 +57,7 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
   /// 지오코딩(검색 + 역지오코딩) 허용 여부
   /// false이면 검색바 숨김 + 맵 탭 시 주소 조회 안 함 (좌표만 표시)
   bool _geocodingAllowed = true;
+  bool _addressOnlySearchMode = false;
 
   @override
   void initState() {
@@ -84,6 +77,12 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
     geo.Position position = await geo.Geolocator.getCurrentPosition();
     _currentLat = position.latitude;
     _currentLng = position.longitude;
+    if (mounted) {
+      context.read<MapProviderService>().updateRegionFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+    }
     // 사용자가 이미 지도를 조작(검색/탭)한 경우 현재 위치로 덮어쓰지 않는다
     if (!_userInteracted) {
       _moveCamera(position.latitude, position.longitude);
@@ -91,6 +90,25 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
     setState(() {
       _locationReady = true;
     });
+  }
+
+  /// AppBar 버튼: 무조건 현재 위치로 이동 (사용자 조작 여부 무시)
+  Future<void> _goToCurrentLocation() async {
+    geo.LocationPermission permission = await geo.Geolocator.checkPermission();
+    if (permission == geo.LocationPermission.denied) {
+      permission = await geo.Geolocator.requestPermission();
+    }
+    if (permission == geo.LocationPermission.deniedForever) return;
+    geo.Position position = await geo.Geolocator.getCurrentPosition();
+    _currentLat = position.latitude;
+    _currentLng = position.longitude;
+    if (!mounted) return;
+    context.read<MapProviderService>().updateRegionFromCoordinates(
+      position.latitude,
+      position.longitude,
+    );
+    _moveCamera(position.latitude, position.longitude);
+    setState(() => _locationReady = true);
   }
 
   void _moveCamera(double lat, double lng) {
@@ -124,28 +142,6 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
         outlineWidth: 2,
       );
       _mapController!.addNaverOverlay(circle);
-    } else if (mapService.isOsm) {
-      // OSM: setState로 마커/서클 업데이트
-      setState(() {
-        _osmMarkers = [
-          fmap.Marker(
-            point: _selectedLatLng!.toOsm(),
-            width: 40,
-            height: 40,
-            child: const Icon(Icons.location_pin, color: Colors.red, size: 40),
-          ),
-        ];
-        _osmCircles = [
-          fmap.CircleMarker(
-            point: _selectedLatLng!.toOsm(),
-            radius: _selectedRadius.toDouble(),
-            useRadiusInMeter: true,
-            color: AppColors.mapCircleFill,
-            borderColor: AppColors.mapCircleBorder,
-            borderStrokeWidth: 2,
-          ),
-        ];
-      });
     } else {
       // Google: setState로 마커/서클 업데이트
       setState(() {
@@ -170,10 +166,7 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
   }
 
   Future<void> _reverseGeocode(UnifiedLatLng pos) async {
-    // 역지오코딩은 전 플랜/전 지도 공급자에서 OSM Nominatim(무료)으로 통합.
-    // Naver/Google 역지오코딩은 비용 발생으로 제거됨.
-    // 지오코딩 허용 안 되면 좌표만 표시.
-    if (!_geocodingAllowed) {
+    if (!_geocodingAllowed && !AppConfig.isBetaVersion) {
       if (mounted) {
         setState(() {
           _address =
@@ -182,18 +175,28 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
       }
       return;
     }
-    try {
-      final address = await OsmGeocodingService.reverseGeocode(
+
+    final mapService = context.read<MapProviderService>();
+    GeocodingResult? result;
+    if (mapService.isNaver) {
+      result = await NaverGeocodingService.reverseGeocode(
         pos.latitude,
         pos.longitude,
       );
-      if (address != null && mounted) {
-        setState(() {
-          _address = address;
-        });
-      }
-    } catch (e) {
-      debugPrint('주소 변환 실패: $e');
+    } else {
+      result = await GoogleGeocodingService.reverseGeocode(
+        pos.latitude,
+        pos.longitude,
+        language: mapService.googleLanguage,
+      );
+    }
+
+    if (mounted) {
+      setState(() {
+        _address =
+            result?.displayAddress ??
+            '${pos.latitude.toStringAsFixed(6)}, ${pos.longitude.toStringAsFixed(6)}';
+      });
     }
   }
 
@@ -203,40 +206,36 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
   ///       (3) 검색 quota cap 도달 안 함 (needsReward는 허용)
   Future<void> _refreshGeocodingAllowed() async {
     bool allowed = true;
+    bool addressOnlySearchMode = false;
 
     if (!AppConfig.isGeocodingEnabled) {
       allowed = false;
+    } else if (AppConfig.isBetaVersion) {
+      allowed = true;
     } else {
       try {
         final plan = await SubscriptionService.getCurrentPlan();
         final mapService = context.read<MapProviderService>();
-        final provider =
-            mapService.isNaver
-                ? 'naver'
-                : mapService.isOsm
-                ? 'osm'
-                : 'google';
-        // OSM은 무료라 차단 대상이 아님
-        if (provider != 'osm' &&
-            !SubscriptionService.canUseGeocoding(
-              plan: plan,
-              provider: provider,
-            )) {
+        final provider = mapService.isNaver ? 'naver' : 'google';
+        if (!SubscriptionService.canUseGeocoding(
+          plan: plan,
+          provider: provider,
+        )) {
           allowed = false;
         } else {
-          final quota = await QuotaService.check(QuotaCategory.search);
-          if (quota.status == QuotaStatus.capped) {
-            allowed = false;
-          }
+          addressOnlySearchMode = false;
         }
       } catch (e) {
         debugPrint('⚠️ _refreshGeocodingAllowed 실패: $e');
       }
     }
 
-    if (mounted && _geocodingAllowed != allowed) {
+    if (mounted &&
+        (_geocodingAllowed != allowed ||
+            _addressOnlySearchMode != addressOnlySearchMode)) {
       setState(() {
         _geocodingAllowed = allowed;
+        _addressOnlySearchMode = addressOnlySearchMode;
       });
     }
   }
@@ -251,50 +250,9 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
     _updateMarker();
   }
 
-  /// OSM Nominatim 폴백 — 무료 플랜 주소 검색용 (Naver/Google searchAddress 대신)
-  /// 결과가 있으면 최상위 1건을 GeocodingResult로 변환
-  Future<GeocodingResult?> _osmFallbackSearchAddress(String query) async {
-    try {
-      final results = await OsmGeocodingService.search(query);
-      if (results.isEmpty) return null;
-      final top = results.first;
-      return GeocodingResult(
-        lat: top.lat,
-        lng: top.lng,
-        roadAddress: top.displayName,
-        jibunAddress: top.displayName,
-      );
-    } catch (e) {
-      debugPrint('❌ OSM 폴백 주소 검색 실패: $e');
-      return null;
-    }
-  }
-
   /// 주소 + 장소명 통합 검색
   Future<void> _performSearch(String query) async {
     if (query.trim().isEmpty) return;
-
-    // ── Quota 게이트 ──
-    //   ok         → 그대로 진행
-    //   needsReward→ 보상 동의 다이얼로그, 동의 시 추가 사용 허용
-    //   capped     → 상한 도달 안내 다이얼로그 후 중단
-    final quota = await QuotaService.check(QuotaCategory.search);
-    if (!mounted) return;
-    if (quota.status == QuotaStatus.capped) {
-      await RewardConsentDialog.showCapped(
-        context,
-        category: QuotaCategory.search,
-        cap: quota.absoluteCap,
-      );
-      return;
-    }
-    if (quota.status == QuotaStatus.needsReward) {
-      final granted = await RewardConsentDialog.show(
-        context,
-        category: QuotaCategory.search,
-      );
-      if (!granted) return;
-    }
 
     setState(() {
       _isSearching = true;
@@ -302,59 +260,35 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
       _searchResults = [];
     });
 
-    bool searchSucceeded = false;
     try {
       final mapService = context.read<MapProviderService>();
-      final plan = await SubscriptionService.getCurrentPlan();
-      final isFree = plan == SubscriptionPlan.free;
 
       // 1️⃣ 장소명 검색 — 현재 위치 기준
       List<LocalSearchResult> placeResults;
       GeocodingResult? geoResult;
 
       if (mapService.isNaver) {
-        // Naver Local Search는 무료 (Naver Developer Center, 25K/일)
         placeResults = await NaverGeocodingService.searchPlace(
           query,
           lat: _currentLat,
           lng: _currentLng,
         );
-        // Naver Geocoding은 유료 (NCP) — 무료 플랜에서는 OSM 폴백
-        if (isFree) {
-          geoResult = await _osmFallbackSearchAddress(query);
-        } else {
-          geoResult = await NaverGeocodingService.searchAddress(query);
-        }
-      } else if (mapService.isOsm) {
-        // OSM: 무료 — 제한 없음
-        final osmResults = await OsmGeocodingService.search(query);
-        placeResults =
-            osmResults
-                .map(
-                  (r) => LocalSearchResult(
-                    title: r.displayName,
-                    address: r.displayName,
-                    roadAddress: r.displayName,
-                    category: '',
-                    lat: r.lat,
-                    lng: r.lng,
-                  ),
-                )
-                .toList();
         geoResult = null;
       } else {
         // Google: Places Text Search ($32/1K) 와 Geocoding ($5/1K) 모두 유료
-        if (isFree) {
-          placeResults = []; // Places Text Search 차단
-          geoResult = await _osmFallbackSearchAddress(query); // OSM 폴백
-        } else {
-          placeResults = await GoogleGeocodingService.searchPlace(
-            query,
-            lat: _currentLat,
-            lng: _currentLng,
-          );
-          geoResult = await GoogleGeocodingService.searchAddress(query);
-        }
+        placeResults =
+            _addressOnlySearchMode
+                ? []
+                : await GoogleGeocodingService.searchPlace(
+                  query,
+                  lat: _currentLat,
+                  lng: _currentLng,
+                  language: mapService.googleLanguage,
+                );
+        geoResult = await GoogleGeocodingService.searchAddress(
+          query,
+          language: mapService.googleLanguage,
+        );
       }
 
       final combinedResults = <LocalSearchResult>[];
@@ -377,7 +311,6 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
       combinedResults.addAll(placeResults);
 
       // 실제 결과가 나왔거나 API 호출이 실행되었으면 성공으로 간주 → record
-      searchSucceeded = true;
 
       if (mounted) {
         setState(() {
@@ -403,10 +336,7 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
         });
       }
     } finally {
-      if (searchSucceeded) {
-        await QuotaService.record(QuotaCategory.search);
-      }
-      // cap 도달 등 상태 변화 반영 (검색바 즉시 숨김 가능)
+      // 제공자별 차단 상태 변화 반영
       await _refreshGeocodingAllowed();
     }
   }
@@ -420,11 +350,11 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
 
     final plan = await SubscriptionService.getCurrentPlan();
     final limit = SubscriptionService.placeLimit(plan);
+    final currentCount = HiveHelper.getSavedLocations().length;
     debugPrint(
-      '🔍 [PlaceLimit] plan=$plan, limit=$limit, currentCount=${HiveHelper.placeBox.length}',
+      '🔍 [PlaceLimit] plan=$plan, limit=$limit, currentCount=$currentCount',
     );
     if (limit != null) {
-      final currentCount = HiveHelper.placeBox.length;
       if (currentCount >= limit) {
         if (mounted) {
           await SubscriptionLimitDialog.showPlaceLimit(
@@ -565,7 +495,7 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.my_location),
-            onPressed: _determinePosition,
+            onPressed: _goToCurrentLocation,
             tooltip: AppLocalizations.of(context).get('move_to_current'),
           ),
         ],
@@ -594,7 +524,11 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                   }
                 },
                 decoration: InputDecoration(
-                  hintText: AppLocalizations.of(context).get('search_hint'),
+                  hintText: AppLocalizations.of(context).get(
+                    _addressOnlySearchMode
+                        ? 'search_address_only_hint'
+                        : 'search_hint',
+                  ),
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon:
                       _searchController.text.isNotEmpty
@@ -651,6 +585,67 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
               ),
             ),
           // ✅ 지도 + 검색 결과 오버레이 (Stack으로 overflow 방지)
+          Consumer<MapProviderService>(
+            builder: (context, mapService, _) {
+              if (!mapService.isGoogle) return const SizedBox.shrink();
+              final l10n = AppLocalizations.of(context);
+              const languageOptions = [
+                MapEntry('ko', '한국어'),
+                MapEntry('en', 'English'),
+                MapEntry('ja', '日本語'),
+                MapEntry('zh', '中文'),
+                MapEntry('de', 'Deutsch'),
+                MapEntry('fr', 'Français'),
+                MapEntry('es', 'Español'),
+              ];
+              final selectedLanguage =
+                  languageOptions.any(
+                        (entry) => entry.key == mapService.googleLanguage,
+                      )
+                      ? mapService.googleLanguage
+                      : 'en';
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
+                child: Row(
+                  children: [
+                    Text(
+                      l10n.get('google_map_language'),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: selectedLanguage,
+                        isDense: true,
+                        items:
+                            languageOptions
+                                .map(
+                                  (entry) => DropdownMenuItem<String>(
+                                    value: entry.key,
+                                    child: Text(
+                                      entry.value,
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          mapService.setGoogleLanguage(value);
+                          if (_selectedLatLng != null) {
+                            _reverseGeocode(_selectedLatLng!);
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
           Expanded(
             child: Stack(
               children: [
@@ -665,8 +660,6 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                   contentPadding: const EdgeInsets.only(bottom: 100),
                   googleMarkers: _googleMarkers,
                   googleCircles: _googleCircles,
-                  osmMarkers: _osmMarkers,
-                  osmCircles: _osmCircles,
                   onMapReady: (controller) {
                     _mapController = controller;
                     // 사용량 트래킹
@@ -802,6 +795,28 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                       _googleMarkers = {};
                       _googleCircles = {};
                     },
+                  ),
+                ),
+                // 맵 토글 버튼 아래: 현재 위치 버튼 (구글맵 내장 버튼 대체)
+                Positioned(
+                  top: 60,
+                  right: 8,
+                  child: Material(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                    elevation: 2,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(4),
+                      onTap: _goToCurrentLocation,
+                      child: const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.my_location,
+                          size: 22,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
                 // ✅ 현재 위치 확정 전 맵 잠금 오버레이
@@ -976,6 +991,15 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
   }
 
   void _showRadiusGuideDialog() {
+    final lang = AppLocalizations.of(context).locale.languageCode;
+    final guideBody =
+        lang == 'ko'
+            ? 'GPS는 대략적인 위치만 파악합니다. 야외에서도 몇 m~수십 m 오차가 생길 수 있어요.\n\n'
+                'GPS가 순간적으로 튀어서 한 번 잘못 울린 경우에는 "오발동" 버튼으로 이번 울림만 정리하세요.\n\n'
+                '설정 반경 경계 근처에 계속 머무르거나 움직이는 중이면 GPS가 경계 안팎을 반복해서 오가며 인식할 수 있습니다. 이때는 "잠시 멈춤"을 눌러 일정 시간 동안 해당 알람이 다시 울리지 않게 설정하세요.'
+            : 'GPS can only estimate your location. Even outdoors, errors of several to tens of meters can happen.\n\n'
+                'If the alarm rings once because GPS briefly jumped, tap "False Trigger" to stop that ringing.\n\n'
+                'If you are staying near the edge of the radius, GPS may keep moving you in and out of the boundary. In that case, use "Pause" to stop this alarm for a while, then let it resume later.';
     showDialog(
       context: context,
       builder:
@@ -986,7 +1010,7 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
             ),
             content: SingleChildScrollView(
               child: Text(
-                AppLocalizations.of(context).get('radius_guide_dialog_body'),
+                guideBody,
                 style: const TextStyle(fontSize: 14, height: 1.6),
               ),
             ),

@@ -437,6 +437,7 @@ class MainActivity : FlutterActivity() {
                             val message = call.argument<String>("message") ?: "위치 알람"
                             val alarmIdRaw = call.argument<Any>("alarmId") // ✅ Any로 받아서 변환
                             val alarmKey = call.argument<String>("alarmKey") ?: ""
+                            val ownerUid = call.argument<String>("ownerUid") ?: ""
                             val placeId = call.argument<String>("placeId") ?: ""
                             val isRepeat = call.argument<Boolean>("isRepeat") ?: false
                             val trigger = call.argument<String>("trigger") ?: "entry"
@@ -456,6 +457,7 @@ class MainActivity : FlutterActivity() {
                                     message,
                                     alarmId,
                                     alarmKey,
+                                    ownerUid,
                                     placeId,
                                     isRepeat,
                                     trigger,
@@ -549,6 +551,7 @@ class MainActivity : FlutterActivity() {
                                 placesData.map { data ->
                                     AlarmPlace(
                                             id = data["id"] as String,
+                                            ownerUid = data["ownerUid"] as? String ?: "",
                                             name = data["name"] as String,
                                             latitude = (data["latitude"] as Number).toDouble(),
                                             longitude = (data["longitude"] as Number).toDouble(),
@@ -573,7 +576,8 @@ class MainActivity : FlutterActivity() {
                                 (call.argument<List<String>>("deviceAlarmMacs") ?: emptyList())
                                         .map { it.uppercase() }
                                         .toSet()
-                        smartManager.startMonitoring(places, deviceAlarmMacs)
+                        val ownerUid = call.argument<String>("ownerUid") ?: ""
+                        smartManager.startMonitoring(places, deviceAlarmMacs, ownerUid)
                         Log.d("MainActivity", "🎯 SmartLocationManager 시작: ${places.size}개 장소, 독립 기기: ${deviceAlarmMacs.size}개")
                         result.success(true)
                     } catch (e: Exception) {
@@ -586,6 +590,10 @@ class MainActivity : FlutterActivity() {
                     Log.d("MainActivity", "🛑 SmartLocationManager 중지")
                     result.success(true)
                 }
+                "cancelAllSnoozes" -> {
+                    SnoozeScheduler.cancelAllSnoozes(applicationContext)
+                    result.success(true)
+                }
                 "updatePlaces" -> {
                     try {
                         val placesData =
@@ -594,6 +602,7 @@ class MainActivity : FlutterActivity() {
                                 placesData.map { data ->
                                     AlarmPlace(
                                             id = data["id"] as String,
+                                            ownerUid = data["ownerUid"] as? String ?: "",
                                             name = data["name"] as String,
                                             latitude = (data["latitude"] as Number).toDouble(),
                                             longitude = (data["longitude"] as Number).toDouble(),
@@ -618,7 +627,8 @@ class MainActivity : FlutterActivity() {
                                 (call.argument<List<String>>("deviceAlarmMacs") ?: emptyList())
                                         .map { it.uppercase() }
                                         .toSet()
-                        smartManager.updateAlarmPlaces(places, deviceAlarmMacs)
+                        val ownerUid = call.argument<String>("ownerUid") ?: ""
+                        smartManager.updateAlarmPlaces(places, deviceAlarmMacs, ownerUid)
                         result.success(true)
                     } catch (e: Exception) {
                         result.error("ERROR", e.message, null)
@@ -796,6 +806,7 @@ class MainActivity : FlutterActivity() {
             message: String,
             alarmId: Int,
             alarmKey: String = "",
+            ownerUid: String = "",
             placeId: String = "",
             isRepeat: Boolean = false,
             trigger: String = "entry",
@@ -819,6 +830,7 @@ class MainActivity : FlutterActivity() {
                         putExtra("message", message)
                         putExtra("alarmId", alarmId) // ✅ alarmId 전달
                         putExtra("alarmKey", alarmKey)
+                        putExtra("ownerUid", ownerUid)
                         putExtra("placeId", placeId)
                         putExtra("isRepeat", isRepeat) // ✅ 반복 알람 여부 전달
                         putExtra("trigger", trigger)   // ✅ entry/exit 트리거 타입 전달

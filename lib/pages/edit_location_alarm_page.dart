@@ -138,8 +138,7 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
 
   void _loadPlaces(String? currentPlace) {
     try {
-      final box = HiveHelper.placeBox;
-      places = box.values.map((e) => Map<String, dynamic>.from(e)).toList();
+      places = HiveHelper.getSavedLocations();
 
       print('📍 로드된 장소 목록: ${places.map((p) => p['name']).toList()}');
       print('🎯 현재 알람의 장소: $currentPlace');

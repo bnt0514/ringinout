@@ -48,6 +48,7 @@ class AlarmFullscreenActivity : Activity() {
         val alarmTitle: String,
         val alarmKey: String,
         val placeId: String,
+        val ownerUid: String,
         val isRepeat: Boolean,
         val isSnoozeAlarm: Boolean
     )
@@ -58,6 +59,7 @@ class AlarmFullscreenActivity : Activity() {
     private var triggerCount: Int = 0
     private var alarmKey: String = ""
     private var placeId: String = ""
+    private var ownerUid: String = ""
     private var isRepeat: Boolean = false // ✅ 반복 알람 여부
     private var triggerType: String = "entry" // ✅ entry / exit
 
@@ -95,6 +97,7 @@ class AlarmFullscreenActivity : Activity() {
         alarmTitle = intent.getStringExtra("title") ?: "위치 알람"
         alarmKey = intent.getStringExtra("alarmKey") ?: ""
         placeId = intent.getStringExtra("placeId") ?: ""
+        ownerUid = intent.getStringExtra("ownerUid") ?: ""
         isRepeat = intent.getBooleanExtra("isRepeat", false) // ✅ 반복 알람 여부
         triggerType = intent.getStringExtra("trigger") ?: "entry"
         soundEnabled = intent.getBooleanExtra("soundEnabled", true)
@@ -160,6 +163,7 @@ class AlarmFullscreenActivity : Activity() {
                     alarmTitle = this.alarmTitle,
                     alarmKey = this.alarmKey,
                     placeId = this.placeId,
+                    ownerUid = this.ownerUid,
                     isRepeat = this.isRepeat,
                     isSnoozeAlarm = false
                 )
@@ -174,6 +178,7 @@ class AlarmFullscreenActivity : Activity() {
         alarmTitle = newAlarmIntent.getStringExtra("title") ?: "위치 알람"
         alarmKey = newAlarmIntent.getStringExtra("alarmKey") ?: ""
         placeId = newAlarmIntent.getStringExtra("placeId") ?: ""
+        ownerUid = newAlarmIntent.getStringExtra("ownerUid") ?: ""
         isRepeat = newAlarmIntent.getBooleanExtra("isRepeat", false)
         triggerType = newAlarmIntent.getStringExtra("trigger") ?: "entry"
         if (alarmKey.isEmpty()) alarmKey = placeId
@@ -640,7 +645,16 @@ class AlarmFullscreenActivity : Activity() {
         }
 
         // ✅ AlarmManager 기반 스누즈 스케줄링 (앱이 죽어도 작동!)
-        SnoozeScheduler.scheduleSnooze(this, alarmId, alarmTitle, minutes, alarmKey, placeId, isRepeat)
+        SnoozeScheduler.scheduleSnooze(
+                this,
+                alarmId,
+                alarmTitle,
+                minutes,
+                alarmKey,
+                placeId,
+                ownerUid,
+                isRepeat
+        )
 
         Log.d("AlarmFullscreen", "✅ AlarmManager 스누즈 스케줄 완료: ${minutes}분 후")
     }
@@ -877,6 +891,7 @@ class AlarmFullscreenActivity : Activity() {
         alarmTitle = next.alarmTitle
         alarmKey = next.alarmKey
         placeId = next.placeId
+        ownerUid = next.ownerUid
         isRepeat = next.isRepeat
 
         // triggerCount 갱신

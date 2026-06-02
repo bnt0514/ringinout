@@ -24,6 +24,7 @@ object SnoozeScheduler {
             delayMinutes: Int,
             alarmKey: String = "",
             placeId: String = "",
+            ownerUid: String = "",
             isRepeat: Boolean = false
     ) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -35,6 +36,7 @@ object SnoozeScheduler {
                     putExtra(SnoozeReceiver.EXTRA_ALARM_TITLE, alarmTitle)
                     putExtra(SnoozeReceiver.EXTRA_ALARM_KEY, alarmKey)
                     putExtra(SnoozeReceiver.EXTRA_PLACE_ID, placeId)
+                    putExtra(SnoozeReceiver.EXTRA_OWNER_UID, ownerUid)
                     putExtra(SnoozeReceiver.EXTRA_IS_REPEAT, isRepeat)
                 }
 

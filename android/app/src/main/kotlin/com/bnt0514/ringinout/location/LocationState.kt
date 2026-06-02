@@ -23,6 +23,7 @@ data class BluetoothDeviceInfo(
 /** v2 알람 장소 데이터 — 단일 지오펜스 (반경 = radiusMeters 그대로) */
 data class AlarmPlace(
         val id: String,
+        val ownerUid: String = "",
         val name: String,
         val latitude: Double,
         val longitude: Double,

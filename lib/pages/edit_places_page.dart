@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:ringinout/config/app_theme.dart';
-import 'package:flutter_map/flutter_map.dart' as fmap;
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' as gmap;
 import 'package:provider/provider.dart';
@@ -43,10 +42,6 @@ class _EditPlacePageState extends State<EditPlacePage> {
   // Google Maps 전용 마커/서클 상태
   Set<gmap.Marker> _googleMarkers = {};
   Set<gmap.Circle> _googleCircles = {};
-
-  // OSM 전용 마커/서클 상태
-  List<fmap.Marker> _osmMarkers = [];
-  List<fmap.CircleMarker> _osmCircles = [];
 
   @override
   void initState() {
@@ -92,27 +87,6 @@ class _EditPlacePageState extends State<EditPlacePage> {
         outlineWidth: 2,
       );
       _mapController!.addNaverOverlay(circle);
-    } else if (mapService.isOsm) {
-      setState(() {
-        _osmMarkers = [
-          fmap.Marker(
-            point: _selectedLatLng.toOsm(),
-            width: 40,
-            height: 40,
-            child: const Icon(Icons.location_pin, color: Colors.red, size: 40),
-          ),
-        ];
-        _osmCircles = [
-          fmap.CircleMarker(
-            point: _selectedLatLng.toOsm(),
-            radius: _radius.toDouble(),
-            useRadiusInMeter: true,
-            color: AppColors.mapCircleFill,
-            borderColor: AppColors.mapCircleBorder,
-            borderStrokeWidth: 2,
-          ),
-        ];
-      });
     } else {
       setState(() {
         _googleMarkers = {
@@ -225,8 +199,6 @@ class _EditPlacePageState extends State<EditPlacePage> {
                   locationButtonEnable: true,
                   googleMarkers: _googleMarkers,
                   googleCircles: _googleCircles,
-                  osmMarkers: _osmMarkers,
-                  osmCircles: _osmCircles,
                   onMapReady: (controller) {
                     _mapController = controller;
                     MapUsageService.onMapLoaded(controller.provider.name);

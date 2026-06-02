@@ -142,31 +142,33 @@
 
         <!-- ===== KOREAN ===== -->
         <div class="lang-section active" id="lang-ko">
-            <p class="updated">최종 업데이트: 2026년 1월</p>
+            <p class="updated">최종 업데이트: 2026년 5월</p>
 
             <div class="section">
-                <h2>1. 수집하는 정보</h2>
-                <p>Ringinout은 사용자의 개인정보를 수집하지 않습니다.</p>
+                <h2>1. 처리하는 정보</h2>
+                <p>Ringinout은 앱 기능 제공에 필요한 범위에서만 정보를 처리하며, 광고 목적의 추적·판매·프로파일링을 하지 않습니다.</p>
                 <ul>
-                    <li><strong>위치 정보:</strong> 알람 기능을 위해 기기 내에서만 처리되며, 외부 서버로 전송되지 않습니다.</li>
-                    <li><strong>음성 인식:</strong> 알람 입력을 위해 일시적으로 마이크를 사용하며, 음성 데이터는 서버에 저장되지 않습니다.</li>
-                    <li><strong>계정 정보:</strong> Google 로그인 시 이메일 주소는 익명화된 랜덤 ID로 변환되어 저장됩니다. 원본 이메일은 저장되지 않습니다.</li>
+                    <li><strong>위치 정보:</strong> 위치 알람을 위해 주로 기기 내에서 처리됩니다. 지도 표시, 주소 검색, 역지오코딩 등 사용자가 요청한 기능을 제공하기 위해 좌표나 검색어가 일시적으로 외부 지도/지오코딩 제공자에게 전달될 수 있으나, Ringinout 서버에는 위치 이력으로 저장하지 않습니다.</li>
+                    <li><strong>장소 및 알람 정보:</strong> 사용자가 등록한 장소, 반경, 알람 조건은 기기 내에 저장됩니다.</li>
+                    <li><strong>음성 인식:</strong> 알람 입력을 위해 사용자가 선택한 경우에만 일시적으로 마이크를 사용하며, 음성 데이터는 Ringinout 서버에 저장되지 않습니다.</li>
+                    <li><strong>계정 및 구독 정보:</strong> Google 로그인 및 구독 상태 확인을 위해 Firebase 인증 ID, 익명화된 ID, 결제/구독 상태가 처리될 수 있습니다. 원본 이메일은 구독 판정 목적으로 직접 저장하지 않습니다.</li>
+                    <li><strong>사용량 및 오류 정보:</strong> 서비스 안정성, 쿼터 관리, 버그 수정을 위해 지도/검색 사용량, 앱 버전, 기기 정보, 사용자가 전송한 로그와 메모가 저장될 수 있습니다.</li>
                 </ul>
             </div>
 
             <div class="section">
                 <h2>2. 익명화된 ID 사용 목적</h2>
-                <p>익명화된 ID는 오직 유료 구독 상태 확인 목적으로만 사용됩니다. 이 ID를 통해 개인을 식별하거나 추적할 수 없습니다.</p>
+                <p>익명화된 ID는 구독 상태 확인, 사용량 관리, 서비스 안정성 보호 목적으로만 사용됩니다. Ringinout은 이 정보를 광고나 다른 용도의 추적에 사용하지 않습니다.</p>
             </div>
 
             <div class="section">
                 <h2>3. 데이터 저장</h2>
-                <p>모든 알람 데이터와 장소 정보는 사용자의 기기 내에만 저장되며, 외부 서버로 전송되지 않습니다.</p>
+                <p>알람 데이터와 장소 정보는 기본적으로 사용자의 기기 내에 저장됩니다. 서버에는 구독 상태, 익명화된 계정 ID, 사용량 통계, 사용자가 직접 제출한 버그 리포트 등 앱 운영에 필요한 정보만 저장됩니다. 위치 좌표는 지도/주소 변환 요청을 처리하는 순간에만 사용되며, Ringinout 서버에 위치 이력으로 저장하지 않습니다.</p>
             </div>
 
             <div class="section">
                 <h2>4. 제3자 공유</h2>
-                <p>Ringinout은 어떠한 사용자 정보도 제3자와 공유하지 않습니다.</p>
+                <p>Ringinout은 사용자 정보를 판매하거나 광고 목적으로 제3자와 공유하지 않습니다. 다만 앱 기능 제공을 위해 Google/Firebase, Google Play 결제, Naver 지도/지오코딩, Google 지도/지오코딩 등 외부 서비스가 사용될 수 있으며, 해당 요청은 각 제공자의 정책이 적용됩니다.</p>
             </div>
 
             <div class="section">
@@ -199,36 +201,46 @@
 
         <!-- ===== ENGLISH ===== -->
         <div class="lang-section" id="lang-en">
-            <p class="updated">Last updated: January 2026</p>
+            <p class="updated">Last updated: May 2026</p>
 
             <div class="section">
-                <h2>1. Information We Collect</h2>
-                <p>Ringinout does not collect personal information.</p>
+                <h2>1. Information We Process</h2>
+                <p>Ringinout processes information only as needed to provide app features. We do not sell data, use it
+                    for advertising tracking, or create behavioral profiles.</p>
                 <ul>
-                    <li><strong>Location data:</strong> Processed only on your device for alarm functionality. Not sent
-                        to external servers.</li>
+                    <li><strong>Location data:</strong> Mainly processed on your device for location alarms. When you
+                        request map display, address search, or reverse geocoding, coordinates or search terms may be
+                        sent temporarily to third-party map/geocoding providers. Ringinout does not store location
+                        history on its servers.</li>
                     <li><strong>Voice recognition:</strong> The microphone is used temporarily to enter alarm details
-                        via voice. Audio data is not stored on any server.</li>
-                    <li><strong>Account info:</strong> When signing in with Google, your email is converted to an
-                        anonymized random ID. The original email is not stored.</li>
+                        via voice. Audio data is not stored on Ringinout servers.</li>
+                    <li><strong>Account and subscription info:</strong> Firebase authentication ID, anonymized ID, and
+                        subscription/payment status may be processed to provide account and paid-plan features.</li>
+                    <li><strong>Usage and diagnostics:</strong> Map/search usage counters, app version, device details,
+                        logs, and user-submitted memos may be stored for quota management, service stability, and bug
+                        fixing.</li>
                 </ul>
             </div>
 
             <div class="section">
                 <h2>2. Purpose of Anonymized ID</h2>
-                <p>The anonymized ID is used solely to verify premium subscription status. This ID cannot be used to
-                    identify or track individuals.</p>
+                <p>The anonymized ID is used only for subscription checks, usage management, and service stability. It
+                    is not used for advertising or unrelated tracking.</p>
             </div>
 
             <div class="section">
                 <h2>3. Data Storage</h2>
-                <p>All alarm and location data is stored only on your device and is not transmitted to external servers.
-                </p>
+                <p>Alarm and saved-place data is stored primarily on your device. Ringinout servers store only
+                    operational data such as subscription status, anonymized account IDs, usage counters, and
+                    user-submitted bug reports. Coordinates are used only at the moment a map or address-conversion
+                    request is made and are not stored by Ringinout as location history.</p>
             </div>
 
             <div class="section">
                 <h2>4. Third-Party Sharing</h2>
-                <p>Ringinout does not share any user information with third parties.</p>
+                <p>Ringinout does not sell user information or share it for advertising. To provide app functionality,
+                    we may use Google/Firebase, Google Play billing, Naver map/geocoding, and Google map/geocoding
+                    services. Those requests are subject to each provider's policy.</p>
             </div>
 
             <div class="section">

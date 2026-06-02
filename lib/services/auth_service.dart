@@ -4,6 +4,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ringinout/services/secure_http_headers.dart';
 import 'dart:convert';
 
 /// AuthService - 인증 관리 서비스
@@ -69,7 +70,7 @@ class AuthService {
     try {
       final response = await http.post(
         Uri.parse('$serverUrl/createSession'),
-        headers: {'Content-Type': 'application/json'},
+        headers: await SecureHttpHeaders.json(),
         body: jsonEncode({'idToken': idToken}),
       );
 

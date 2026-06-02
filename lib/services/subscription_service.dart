@@ -59,20 +59,11 @@ class SubscriptionService {
   @Deprecated('등록 개수 제한 폐기. QuotaService 기반 알람 발동 쿼터 사용.')
   static int? alarmLimit(SubscriptionPlan plan) => null; // 무제한
 
-  /// 맵 오픈 월별 제한 — 어뷰즈 방지용 (실제 비용은 검색에서 발생)
-  /// - beta free: 무제한, free: 100, plus: 300, pro: 1000, special: 무제한
+  /// 맵 오픈 월별 제한은 폐기.
+  /// 맵/검색은 평소 제한하지 않고, 전체 제공자 무료 한도 80% 도달 시
+  /// 무료 사용자만 provider 단위로 차단한다.
   static int? mapOpenMonthlyLimit(SubscriptionPlan plan) {
-    switch (plan) {
-      case SubscriptionPlan.free:
-        if (AppConfig.isBetaVersion) return null;
-        return 100;
-      case SubscriptionPlan.plus:
-        return 300;
-      case SubscriptionPlan.pro:
-        return 1000;
-      case SubscriptionPlan.special:
-        return null;
-    }
+    return null;
   }
 
   // ══════════════════════════════════════════════════════════════════
@@ -159,6 +150,7 @@ class SubscriptionService {
   }) {
     // 전체 킬스위치는 여기선 체크 안 함 (호출측에서 AppConfig 체크)
     // 여기선 "무료만 차단" 로직만
+    if (AppConfig.isBetaVersion && plan == SubscriptionPlan.free) return true;
     if (plan != SubscriptionPlan.free) return true;
     if (provider == 'naver' && _freeNaverBlocked) return false;
     if (provider == 'google' && _freeGoogleBlocked) return false;

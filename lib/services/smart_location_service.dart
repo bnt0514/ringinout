@@ -55,6 +55,15 @@ class SmartLocationService {
   }
 
   /// 알람 장소 업데이트 → LMS에 반영
+  static Future<void> cancelAllSnoozes() async {
+    try {
+      await SmartLocationMonitor.cancelAllSnoozes();
+      _log('native snoozes cancelled');
+    } catch (e) {
+      _log('native snooze cancel failed: $e');
+    }
+  }
+
   static Future<void> updatePlaces() async {
     try {
       _log('🔄 updatePlaces');

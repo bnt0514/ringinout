@@ -7,7 +7,6 @@ import 'package:ringinout/config/app_theme.dart';
 import 'package:ringinout/pages/terms_agreement_page.dart';
 import 'package:ringinout/services/app_localizations.dart';
 import 'package:ringinout/services/auth_service.dart';
-import 'package:ringinout/services/billing_service.dart';
 import 'package:ringinout/services/permissions.dart';
 
 class LoginPage extends StatefulWidget {
@@ -23,11 +22,6 @@ class _LoginPageState extends State<LoginPage> {
     'com.bnt0514.ringinout/app_lifecycle',
   );
   bool _isLoading = false;
-
-  // 개발자 테스트 모드
-  int _devTapCount = 0;
-  bool _showTestLogin = false;
-  bool _testLoginEnabled = false; // Firestore admin_config에서 제어
 
   Future<void> _signInWithGoogle(AuthService authService) async {
     if (_isLoading) return;
@@ -137,80 +131,6 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  // 로고 10번 탭 핸들러 — Firestore admin_config/dev_settings.testLoginEnabled 확인
-  void _handleLogoTap() async {
-    _devTapCount++;
-    if (_devTapCount >= 10) {
-      _devTapCount = 0;
-      // Firestore에서 테스트 로그인 허용 여부 확인
-      try {
-        final doc =
-            await FirebaseFirestore.instance
-                .collection('admin_config')
-                .doc('dev_settings')
-                .get();
-        final enabled = doc.data()?['testLoginEnabled'] == true;
-        if (enabled && mounted) {
-          setState(() {
-            _testLoginEnabled = true;
-            _showTestLogin = true;
-          });
-        }
-      } catch (_) {}
-    }
-  }
-
-  // 테스트 계정 로그인 (Remote Config 기반 - Functions 불필요)
-  Color _planColor(String plan) {
-    switch (plan) {
-      case 'plus':
-      case 'basic':
-        return Colors.blue;
-      case 'pro':
-      case 'premium':
-        return Colors.purple;
-      case 'special':
-        return Colors.orange;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  // TODO: 배포 전 제거
-  Future<void> _signInWithTestAccount(String plan) async {
-    setState(() => _isLoading = true);
-    try {
-      final credential = await FirebaseAuth.instance.signInAnonymously();
-      final uid = credential.user!.uid;
-
-      await FirebaseFirestore.instance.collection('users').doc(uid).set({
-        'subscriptionStatus': 'active',
-        'subscriptionPlan': plan,
-        'subscriptionEndDate': null,
-        'testAccount': true,
-      }, SetOptions(merge: true));
-
-      // 캐시 강제 갱신 → 방금 저장한 플랜이 즉시 반영
-      final billing = Provider.of<BillingService>(context, listen: false);
-      billing.clearCache();
-      await billing.fetchStatus(forceRefresh: true);
-      debugPrint(
-        '✅ 테스트 계정 로그인: $plan, uid=$uid (plan applied: ${billing.currentPlan})',
-      );
-      if (!mounted) return;
-      await _proceedToHome();
-    } catch (e) {
-      if (!mounted) return;
-      _showError(
-        AppLocalizations.of(
-          context,
-        ).getWithArgs('test_login_failed', {'error': '$e'}),
-      );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
   @override
   void dispose() {
     super.dispose();
@@ -239,22 +159,19 @@ class _LoginPageState extends State<LoginPage> {
                 children: [
                   const SizedBox(height: 40),
 
-                  // 로고 (10번 탭 시 테스트 로그인 활성화)
-                  GestureDetector(
-                    onTap: _handleLogoTap,
-                    child: SizedBox(
-                      width: 80,
-                      height: 80,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(18),
-                        child: Transform.scale(
-                          scale: 2.4,
-                          child: Image.asset(
-                            'assets/images/RingInOutLogo.png',
-                            fit: BoxFit.cover,
-                            alignment: Alignment.center,
-                            semanticLabel: 'Ringinout Logo',
-                          ),
+                  // 로고
+                  SizedBox(
+                    width: 80,
+                    height: 80,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(18),
+                      child: Transform.scale(
+                        scale: 2.4,
+                        child: Image.asset(
+                          'assets/images/RingInOutLogo.png',
+                          fit: BoxFit.cover,
+                          alignment: Alignment.center,
+                          semanticLabel: 'Ringinout Logo',
                         ),
                       ),
                     ),
@@ -286,88 +203,6 @@ class _LoginPageState extends State<LoginPage> {
                   ),
 
                   const SizedBox(height: 24),
-
-                  // 개발자 테스트 로그인 폼
-                  if (_showTestLogin) ...[
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.warning.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.warning),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.bug_report,
-                                color: AppColors.warning,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                l10n.get('dev_test_mode'),
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.warning,
-                                ),
-                              ),
-                              const Spacer(),
-                              IconButton(
-                                icon: const Icon(Icons.close, size: 18),
-                                onPressed:
-                                    () =>
-                                        setState(() => _showTestLogin = false),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          if (_isLoading)
-                            const Center(child: CircularProgressIndicator())
-                          else
-                            Row(
-                              children: [
-                                for (final plan in [
-                                  'free',
-                                  'plus',
-                                  'pro',
-                                  'special',
-                                ])
-                                  Expanded(
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 3,
-                                      ),
-                                      child: ElevatedButton(
-                                        onPressed:
-                                            () => _signInWithTestAccount(plan),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: _planColor(plan),
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 10,
-                                          ),
-                                          textStyle: const TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        child: Text(plan),
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
 
                   // 데이터 보안 안내
                   Container(

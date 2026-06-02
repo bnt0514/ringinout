@@ -1,103 +1,138 @@
 // lib/services/map_provider_service.dart
-// 맵 제공자 관리 서비스 (네이버맵 / 구글맵 / OSM 전환 + 킬스위치)
+// 맵 제공자 관리 서비스 (네이버맵 / 구글맵 전환 + 킬스위치)
 
 import 'package:flutter/material.dart';
 import 'package:ringinout/config/app_config.dart';
 import 'package:ringinout/services/hive_helper.dart';
 
-enum MapProvider { naver, google, osm }
+enum MapProvider { naver, google }
 
 class MapProviderService extends ChangeNotifier {
   static const String _storageKey = 'map_provider';
+  static const String _googleLanguageKey = 'google_map_language';
 
-  MapProvider _provider = MapProvider.osm;
-  bool _isKoreanLocale = false;
+  MapProvider _provider = MapProvider.naver;
+  bool _isKoreanRegion = false;
+  String _googleLanguage = 'ko';
+  bool _hasSavedGoogleLanguage = false;
 
   MapProvider get provider => _provider;
   bool get isNaver => _provider == MapProvider.naver;
   bool get isGoogle => _provider == MapProvider.google;
-  bool get isOsm => _provider == MapProvider.osm;
+  String get googleLanguage => _googleLanguage;
 
-  /// 네이버맵 전환 가능 여부 (한국 로케일 + 킬스위치)
-  /// 한국 사용자에게만 표시 (구글맵 대신)
-  bool get isNaverAvailable => _isKoreanLocale && AppConfig.isNaverMapsEnabled;
+  /// 네이버맵 전환 가능 여부.
+  /// Naver Maps is intended for Korea-only use in this app.
+  bool get isNaverAvailable => _isKoreanRegion && AppConfig.isNaverMapsEnabled;
 
-  /// 구글맵 사용 가능 여부 (킬스위치 + 한국에서는 숨김)
-  /// 해외 사용자에게만 표시 (네이버맵 대신)
-  bool get isGoogleAvailable =>
-      !_isKoreanLocale && AppConfig.isGoogleMapsEnabled;
+  /// 구글맵 사용 가능 여부
+  bool get isGoogleAvailable => AppConfig.isGoogleMapsEnabled;
 
-  /// OSM은 항상 사용 가능 (폴백)
-  bool get isOsmAvailable => true;
+  bool get hasAvailableProvider => availableProviders.isNotEmpty;
+  bool get isCurrentProviderAvailable =>
+      (_provider == MapProvider.naver && isNaverAvailable) ||
+      (_provider == MapProvider.google && isGoogleAvailable);
 
   /// 현재 한국 로케일 여부 (다이얼로그 문구 분기 등에 사용)
-  bool get isKoreanLocale => _isKoreanLocale;
+  bool get isKoreanLocale => _isKoreanRegion;
 
   MapProviderService() {
     _loadFromStorage();
   }
 
   /// 앱 로케일이 확정된 후 호출
-  void initForLocale(String languageCode) {
-    _isKoreanLocale = languageCode == 'ko';
+  void initForLocale(String languageCode, {String? countryCode}) {
+    final country = countryCode?.toUpperCase();
+    _isKoreanRegion =
+        country == 'KR' || (country == null && languageCode == 'ko');
+    if (!_hasSavedGoogleLanguage) {
+      _googleLanguage = _normalizeGoogleLanguage(languageCode);
+    }
+    if (!isCurrentProviderAvailable) {
+      _provider = _preferredProvider();
+    }
     _applyKillSwitchFallback();
   }
 
-  /// 킬스위치 변경 후 현재 provider가 비활성이면 OSM으로 폴백
+  void updateRegionFromCoordinates(double latitude, double longitude) {
+    final inKorea =
+        latitude >= 32.5 &&
+        latitude <= 39.5 &&
+        longitude >= 124.0 &&
+        longitude <= 132.5;
+    if (_isKoreanRegion == inKorea) return;
+    _isKoreanRegion = inKorea;
+    if (!isCurrentProviderAvailable) {
+      final next = _preferredProvider();
+      if (_provider != next) {
+        _provider = next;
+        HiveHelper.settingsBox.put(_storageKey, _provider.name);
+      }
+    }
+    notifyListeners();
+  }
+
+  /// 킬스위치 변경 후 현재 provider가 비활성이면 사용 가능한 유료 지도 공급자로 폴백
   void applyKillSwitch() {
     _applyKillSwitchFallback();
     notifyListeners();
   }
 
   void _applyKillSwitchFallback() {
-    // 킬스위치 폴백
-    if (_provider == MapProvider.google && !isGoogleAvailable) {
-      _provider = isNaverAvailable ? MapProvider.naver : MapProvider.osm;
-      debugPrint('🗺️ Google 차단 → ${_provider.name} 로 폴백');
+    if (!isCurrentProviderAvailable && hasAvailableProvider) {
+      final next = _preferredProvider();
+      if (_provider != next) {
+        _provider = next;
+        HiveHelper.settingsBox.put(_storageKey, _provider.name);
+      }
+      debugPrint('🗺️ 지도 공급자 폴백 → ${_provider.name}');
       notifyListeners();
     }
-    if (_provider == MapProvider.naver && !isNaverAvailable) {
-      _provider = isGoogleAvailable ? MapProvider.google : MapProvider.osm;
-      debugPrint('🗺️ Naver 차단 → ${_provider.name} 로 폴백');
-      notifyListeners();
-    }
-    // 로케일 기반 폴백:
-    // 한국에서는 구글 사용 불가 → OSM 또는 네이버로 전환
-    if (_provider == MapProvider.google && _isKoreanLocale) {
-      _provider = isNaverAvailable ? MapProvider.naver : MapProvider.osm;
-      debugPrint('🗺️ 한국 로케일 — Google 숨김 → ${_provider.name} 로 폴백');
-      notifyListeners();
-    }
-    // 해외에서는 네이버 사용 불가 → OSM 또는 구글로 전환
-    if (_provider == MapProvider.naver && !_isKoreanLocale) {
-      _provider = isGoogleAvailable ? MapProvider.google : MapProvider.osm;
-      debugPrint('🗺️ 해외 로케일 — Naver 숨김 → ${_provider.name} 로 폴백');
-      notifyListeners();
-    }
+  }
+
+  MapProvider _preferredProvider() {
+    final ordered =
+        _isKoreanRegion
+            ? [MapProvider.naver, MapProvider.google]
+            : [MapProvider.google];
+    return ordered.firstWhere(
+      (p) =>
+          (p == MapProvider.naver && isNaverAvailable) ||
+          (p == MapProvider.google && isGoogleAvailable),
+      orElse: () => _isKoreanRegion ? MapProvider.naver : MapProvider.google,
+    );
   }
 
   void _loadFromStorage() {
     try {
       final saved = HiveHelper.settingsBox.get(
         _storageKey,
-        defaultValue: 'osm',
+        defaultValue: 'naver',
       );
       if (saved == 'naver') {
         _provider = MapProvider.naver;
       } else if (saved == 'google') {
         _provider = MapProvider.google;
       } else {
-        _provider = MapProvider.osm;
+        _provider = MapProvider.naver;
       }
+      final savedGoogleLanguage = HiveHelper.settingsBox.get(
+        _googleLanguageKey,
+      );
+      _hasSavedGoogleLanguage = savedGoogleLanguage != null;
+      _googleLanguage = _normalizeGoogleLanguage(
+        savedGoogleLanguage?.toString() ?? 'ko',
+      );
     } catch (e) {
       debugPrint('❌ MapProviderService load error: $e');
-      _provider = MapProvider.osm;
+      _provider = MapProvider.naver;
+      _googleLanguage = 'ko';
     }
   }
 
   void setProvider(MapProvider newProvider) {
     if (newProvider == MapProvider.naver && !isNaverAvailable) {
-      debugPrint('🗺️ Naver Maps not available');
+      debugPrint('Naver Maps not available outside Korean locale');
       return;
     }
     if (newProvider == MapProvider.google && !isGoogleAvailable) {
@@ -112,12 +147,34 @@ class MapProviderService extends ChangeNotifier {
   }
 
   /// 현재 로케일에서 표시 가능한 제공자 목록
-  /// 한국: Naver + OSM / 해외: Google + OSM
-  List<MapProvider> get availableProviders => [
-    if (isNaverAvailable) MapProvider.naver,
-    if (isGoogleAvailable) MapProvider.google,
-    MapProvider.osm,
-  ];
+  /// 한국: Naver 우선 / 해외: Google 우선
+  void setGoogleLanguage(String languageCode) {
+    final normalized = _normalizeGoogleLanguage(languageCode);
+    if (_googleLanguage == normalized) return;
+    _googleLanguage = normalized;
+    _hasSavedGoogleLanguage = true;
+    HiveHelper.settingsBox.put(_googleLanguageKey, normalized);
+    notifyListeners();
+    debugPrint('Google map/search language -> $normalized');
+  }
+
+  static String _normalizeGoogleLanguage(String languageCode) {
+    const supported = {'ko', 'en', 'ja', 'zh', 'de', 'fr', 'es'};
+    return supported.contains(languageCode) ? languageCode : 'en';
+  }
+
+  List<MapProvider> get availableProviders {
+    final preferred =
+        _isKoreanRegion
+            ? [MapProvider.naver, MapProvider.google]
+            : [MapProvider.google];
+    return [
+      for (final p in preferred)
+        if (p == MapProvider.naver && isNaverAvailable ||
+            p == MapProvider.google && isGoogleAvailable)
+          p,
+    ];
+  }
 
   /// 순환 토글 (활성화된 것만)
   void toggle() {

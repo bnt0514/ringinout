@@ -1,11 +1,10 @@
 // lib/services/force_update_service.dart
 //
-// 강제 업데이트 체크 서비스
-// - Firestore admin_config/app_settings 의 min_version 필드를 읽어
-//   현재 앱 버전이 낮으면 ForceUpdateDialog를 표시
-// - 어드민이 Firestore에서 min_version을 바꾸면 즉시 적용됨
+// Force update checks use the full app version: version+buildNumber.
+// Example: 1.0.11+19
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -13,34 +12,58 @@ class ForceUpdateService {
   static const _collection = 'admin_config';
   static const _doc = 'app_settings';
   static const _field = 'min_version';
+  static const _specialUsersDoc = 'special_users';
+  static const _specialUsersField = 'uids';
 
-  /// 현재 버전 < min_version 이면 true
   static Future<bool> needsUpdate() async {
     try {
+      if (await _isForceUpdateExemptUser()) {
+        debugPrint('[ForceUpdate] exempt user, bypassing force update');
+        return false;
+      }
+
       final snap =
           await FirebaseFirestore.instance
               .collection(_collection)
               .doc(_doc)
               .get();
       final minStr = snap.data()?[_field] as String?;
-      if (minStr == null) return false;
+      if (minStr == null || minStr.trim().isEmpty) return false;
 
       final info = await PackageInfo.fromPlatform();
-      return _isLower(info.version, minStr);
+      return _isLower(_fullVersion(info), minStr);
     } catch (e) {
-      debugPrint('⚠️ [ForceUpdate] 버전 체크 실패 (통과): $e');
-      return false; // 네트워크 오류 시 차단하지 않음
+      debugPrint('[ForceUpdate] version check failed, allowing app: $e');
+      return false;
     }
   }
 
-  /// 어드민: min_version 설정
+  static Future<bool> _isForceUpdateExemptUser() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null || uid.isEmpty) return false;
+
+    final snap =
+        await FirebaseFirestore.instance
+            .collection(_collection)
+            .doc(_specialUsersDoc)
+            .get();
+    final rawUids = snap.data()?[_specialUsersField];
+    return rawUids is List && rawUids.map((e) => e.toString()).contains(uid);
+  }
+
   static Future<void> setMinVersion(String version) async {
+    final trimmed = version.trim();
+    if (trimmed.isNotEmpty && !isFullVersion(trimmed)) {
+      throw ArgumentError(
+        'min_version must use full app version format, e.g. 1.0.11+19',
+      );
+    }
+
     await FirebaseFirestore.instance.collection(_collection).doc(_doc).set({
-      _field: version,
+      _field: trimmed,
     }, SetOptions(merge: true));
   }
 
-  /// 어드민: 현재 설정된 min_version 조회
   static Future<String?> getMinVersion() async {
     try {
       final snap =
@@ -54,17 +77,68 @@ class ForceUpdateService {
     }
   }
 
-  /// "1.0.4" < "1.0.5" → true
+  static String fullVersionFromPackageInfo(PackageInfo info) =>
+      _fullVersion(info);
+
+  static bool isFullVersion(String value) =>
+      RegExp(r'^\d+(?:\.\d+)*\+\d+$').hasMatch(value.trim());
+
+  static String _fullVersion(PackageInfo info) =>
+      '${info.version}+${info.buildNumber}';
+
   static bool _isLower(String current, String minimum) {
-    final c = current.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-    final m = minimum.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-    final len = [c.length, m.length].reduce((a, b) => a > b ? a : b);
+    final currentVersion = _ParsedAppVersion.parse(current);
+    final minimumVersion = _ParsedAppVersion.parse(minimum);
+    if (currentVersion == null || minimumVersion == null) return false;
+
+    final len = [
+      currentVersion.versionParts.length,
+      minimumVersion.versionParts.length,
+    ].reduce((a, b) => a > b ? a : b);
     for (int i = 0; i < len; i++) {
-      final cv = i < c.length ? c[i] : 0;
-      final mv = i < m.length ? m[i] : 0;
+      final cv =
+          i < currentVersion.versionParts.length
+              ? currentVersion.versionParts[i]
+              : 0;
+      final mv =
+          i < minimumVersion.versionParts.length
+              ? minimumVersion.versionParts[i]
+              : 0;
       if (cv < mv) return true;
       if (cv > mv) return false;
     }
-    return false; // 같으면 업데이트 불필요
+    return currentVersion.buildNumber < minimumVersion.buildNumber;
+  }
+}
+
+class _ParsedAppVersion {
+  final List<int> versionParts;
+  final int buildNumber;
+
+  const _ParsedAppVersion({
+    required this.versionParts,
+    required this.buildNumber,
+  });
+
+  static _ParsedAppVersion? parse(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return null;
+
+    final split = value.split('+');
+    if (split.length > 2) return null;
+
+    final versionParts =
+        split.first
+            .split('.')
+            .map((part) => int.tryParse(part.trim()))
+            .toList();
+    if (versionParts.isEmpty || versionParts.any((part) => part == null)) {
+      return null;
+    }
+
+    return _ParsedAppVersion(
+      versionParts: versionParts.cast<int>(),
+      buildNumber: split.length == 2 ? int.tryParse(split[1].trim()) ?? 0 : 0,
+    );
   }
 }

@@ -11,6 +11,7 @@ import 'package:ringinout/services/map_usage_service.dart';
 import 'package:ringinout/services/quota_service.dart';
 import 'package:ringinout/services/subscription_service.dart';
 import 'package:ringinout/services/force_update_service.dart';
+import 'package:ringinout/services/hive_helper.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 // ── 버그 리포트 데이터 모델 ──────────────────────────────────────────
@@ -439,19 +440,37 @@ class _MapsDashboardTabState extends State<_MapsDashboardTab> {
             fmt: fmt,
             onToggle: (e) => _toggleProvider('naver', e),
           ),
-          const SizedBox(height: 12),
-          _OsmCard(osmCount: stats?.osm ?? 0, fmt: fmt),
+          const SizedBox(height: 24),
+
+          _MapOpsSummary(
+            stats: stats,
+            fmt: fmt,
+            freeGoogleBlocked: SubscriptionService.freeGoogleBlocked,
+            freeNaverBlocked: SubscriptionService.freeNaverBlocked,
+            geocodingEnabled: AppConfig.isGeocodingEnabled,
+          ),
+          const SizedBox(height: 16),
+
+          _ApiQuotaSection(stats: stats, fmt: fmt),
           const SizedBox(height: 24),
 
           // ── 지오코딩 섹션 ──
-          _SectionHeader(title: '지오코딩 & 검색 API (이 기기, 이번 달)'),
+          _SectionHeader(title: '지오코딩 & 검색 API (전역/로컬, 이번 달)'),
           const SizedBox(height: 8),
           _GeocodingSection(
+            stats: stats,
             geoCounts: _geoCounts,
             isLoading: _geoLoading,
             isGeocodingEnabled: AppConfig.isGeocodingEnabled,
             fmt: fmt,
             onToggle: _toggleGeocoding,
+          ),
+          const SizedBox(height: 16),
+
+          _AiOpsTeamSection(
+            stats: stats,
+            freeNaverBlocked: SubscriptionService.freeNaverBlocked,
+            freeGoogleBlocked: SubscriptionService.freeGoogleBlocked,
           ),
           const SizedBox(height: 16),
 
@@ -478,8 +497,6 @@ class _MapsDashboardTabState extends State<_MapsDashboardTab> {
           _LocalCountRow(provider: 'google', label: 'Google', fmt: fmt),
           const SizedBox(height: 4),
           _LocalCountRow(provider: 'naver', label: 'Naver', fmt: fmt),
-          const SizedBox(height: 4),
-          _LocalCountRow(provider: 'osm', label: 'OSM', fmt: fmt),
           const SizedBox(height: 24),
           const Divider(),
           const SizedBox(height: 8),
@@ -978,11 +995,6 @@ class _WeeklyHistoryTable extends StatelessWidget {
                   isHeader: true,
                   color: Color(0xFF03C75A),
                 ),
-                _WeekCell(
-                  text: 'OSM',
-                  isHeader: true,
-                  color: Color(0xFFFF6B35),
-                ),
                 _WeekCell(text: '합계', isHeader: true),
               ],
             ),
@@ -1016,7 +1028,6 @@ class _WeeklyHistoryTable extends StatelessWidget {
                       ),
                       _WeekCell(text: fmt.format(w.google)),
                       _WeekCell(text: fmt.format(w.naver)),
-                      _WeekCell(text: fmt.format(w.osm)),
                       _WeekCell(text: fmt.format(w.total), bold: true),
                     ],
                   ),
@@ -1104,9 +1115,9 @@ class _ProviderCard extends StatelessWidget {
     final ratio =
         freeLimit > 0 ? (currentCount / freeLimit).clamp(0.0, 1.0) : 0.0;
     final percent = (ratio * 100).toStringAsFixed(1);
-    final is95 = ratio >= 0.95;
+    final isSafety = ratio >= 0.80;
     final barColor =
-        is95 ? Colors.red : (ratio >= 0.7 ? Colors.orange : Colors.green);
+        isSafety ? Colors.red : (ratio >= 0.7 ? Colors.orange : Colors.green);
 
     return Container(
       width: double.infinity,
@@ -1115,8 +1126,8 @@ class _ProviderCard extends StatelessWidget {
         color: isEnabled ? Colors.white : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: is95 ? Colors.red.shade300 : Colors.grey.shade300,
-          width: is95 ? 1.5 : 1.0,
+          color: isSafety ? Colors.red.shade300 : Colors.grey.shade300,
+          width: isSafety ? 1.5 : 1.0,
         ),
         boxShadow: [
           BoxShadow(
@@ -1193,7 +1204,7 @@ class _ProviderCard extends StatelessWidget {
               minHeight: 8,
             ),
           ),
-          if (is95)
+          if (isSafety)
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Row(
@@ -1201,75 +1212,12 @@ class _ProviderCard extends StatelessWidget {
                   Icon(Icons.warning_amber, color: Colors.red, size: 14),
                   SizedBox(width: 4),
                   Text(
-                    '95% 초과  자동 비활성화 임박',
+                    '80% 도달 시 Free 자동 차단',
                     style: TextStyle(color: Colors.red, fontSize: 12),
                   ),
                 ],
               ),
             ),
-        ],
-      ),
-    );
-  }
-}
-
-class _OsmCard extends StatelessWidget {
-  final int osmCount;
-  final NumberFormat fmt;
-  const _OsmCard({required this.osmCount, required this.fmt});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFF6B35).withAlpha(30),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(Icons.public, color: Color(0xFFFF6B35), size: 26),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'OSM (OpenStreetMap)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                ),
-                Text(
-                  '무제한 무료  ${fmt.format(osmCount)}건 (이번 달)',
-                  style: TextStyle(color: Colors.green.shade700, fontSize: 13),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.green.withAlpha(30),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Text(
-              '항상 ON',
-              style: TextStyle(
-                color: Colors.green,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -1337,6 +1285,401 @@ class _SectionHeader extends StatelessWidget {
         fontWeight: FontWeight.bold,
         color: Colors.grey.shade600,
         letterSpacing: 0.5,
+      ),
+    );
+  }
+}
+
+class _MapOpsSummary extends StatelessWidget {
+  final MapUsageStats? stats;
+  final NumberFormat fmt;
+  final bool freeGoogleBlocked;
+  final bool freeNaverBlocked;
+  final bool geocodingEnabled;
+
+  const _MapOpsSummary({
+    required this.stats,
+    required this.fmt,
+    required this.freeGoogleBlocked,
+    required this.freeNaverBlocked,
+    required this.geocodingEnabled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final googleRatio = stats?.googleUsageRatio ?? 0;
+    final naverRatio = stats?.naverUsageRatio ?? 0;
+    final highestRatio = googleRatio > naverRatio ? googleRatio : naverRatio;
+    final statusColor =
+        highestRatio >= 0.8
+            ? Colors.red
+            : highestRatio >= 0.6
+            ? Colors.orange
+            : Colors.green;
+    final statusText =
+        highestRatio >= 0.8
+            ? 'Free 자동 차단 구간'
+            : highestRatio >= 0.6
+            ? '주의 관찰 구간'
+            : '정상 운영 구간';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: statusColor.withAlpha(18),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: statusColor.withAlpha(120)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.health_and_safety, color: statusColor),
+              const SizedBox(width: 8),
+              Text(
+                '지도/API 운영 상태: $statusText',
+                style: TextStyle(
+                  color: statusColor.shade700,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _OpsPill(
+                label: 'Google',
+                value:
+                    '${fmt.format(stats?.google ?? 0)} / ${fmt.format(MapUsageStats.googleFreeLimit)}',
+                color: const Color(0xFF4285F4),
+              ),
+              _OpsPill(
+                label: 'Naver',
+                value:
+                    '${fmt.format(stats?.naver ?? 0)} / ${fmt.format(MapUsageStats.naverFreeLimit)}',
+                color: const Color(0xFF03C75A),
+              ),
+              _OpsPill(
+                label: 'Free Google',
+                value: freeGoogleBlocked ? '차단' : '허용',
+                color: freeGoogleBlocked ? Colors.red : Colors.green,
+              ),
+              _OpsPill(
+                label: 'Free Naver',
+                value: freeNaverBlocked ? '차단' : '허용',
+                color: freeNaverBlocked ? Colors.red : Colors.green,
+              ),
+              _OpsPill(
+                label: 'Geocoding',
+                value: geocodingEnabled ? '활성' : '전체 차단',
+                color: geocodingEnabled ? Colors.green : Colors.red,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            '정책: 평상시 개인별 지도/검색 제한 없음 → 제공자 월 안전한도 80% 도달 시 Free 사용자만 자동 차단. Plus/Pro/Special은 전체 킬스위치 전까지 유지.',
+            style: TextStyle(fontSize: 11, color: Colors.black54, height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OpsPill extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _OpsPill({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withAlpha(120)),
+      ),
+      child: RichText(
+        text: TextSpan(
+          style: const TextStyle(fontSize: 12, color: Colors.black87),
+          children: [
+            TextSpan(
+              text: '$label: ',
+              style: TextStyle(fontWeight: FontWeight.bold, color: color),
+            ),
+            TextSpan(text: value),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ApiQuotaSection extends StatelessWidget {
+  final MapUsageStats? stats;
+  final NumberFormat fmt;
+
+  const _ApiQuotaSection({required this.stats, required this.fmt});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.fact_check_outlined, color: Colors.blueGrey),
+              SizedBox(width: 8),
+              Text(
+                'API별 무료한도/안전선',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _ApiQuotaRow(
+            name: 'Naver Dynamic Map',
+            used: stats?.naver ?? 0,
+            freeLimit: MapUsageStats.naverFreeLimit,
+            safetyLimit: (MapUsageStats.naverFreeLimit * 0.8).round(),
+            note: 'NCP 월 6,000,000 / 80% Free 자동 차단',
+            color: const Color(0xFF03C75A),
+            fmt: fmt,
+          ),
+          _ApiQuotaRow(
+            name: 'Naver Geocoding',
+            used: stats?.geoNaverFwd ?? 0,
+            freeLimit: MapUsageStats.naverGeocodingFreeLimit,
+            safetyLimit: (MapUsageStats.naverGeocodingFreeLimit * 0.8).round(),
+            note: 'NCP 월 3,000,000',
+            color: const Color(0xFF03C75A),
+            fmt: fmt,
+          ),
+          _ApiQuotaRow(
+            name: 'Naver Reverse Geocoding',
+            used: stats?.geoNaverReverse ?? 0,
+            freeLimit: MapUsageStats.naverReverseGeocodingFreeLimit,
+            safetyLimit:
+                (MapUsageStats.naverReverseGeocodingFreeLimit * 0.8).round(),
+            note: 'NCP 월 3,000,000',
+            color: const Color(0xFF03C75A),
+            fmt: fmt,
+          ),
+          _ApiQuotaRow(
+            name: 'Naver Local Search',
+            used: stats?.geoNaverPlace ?? 0,
+            freeLimit: MapUsageStats.naverLocalSearchFreeLimit,
+            safetyLimit:
+                (MapUsageStats.naverLocalSearchFreeLimit * 0.8).round(),
+            note: 'Naver 개발자센터 별도 한도 — 콘솔 확인 필요',
+            color: const Color(0xFF03C75A),
+            fmt: fmt,
+          ),
+          _ApiQuotaRow(
+            name: 'Google Maps / Dynamic Maps',
+            used: stats?.google ?? 0,
+            freeLimit: MapUsageStats.googleFreeLimit,
+            safetyLimit: (MapUsageStats.googleFreeLimit * 0.8).round(),
+            note: 'Dynamic Maps 기준 월 10,000 무료 · 모바일 Maps SDK SKU는 콘솔 확인',
+            color: const Color(0xFF4285F4),
+            fmt: fmt,
+          ),
+          _ApiQuotaRow(
+            name: 'Google Geocoding + Reverse',
+            used: (stats?.geoGoogleFwd ?? 0) + (stats?.geoGoogleReverse ?? 0),
+            freeLimit: MapUsageStats.googleGeocodingCreditLimit,
+            safetyLimit:
+                (MapUsageStats.googleGeocodingCreditLimit * 0.8).round(),
+            note: r'월 10,000 무료 · 이후 $5/1K',
+            color: const Color(0xFF4285F4),
+            fmt: fmt,
+          ),
+          _ApiQuotaRow(
+            name: 'Google Places Text Search',
+            used: stats?.geoGooglePlace ?? 0,
+            freeLimit: MapUsageStats.googlePlacesTextCreditLimit,
+            safetyLimit:
+                (MapUsageStats.googlePlacesTextCreditLimit * 0.8).round(),
+            note: r'Legacy Text Search 기준 월 5,000 무료 · 이후 $32/1K',
+            color: const Color(0xFF4285F4),
+            fmt: fmt,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ApiQuotaRow extends StatelessWidget {
+  final String name;
+  final int used;
+  final int freeLimit;
+  final int safetyLimit;
+  final String note;
+  final Color color;
+  final NumberFormat fmt;
+
+  const _ApiQuotaRow({
+    required this.name,
+    required this.used,
+    required this.freeLimit,
+    required this.safetyLimit,
+    required this.note,
+    required this.color,
+    required this.fmt,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = freeLimit <= 0 ? 0.0 : (used / freeLimit).clamp(0.0, 1.0);
+    final rowColor =
+        ratio >= 0.8
+            ? Colors.red
+            : ratio >= 0.6
+            ? Colors.orange
+            : color;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              Text(
+                '${fmt.format(used)} / ${fmt.format(freeLimit)}',
+                style: TextStyle(
+                  color: rowColor,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: ratio,
+              minHeight: 6,
+              color: rowColor,
+              backgroundColor: Colors.grey.shade200,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            '안전선 ${fmt.format(safetyLimit)} · $note',
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiOpsTeamSection extends StatelessWidget {
+  final MapUsageStats? stats;
+  final bool freeNaverBlocked;
+  final bool freeGoogleBlocked;
+
+  const _AiOpsTeamSection({
+    required this.stats,
+    required this.freeNaverBlocked,
+    required this.freeGoogleBlocked,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final recommendations = <String>[
+      if ((stats?.googleUsageRatio ?? 0) >= 0.7 && !freeGoogleBlocked)
+        'Google 사용량 70% 이상: Free Google 차단 준비/콘솔 청구 확인',
+      if ((stats?.naverUsageRatio ?? 0) >= 0.7 && !freeNaverBlocked)
+        'Naver 사용량 70% 이상: Free Naver 차단 준비/NCP 사용량 확인',
+      if ((stats?.geoGooglePlace ?? 0) > 0)
+        'Google Places는 단가가 높음: 장애 시 가장 먼저 장소검색만 제한',
+      'AI 팀은 자동 실행하지 않고 권고안만 작성 → 어드민 승인 후 적용',
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.deepPurple.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.deepPurple.shade100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.psychology_alt, color: Colors.deepPurple.shade700),
+              const SizedBox(width: 8),
+              Text(
+                'AI 운영팀 액션 큐',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: Colors.deepPurple.shade800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...recommendations.map(
+            (item) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('• '),
+                  Expanded(
+                    child: Text(
+                      item,
+                      style: const TextStyle(fontSize: 12, height: 1.35),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '다음 단계: ops_reports/ops_alerts 기반 승인 버튼을 붙이면 AI 권고 → 어드민 승인 → 설정 반영 흐름으로 확장 가능.',
+            style: TextStyle(fontSize: 10, color: Colors.black54),
+          ),
+        ],
       ),
     );
   }
@@ -1560,6 +1903,8 @@ class _AdminSettingsTabState extends State<_AdminSettingsTab> {
   bool _loading = true;
   String? _currentMinVersion;
   String? _currentAppVersion;
+  String? _versionInputError;
+  Map<String, Map<String, int>> _localOwnerSummary = {};
   final _versionController = TextEditingController();
 
   @override
@@ -1580,11 +1925,12 @@ class _AdminSettingsTabState extends State<_AdminSettingsTab> {
     setState(() => _loading = true);
     try {
       final info = await PackageInfo.fromPlatform();
-      _currentAppVersion = info.version;
+      _currentAppVersion = ForceUpdateService.fullVersionFromPackageInfo(info);
 
       final minVer = await ForceUpdateService.getMinVersion();
       _currentMinVersion = minVer;
       _versionController.text = minVer ?? '';
+      _localOwnerSummary = HiveHelper.getLocalOwnerSummary();
 
       final doc =
           await FirebaseFirestore.instance
@@ -1606,9 +1952,25 @@ class _AdminSettingsTabState extends State<_AdminSettingsTab> {
   Future<void> _saveMinVersion() async {
     final v = _versionController.text.trim();
     if (v.isEmpty) return;
+    if (!ForceUpdateService.isFullVersion(v)) {
+      setState(() {
+        _versionInputError = '전체 버전을 입력하세요. 예: 1.0.11+19';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('전체 버전 형식으로만 저장할 수 있습니다. 예: 1.0.11+19'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
     try {
       await ForceUpdateService.setMinVersion(v);
-      setState(() => _currentMinVersion = v);
+      setState(() {
+        _currentMinVersion = v;
+        _versionInputError = null;
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1627,7 +1989,10 @@ class _AdminSettingsTabState extends State<_AdminSettingsTab> {
     try {
       await ForceUpdateService.setMinVersion('');
       _versionController.clear();
-      setState(() => _currentMinVersion = null);
+      setState(() {
+        _currentMinVersion = null;
+        _versionInputError = null;
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1661,11 +2026,53 @@ class _AdminSettingsTabState extends State<_AdminSettingsTab> {
     }
   }
 
+  Future<void> _recoverLocalOwnerToCurrentUser() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('로컬 데이터 owner 복구'),
+            content: const Text(
+              '이 기기에 저장된 모든 장소/알람을 현재 로그인 계정으로 다시 연결합니다. '
+              '개발자 복구용 기능이며, 현재 테스트 기기의 데이터가 잘못 숨겨졌을 때만 사용하세요.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('취소'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('현재 계정으로 복구'),
+              ),
+            ],
+          ),
+    );
+    if (confirmed != true) return;
+
+    final changed = await HiveHelper.reassignAllLocalDataToCurrentOwner();
+    await _loadSettings();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '복구 완료: 장소 ${changed['places']}, 알람 ${changed['alarms']}, 기기 ${changed['devices']}',
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
+
+    final versionInput = _versionController.text.trim();
+    final canSaveMinVersion =
+        versionInput.isNotEmpty &&
+        ForceUpdateService.isFullVersion(versionInput);
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -1699,6 +2106,48 @@ class _AdminSettingsTabState extends State<_AdminSettingsTab> {
             secondary: Icon(
               _testLoginEnabled ? Icons.lock_open : Icons.lock,
               color: _testLoginEnabled ? Colors.green : Colors.grey,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.storage, color: Colors.deepPurple),
+                    SizedBox(width: 8),
+                    Text(
+                      '로컬 장소/알람 owner 현황',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (_localOwnerSummary.isEmpty)
+                  const Text('저장된 로컬 장소/알람 없음')
+                else
+                  ..._localOwnerSummary.entries.map((entry) {
+                    final counts = entry.value;
+                    return Text(
+                      '${entry.key}: 장소 ${counts['places'] ?? 0}, 알람 ${counts['alarms'] ?? 0}, 기기 ${counts['devices'] ?? 0}',
+                      style: const TextStyle(fontSize: 12),
+                    );
+                  }),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed: _recoverLocalOwnerToCurrentUser,
+                  icon: const Icon(Icons.restore),
+                  label: const Text('현재 로그인 계정으로 로컬 데이터 복구'),
+                ),
+              ],
             ),
           ),
         ),
@@ -1749,17 +2198,23 @@ class _AdminSettingsTabState extends State<_AdminSettingsTab> {
                     Expanded(
                       child: TextField(
                         controller: _versionController,
-                        decoration: const InputDecoration(
+                        onChanged:
+                            (_) => setState(() {
+                              _versionInputError = null;
+                            }),
+                        decoration: InputDecoration(
                           labelText: '최소 요구 버전 (ex: 1.0.5)',
-                          border: OutlineInputBorder(),
+                          border: const OutlineInputBorder(),
                           isDense: true,
+                          errorText: _versionInputError,
+                          helperText: '전체 버전을 입력하세요. 예: 1.0.11+19',
                         ),
                         keyboardType: TextInputType.text,
                       ),
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
-                      onPressed: _saveMinVersion,
+                      onPressed: canSaveMinVersion ? _saveMinVersion : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
                         foregroundColor: Colors.white,
@@ -1824,6 +2279,7 @@ class _AdminSettingsTabState extends State<_AdminSettingsTab> {
 // 지오코딩 사용량 + 비용 + 킬스위치 섹션
 // ═══════════════════════════════════════════════════════════════════════
 class _GeocodingSection extends StatelessWidget {
+  final MapUsageStats? stats;
   final Map<String, int> geoCounts;
   final bool isLoading;
   final bool isGeocodingEnabled;
@@ -1831,6 +2287,7 @@ class _GeocodingSection extends StatelessWidget {
   final void Function(bool) onToggle;
 
   const _GeocodingSection({
+    required this.stats,
     required this.geoCounts,
     required this.isLoading,
     required this.isGeocodingEnabled,
@@ -1839,28 +2296,49 @@ class _GeocodingSection extends StatelessWidget {
   });
 
   // 단가 (원/건, USD→KRW 1400 환율 기준 보수적 추정)
-  // Google Geocoding API: $5/1K → ₩7/건
-  // Google Places Text Search Legacy: $32/1K → ₩45/건
-  // Naver Geocoding: ₩4/건 (3K/일 무료 초과분)
-  // Naver Reverse Geocoding: ₩4/건 (1K/일 무료 초과분)
-  static const double _wonGFwd = 7.0;
+  static const double _wonGGeocode = 7.0;
   static const double _wonGPlace = 45.0;
   static const double _wonNFwd = 4.0;
   static const double _wonNRev = 4.0;
+  static const double _wonNPlace = 0.0;
 
   @override
   Widget build(BuildContext context) {
-    final gFwd = geoCounts['google_fwd'] ?? 0;
-    final gPlace = geoCounts['google_place'] ?? 0;
-    final nFwd = geoCounts['naver_fwd'] ?? 0;
-    final nRev = geoCounts['naver_rev'] ?? 0;
+    final gFwd = stats?.geoGoogleFwd ?? geoCounts['google_fwd'] ?? 0;
+    final gRev = stats?.geoGoogleReverse ?? geoCounts['google_rev'] ?? 0;
+    final gPlace = stats?.geoGooglePlace ?? geoCounts['google_place'] ?? 0;
+    final nFwd = stats?.geoNaverFwd ?? geoCounts['naver_fwd'] ?? 0;
+    final nRev = stats?.geoNaverReverse ?? geoCounts['naver_rev'] ?? 0;
+    final nPlace = stats?.geoNaverPlace ?? geoCounts['naver_place'] ?? 0;
 
-    final costGFwd = gFwd * _wonGFwd;
-    final costGPlace = gPlace * _wonGPlace;
-    final costNFwd = nFwd * _wonNFwd;
-    final costNRev = nRev * _wonNRev;
-    final costGoogle = costGFwd + costGPlace;
-    final costNaver = costNFwd + costNRev;
+    final gGeocodeTotal = gFwd + gRev;
+    final costGGeocode = _billableCost(
+      gGeocodeTotal,
+      MapUsageStats.googleGeocodingCreditLimit,
+      _wonGGeocode,
+    );
+    final costGPlace = _billableCost(
+      gPlace,
+      MapUsageStats.googlePlacesTextCreditLimit,
+      _wonGPlace,
+    );
+    final costNFwd = _billableCost(
+      nFwd,
+      MapUsageStats.naverGeocodingFreeLimit,
+      _wonNFwd,
+    );
+    final costNRev = _billableCost(
+      nRev,
+      MapUsageStats.naverReverseGeocodingFreeLimit,
+      _wonNRev,
+    );
+    final costNPlace = _billableCost(
+      nPlace,
+      MapUsageStats.naverLocalSearchFreeLimit,
+      _wonNPlace,
+    );
+    final costGoogle = costGGeocode + costGPlace;
+    final costNaver = costNFwd + costNRev + costNPlace;
     final costTotal = costGoogle + costNaver;
 
     return Container(
@@ -1903,7 +2381,7 @@ class _GeocodingSection extends StatelessWidget {
           Text(
             isGeocodingEnabled
                 ? '주소/장소 검색 활성 — Google/Naver API 호출됨'
-                : '🚫 모든 유료 지오코딩 차단됨 — OSM Nominatim 폴백 사용',
+                : '🚫 지오코딩 차단됨 — 지도 좌표 선택만 가능합니다',
             style: TextStyle(
               fontSize: 11,
               color: isGeocodingEnabled ? Colors.grey : Colors.red,
@@ -1915,36 +2393,50 @@ class _GeocodingSection extends StatelessWidget {
             const Center(child: CircularProgressIndicator(strokeWidth: 2))
           else ...[
             _GeoRow(
-              label: 'Google Geocoding',
-              count: gFwd,
-              cost: costGFwd,
+              label: 'Google Geocoding + Reverse',
+              count: gGeocodeTotal,
+              cost: costGGeocode,
+              freeLimit: MapUsageStats.googleGeocodingCreditLimit,
               color: const Color(0xFF4285F4),
               fmt: fmt,
-              unit: '\$5/1K → ₩7/건',
+              unit:
+                  'Forward $gFwd / Reverse $gRev · 월 무료 10,000건 이후 ${r'$5/1K'}',
             ),
             _GeoRow(
               label: 'Google Places Search',
               count: gPlace,
               cost: costGPlace,
+              freeLimit: MapUsageStats.googlePlacesTextCreditLimit,
               color: const Color(0xFF4285F4),
               fmt: fmt,
-              unit: '\$32/1K → ₩45/건',
+              unit: r'Legacy Text Search · 월 무료 5,000건 이후 $32/1K',
             ),
             _GeoRow(
               label: 'Naver Geocoding',
               count: nFwd,
               cost: costNFwd,
+              freeLimit: MapUsageStats.naverGeocodingFreeLimit,
               color: const Color(0xFF03C75A),
               fmt: fmt,
-              unit: '₩4/건 (3K/일 초과분)',
+              unit: '월 무료 3,000,000건 초과분만 추정',
             ),
             _GeoRow(
               label: 'Naver Reverse Geocoding',
               count: nRev,
               cost: costNRev,
+              freeLimit: MapUsageStats.naverReverseGeocodingFreeLimit,
               color: const Color(0xFF03C75A),
               fmt: fmt,
-              unit: '₩4/건 (1K/일 초과분)',
+              unit: '월 무료 3,000,000건 초과분만 추정',
+            ),
+            _GeoRow(
+              label: 'Naver Local Search',
+              count: nPlace,
+              cost: costNPlace,
+              freeLimit: MapUsageStats.naverLocalSearchFreeLimit,
+              color: const Color(0xFF03C75A),
+              fmt: fmt,
+              unit: '개발자센터 별도 한도 — 콘솔 확인 필요',
             ),
             const Divider(height: 20),
             _CostSummaryRow(
@@ -1970,12 +2462,20 @@ class _GeocodingSection extends StatelessWidget {
           ],
           const SizedBox(height: 8),
           Text(
-            '※ 이 기기에서 발생한 단순 카운트 × 단가 추정치 (실제 청구액과 차이 있을 수 있음)',
+            stats == null
+                ? '※ 전역 집계가 없으면 이 기기 로컬 카운트를 표시합니다. 비용은 무료한도 초과분만 계산합니다.'
+                : '※ Firestore 전역 집계 기준. 비용은 무료한도/월 크레딧 초과분만 계산하며 실제 청구 SKU와 차이 있을 수 있습니다.',
             style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
           ),
         ],
       ),
     );
+  }
+
+  static double _billableCost(int count, int freeLimit, double unitWon) {
+    final billable = count - freeLimit;
+    if (billable <= 0) return 0;
+    return billable * unitWon;
   }
 }
 
@@ -1983,6 +2483,7 @@ class _GeoRow extends StatelessWidget {
   final String label;
   final int count;
   final double cost;
+  final int freeLimit;
   final Color color;
   final NumberFormat fmt;
   final String unit;
@@ -1990,6 +2491,7 @@ class _GeoRow extends StatelessWidget {
     required this.label,
     required this.count,
     required this.cost,
+    required this.freeLimit,
     required this.color,
     required this.fmt,
     required this.unit,
@@ -2009,7 +2511,7 @@ class _GeoRow extends StatelessWidget {
               children: [
                 Text(label, style: const TextStyle(fontSize: 13)),
                 Text(
-                  unit,
+                  '$unit · 무료 잔여 ${fmt.format((freeLimit - count).clamp(0, freeLimit))}건',
                   style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
                 ),
               ],
@@ -2115,7 +2617,7 @@ class _FreeBlockSection extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Plus/Pro는 영향 없음. 무료 유저만 해당 제공자 지오코딩이 차단되고 OSM 폴백으로 강제됩니다.',
+            'Plus/Pro는 영향 없음. 무료 유저만 해당 제공자 지오코딩이 차단되며, 검색 없이 지도 좌표 선택만 가능합니다.',
             style: TextStyle(
               fontSize: 11,
               color: Colors.grey,

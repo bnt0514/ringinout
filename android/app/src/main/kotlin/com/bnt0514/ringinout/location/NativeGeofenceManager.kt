@@ -44,6 +44,12 @@ class NativeGeofenceManager(private val context: Context) {
             return
         }
 
+        if (places.isEmpty()) {
+            removeAllGeofences()
+            Log.d(TAG, "📭 등록할 장소 없음")
+            return
+        }
+
         val oldGeofenceIds = registeredGeofences.toList()
         registeredGeofences.clear()
 
@@ -118,14 +124,21 @@ class NativeGeofenceManager(private val context: Context) {
 
     /** 모든 지오펜스 제거 */
     fun removeAllGeofences() {
-        if (registeredGeofences.isNotEmpty()) {
-            val geofenceIds = registeredGeofences.toList()
-            registeredGeofences.clear()
-            geofencingClient.removeGeofences(geofenceIds).addOnSuccessListener {
-                Log.d(TAG, "🗑️ 지오펜스 제거: ${geofenceIds.size}개")
+        val geofenceIds = registeredGeofences.toList()
+        registeredGeofences.clear()
+        if (geofenceIds.isNotEmpty()) {
+            geofencingClient.removeGeofences(geofenceIds)
+        }
+
+        try {
+            val pi = pendingIntent ?: createPendingIntent(REQUEST_CODE)
+            geofencingClient.removeGeofences(pi).addOnSuccessListener {
+                Log.d(TAG, "🗑️ 지오펜스 PendingIntent 기준 전체 제거")
             }.addOnFailureListener { e ->
-                Log.e(TAG, "⚠️ 지오펜스 제거 실패: ${e.message}")
+                Log.e(TAG, "⚠️ 지오펜스 전체 제거 실패: ${e.message}")
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "⚠️ 지오펜스 전체 제거 예외: ${e.message}")
         }
     }
 

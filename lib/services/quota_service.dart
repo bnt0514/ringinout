@@ -20,12 +20,15 @@
 //   quota.alarm.reward.{yyyy-MM}
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:ringinout/config/app_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ringinout/services/secure_http_headers.dart';
 import 'package:ringinout/services/subscription_service.dart';
 
 /// 쿼터 체크 결과
@@ -63,6 +66,9 @@ class QuotaCheck {
 enum QuotaCategory { search, alarm }
 
 class QuotaService {
+  static const String _functionsBaseUrl =
+      'https://us-central1-ringgo-485705.cloudfunctions.net';
+
   static const _kSearchUsed = 'quota.search.used.'; // + yyyy-MM
   static const _kSearchReward = 'quota.search.reward.'; // + yyyy-MM
   static const _kAlarmUsed = 'quota.alarm.used.';
@@ -84,7 +90,7 @@ class QuotaService {
     final used = await _getUsed(category);
     final rewards = await _getRewards(category);
 
-    if (AppConfig.isBetaVersion && plan == SubscriptionPlan.free) {
+    if (AppConfig.isBetaVersion) {
       return QuotaCheck(
         status: QuotaStatus.ok,
         used: used,
@@ -277,47 +283,38 @@ class QuotaService {
     required int rewardDelta,
   }) async {
     try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid == null) return; // 로그인 필수 — 익명 차단 정책
-
-      final month = _month();
-      final userRef = FirebaseFirestore.instance
-          .collection('quotas')
-          .doc(uid)
-          .collection('months')
-          .doc(month);
-
-      final poolRef = FirebaseFirestore.instance.collection('pools').doc(month);
-
-      final usedField =
-          category == QuotaCategory.search ? 'search_used' : 'alarm_used';
-      final rewardField =
-          category == QuotaCategory.search ? 'search_reward' : 'alarm_reward';
-      final totalField =
-          category == QuotaCategory.search ? 'search_total' : 'alarm_total';
-
-      final plan = await SubscriptionService.getCurrentPlan();
-
-      final batch = FirebaseFirestore.instance.batch();
-
-      batch.set(userRef, {
-        if (delta != 0) usedField: FieldValue.increment(delta),
-        if (rewardDelta != 0) rewardField: FieldValue.increment(rewardDelta),
-        'plan_snapshot': plan.name,
-        'uid': uid,
-        'last_updated': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-
-      if (delta != 0) {
-        batch.set(poolRef, {
-          totalField: FieldValue.increment(delta),
-          'last_updated': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+      if (delta < 0) {
+        debugPrint('ℹ️ [Quota] 서버 환불 동기화는 보안상 생략합니다.');
       }
 
-      await batch.commit();
+      for (var i = 0; i < delta; i++) {
+        await _incrementQuotaOnServer(category, 'used');
+      }
+      for (var i = 0; i < rewardDelta; i++) {
+        await _incrementQuotaOnServer(category, 'reward');
+      }
     } catch (e) {
       debugPrint('⚠️ [Quota] Firestore 동기화 실패: $e');
+    }
+  }
+
+  static Future<void> _incrementQuotaOnServer(
+    QuotaCategory category,
+    String kind,
+  ) async {
+    final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+    if (idToken == null) return;
+
+    final response = await http.post(
+      Uri.parse('$_functionsBaseUrl/incrementQuota'),
+      headers: await SecureHttpHeaders.json(idToken: idToken),
+      body: jsonEncode({'category': category.name, 'kind': kind}),
+    );
+
+    if (response.statusCode >= 400) {
+      debugPrint(
+        '⚠️ [Quota] 서버 쿼터 기록 실패: ${response.statusCode} ${response.body}',
+      );
     }
   }
 

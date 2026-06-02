@@ -1,9 +1,8 @@
 /// BillingService - 구독 관리 서비스
 ///
 /// 플랜 조회 우선순위:
-/// 1. Firestore users/{uid}.subscriptionPlan (테스트 계정 / 특별 부여)
-/// 2. Firestore admin_config/special_users.uids 에 포함된 UID → special
-/// 3. 서버 getBillingStatus (일반 유저)
+/// 1. Firestore admin_config/special_users.uids 에 포함된 UID → special
+/// 2. 서버 getBillingStatus (일반 유저)
 library;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -13,6 +12,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import 'package:ringinout/services/auth_service.dart';
+import 'package:ringinout/services/secure_http_headers.dart';
 import 'package:ringinout/services/subscription_service.dart';
 import 'package:ringinout/utils/retry_helper.dart';
 
@@ -34,7 +34,7 @@ class BillingService extends ChangeNotifier {
   bool get isLoading => _isLoading;
 
   /// 구독 상태 가져오기
-  /// 우선순위: Firestore 직접 부여 플랜 > special_users > 서버
+  /// 우선순위: special_users > 서버
   Future<void> fetchStatus({bool forceRefresh = false}) async {
     if (!forceRefresh && _lastFetch != null) {
       final diff = DateTime.now().difference(_lastFetch!);
@@ -54,25 +54,7 @@ class BillingService extends ChangeNotifier {
         return;
       }
 
-      // 1. Firestore users/{uid} 에 직접 플랜이 지정된 경우 (테스트 계정 포함)
-      final userDoc =
-          await FirebaseFirestore.instance.collection('users').doc(uid).get();
-
-      if (userDoc.exists) {
-        final data = userDoc.data()!;
-        final directPlan = data['subscriptionPlan'] as String?;
-        final status = data['subscriptionStatus'] as String?;
-
-        if (directPlan != null && status == 'active') {
-          _cachedPlan = _parsePlan(directPlan);
-          _cachedExpiresAt = null;
-          _lastFetch = DateTime.now();
-          debugPrint('✅ Plan from Firestore (direct): $_cachedPlan');
-          return;
-        }
-      }
-
-      // 2. admin_config/special_users 에 포함된 UID → special 플랜
+      // 1. admin_config/special_users 에 포함된 UID → special 플랜
       final specialDoc =
           await FirebaseFirestore.instance
               .collection('admin_config')
@@ -90,7 +72,7 @@ class BillingService extends ChangeNotifier {
         }
       }
 
-      // 3. 서버에서 조회 (일반 Google 로그인 유저)
+      // 2. 서버에서 조회 (일반 Google 로그인 유저)
       final idToken = await _authService.getIdToken();
       if (idToken == null) {
         _cachedPlan = SubscriptionPlan.free;
@@ -98,9 +80,9 @@ class BillingService extends ChangeNotifier {
       }
 
       final response = await retryWithBackoff(
-        () => http.get(
+        () async => http.get(
           Uri.parse('$serverUrl/getBillingStatus'),
-          headers: {'Authorization': 'Bearer $idToken'},
+          headers: await SecureHttpHeaders.json(idToken: idToken),
         ),
         maxAttempts: 3,
         initialDelay: const Duration(seconds: 2),
@@ -108,11 +90,18 @@ class BillingService extends ChangeNotifier {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        _cachedPlan = _parsePlan(data['plan']);
         _cachedExpiresAt =
             data['expires_at'] != null
                 ? DateTime.fromMillisecondsSinceEpoch(data['expires_at'])
                 : null;
+        final active = data['status'] == 'active';
+        final notExpired =
+            _cachedExpiresAt == null ||
+            _cachedExpiresAt!.isAfter(DateTime.now());
+        _cachedPlan =
+            active && notExpired
+                ? _parsePlan(data['plan'])
+                : SubscriptionPlan.free;
         _lastFetch = DateTime.now();
         debugPrint('✅ Plan from server: $_cachedPlan');
       } else {
@@ -134,6 +123,9 @@ class BillingService extends ChangeNotifier {
     required String store,
     required String receipt,
     String? purchaseToken,
+    required String productId,
+    String packageName = 'com.bnt0514.ringinout',
+    String purchaseType = 'subscription',
   }) async {
     try {
       final idToken = await _authService.getIdToken();
@@ -143,19 +135,24 @@ class BillingService extends ChangeNotifier {
 
       final response = await http.post(
         Uri.parse('$serverUrl/verifyPurchase'),
-        headers: {
-          'Authorization': 'Bearer $idToken',
-          'Content-Type': 'application/json',
-        },
+        headers: await SecureHttpHeaders.json(idToken: idToken),
         body: jsonEncode({
           'store': store,
           'receipt': receipt,
           if (purchaseToken != null) 'purchaseToken': purchaseToken,
+          'productId': productId,
+          'packageName': packageName,
+          'purchaseType': purchaseType,
         }),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        final verified = data['verified'] == true;
+        if (!verified) {
+          debugPrint('⚠️ Purchase was not verified: ${response.body}');
+          return false;
+        }
         _cachedPlan = _parsePlan(data['plan']);
         _cachedExpiresAt =
             data['expires_at'] != null
@@ -163,15 +160,15 @@ class BillingService extends ChangeNotifier {
                 : null;
         _lastFetch = DateTime.now();
 
-        print('✅ Purchase verified: $_cachedPlan');
+        debugPrint('✅ Purchase verified: $_cachedPlan');
         notifyListeners();
         return true;
       } else {
-        print('❌ Purchase verification failed: ${response.body}');
+        debugPrint('❌ Purchase verification failed: ${response.body}');
         return false;
       }
     } catch (e) {
-      print('❌ Purchase verification error: $e');
+      debugPrint('❌ Purchase verification error: $e');
       return false;
     }
   }

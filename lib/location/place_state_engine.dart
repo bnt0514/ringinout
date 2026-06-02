@@ -104,16 +104,16 @@ class PlaceInfo {
 // ========== 장소별 상태 레코드 ==========
 
 class _PlaceRecord {
-  PlaceState state;
-  int lastConfirmedAtMs;
-  int snoozeUntilMs;
-  int placeVersion;
+  PlaceState state = PlaceState.UNKNOWN;
+  int lastConfirmedAtMs = 0;
+  int snoozeUntilMs = 0;
+  int placeVersion = 0;
 
   // confirm 카운터 (메모리)
-  int outsideStreakCount;
-  int outsideSinceMs;
-  int insideStreakCount;
-  int insideSinceMs;
+  int outsideStreakCount = 0;
+  int outsideSinceMs = 0;
+  int insideStreakCount = 0;
+  int insideSinceMs = 0;
 
   _PlaceRecord();
 }

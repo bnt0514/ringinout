@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import 'package:ringinout/config/app_theme.dart';
 
 import 'package:ringinout/services/billing_service.dart';
+import 'package:ringinout/services/play_billing_purchase_service.dart';
 import 'package:ringinout/services/subscription_service.dart';
 import 'package:ringinout/services/app_localizations.dart';
 import 'package:ringinout/pages/gps_page.dart';
@@ -113,6 +114,31 @@ class _ServerSubscriptionView extends StatefulWidget {
 }
 
 class _ServerSubscriptionViewState extends State<_ServerSubscriptionView> {
+  PlayBillingPurchaseService? _purchaseService;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final service = PlayBillingPurchaseService(
+        context.read<BillingService>(),
+      );
+      await service.init();
+      await service.loadProducts();
+      if (mounted) {
+        setState(() => _purchaseService = service);
+      } else {
+        service.dispose();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _purchaseService?.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -152,6 +178,49 @@ class _ServerSubscriptionViewState extends State<_ServerSubscriptionView> {
                 l10n: l10n,
                 onTap: () => _showComingSoon(context),
               ),
+              if (!AppConfig.isBetaVersion) ...[
+                const SizedBox(height: 12),
+                _PlanCard(
+                  title: 'Plus',
+                  price: _priceFor(
+                    PlayBillingPurchaseService.plusMonthlyProductId,
+                    fallback: l10n.get('subscription_price_tbd'),
+                  ),
+                  features: [
+                    l10n.get('subscription_plan_desc_plus'),
+                    l10n.get('subscription_no_ads'),
+                  ],
+                  footerNote: l10n.get('subscription_policy'),
+                  isCurrentPlan: plan == SubscriptionPlan.plus,
+                  recommended: plan == SubscriptionPlan.free,
+                  l10n: l10n,
+                  onTap:
+                      () => _buy(
+                        context,
+                        PlayBillingPurchaseService.plusMonthlyProductId,
+                      ),
+                ),
+                const SizedBox(height: 12),
+                _PlanCard(
+                  title: 'Pro',
+                  price: _priceFor(
+                    PlayBillingPurchaseService.proMonthlyProductId,
+                    fallback: l10n.get('subscription_price_tbd'),
+                  ),
+                  features: [
+                    l10n.get('subscription_plan_desc_pro'),
+                    l10n.get('subscription_no_ads'),
+                  ],
+                  footerNote: l10n.get('subscription_pro_fair_use'),
+                  isCurrentPlan: plan == SubscriptionPlan.pro,
+                  l10n: l10n,
+                  onTap:
+                      () => _buy(
+                        context,
+                        PlayBillingPurchaseService.proMonthlyProductId,
+                      ),
+                ),
+              ],
               const SizedBox(height: 24),
 
               // 정책 링크
@@ -190,6 +259,30 @@ class _ServerSubscriptionViewState extends State<_ServerSubscriptionView> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(l10n.get('subscription_coming_soon'))),
     );
+  }
+
+  String _priceFor(String productId, {required String fallback}) {
+    final products = _purchaseService?.products ?? const [];
+    for (final product in products) {
+      if (product.id == productId) return product.price;
+    }
+    return fallback;
+  }
+
+  Future<void> _buy(BuildContext context, String productId) async {
+    final service = _purchaseService;
+    if (service == null || !service.available) {
+      _showComingSoon(context);
+      return;
+    }
+    final started = await service.buyProduct(productId);
+    if (!started && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(service.lastError ?? 'Unable to start purchase'),
+        ),
+      );
+    }
   }
 
   void _showPlanSheet(
@@ -252,6 +345,52 @@ class _ServerSubscriptionViewState extends State<_ServerSubscriptionView> {
                         _showComingSoon(context);
                       },
                     ),
+                    if (!AppConfig.isBetaVersion) ...[
+                      const SizedBox(height: 12),
+                      _PlanCard(
+                        title: 'Plus',
+                        price: _priceFor(
+                          PlayBillingPurchaseService.plusMonthlyProductId,
+                          fallback: l10n.get('subscription_price_tbd'),
+                        ),
+                        features: [
+                          l10n.get('subscription_plan_desc_plus'),
+                          l10n.get('subscription_no_ads'),
+                        ],
+                        isCurrentPlan: currentPlan == SubscriptionPlan.plus,
+                        recommended: currentPlan == SubscriptionPlan.free,
+                        l10n: l10n,
+                        onTap: () {
+                          Navigator.of(ctx).pop();
+                          _buy(
+                            context,
+                            PlayBillingPurchaseService.plusMonthlyProductId,
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      _PlanCard(
+                        title: 'Pro',
+                        price: _priceFor(
+                          PlayBillingPurchaseService.proMonthlyProductId,
+                          fallback: l10n.get('subscription_price_tbd'),
+                        ),
+                        features: [
+                          l10n.get('subscription_plan_desc_pro'),
+                          l10n.get('subscription_no_ads'),
+                        ],
+                        footerNote: l10n.get('subscription_pro_fair_use'),
+                        isCurrentPlan: currentPlan == SubscriptionPlan.pro,
+                        l10n: l10n,
+                        onTap: () {
+                          Navigator.of(ctx).pop();
+                          _buy(
+                            context,
+                            PlayBillingPurchaseService.proMonthlyProductId,
+                          );
+                        },
+                      ),
+                    ],
                   ],
                 ),
           ),

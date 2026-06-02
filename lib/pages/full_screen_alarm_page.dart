@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:ringinout/config/app_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:hive/hive.dart';
@@ -207,6 +207,11 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
         print('⚠️ 알람을 찾을 수 없음 (ID: $alarmId)');
         return;
       }
+      if (alarm is! Map ||
+          !HiveHelper.isOwnedByCurrentUser(Map<String, dynamic>.from(alarm))) {
+        print('⛔ 현재 계정 알람이 아니므로 비활성화 중단: $alarmId');
+        return;
+      }
 
       final updatedAlarm = Map<String, dynamic>.from(alarm);
 
@@ -275,7 +280,8 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
 
       final alarmBox = HiveHelper.alarmBox;
       final alarm = alarmBox.get(alarmId);
-      if (alarm is Map) {
+      if (alarm is Map &&
+          HiveHelper.isOwnedByCurrentUser(Map<String, dynamic>.from(alarm))) {
         final updatedAlarm = Map<String, dynamic>.from(alarm);
         // ✅ 반복 알람이면 enabled=true 유지
         if (!_isRepeatAlarm) {
@@ -438,7 +444,10 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
       try {
         final hiveBox = HiveHelper.alarmBox;
         final current = hiveBox.get(alarmId);
-        if (current != null) {
+        if (current is Map &&
+            HiveHelper.isOwnedByCurrentUser(
+              Map<String, dynamic>.from(current),
+            )) {
           final repeat = current['repeat'];
           final isRepeat = (repeat is List && repeat.isNotEmpty);
           if (!isRepeat && current['enabled'] != true) {
@@ -635,7 +644,8 @@ class _FullScreenAlarmPageState extends State<FullScreenAlarmPage> {
     try {
       final hiveBox = HiveHelper.alarmBox;
       final cur = hiveBox.get(alarmId);
-      if (cur != null) {
+      if (cur is Map &&
+          HiveHelper.isOwnedByCurrentUser(Map<String, dynamic>.from(cur))) {
         final repeat = cur['repeat'];
         final isRepeat = (repeat is List && repeat.isNotEmpty);
         if (!isRepeat && cur['enabled'] != true) {

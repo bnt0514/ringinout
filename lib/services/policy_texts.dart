@@ -55,9 +55,7 @@ String _getSubscriptionPolicyKo({required bool isBeta}) {
   }
   buffer.writeln();
   buffer.writeln('2-1. 지도 서비스 제공 조건 (중요)');
-  buffer.writeln(
-    '- 지도 기능은 외부 지도 API(네이버 클라우드 플랫폼, 구글 플랫폼, OpenStreetMap 등)를 이용하며,',
-  );
+  buffer.writeln('- 지도 기능은 외부 지도 API(네이버 클라우드 플랫폼, 구글 플랫폼 등)를 이용하며,');
   buffer.writeln('  외부 API 제공자의 정책, 요금 체계, 장애, 쿼터 등에 의존합니다.');
   buffer.writeln('- 정식 출시 후 명시되는 월 지도 로드 횟수는 일반적인 제공 목표이며 보장되지 않습니다.');
   buffer.writeln('- 외부 API 비용 급증, 이상 사용 감지, 서비스 운영 안정성 확보 등을 위해');
@@ -65,7 +63,7 @@ String _getSubscriptionPolicyKo({required bool isBeta}) {
   buffer.writeln(
     '- 이는 공정 사용 정책(Fair Use Policy) 및 서비스 안정 운영을 위한 조치이며, 해당 사유로 인한 환불은 제한될 수 있습니다.',
   );
-  buffer.writeln('- 제한이 발생한 경우에도 OpenStreetMap 기반 대체 지도는 계속 제공될 수 있습니다.');
+  buffer.writeln('- 제한이 발생한 경우 지도 표시, 주소 검색, 장소 검색 기능 일부가 제공되지 않을 수 있습니다.');
   buffer.writeln();
   buffer.writeln('3. GPS 위치 기반 서비스 안내');
   buffer.writeln('- 본 서비스는 GPS 위치 정보를 활용한 알람 서비스입니다.');
@@ -81,6 +79,9 @@ String _getSubscriptionPolicyKo({required bool isBeta}) {
   buffer.writeln('  (추후 "Passing" 기능 도입 예정: 버튼 하나로 n분 후 자동 재활성화)');
   buffer.writeln('- 미작동 발생 시: GPS 페이지의 "버그 리포트" 버튼을 눌러 로그를 전송해 주시면,');
   buffer.writeln('  수정 가능한 부분은 최대한 빠른 시일 내 수정하겠습니다.');
+  buffer.writeln(
+    '- 기기의 시간대 변경, 수동 날짜/시간 변경, 자정 경계, OS 시간 동기화 지연이 있는 경우 반복 알람의 기준일 계산이 달라져 알람이 지연되거나 예상과 다르게 울릴 수 있습니다.',
+  );
   buffer.writeln('- 본 약관에 동의하시면, 유료 구독자를 포함하여 GPS 오차로 인한');
   buffer.writeln('  ⚡오발동 또는 미작동에 대해 개발사에 책임을 묻지 않는 것에 동의하는 것으로 간주합니다.');
   buffer.writeln();
@@ -233,7 +234,7 @@ String _getSubscriptionPolicyEn({required bool isBeta}) {
   b.writeln();
   b.writeln('2-1. Map Service Provision Conditions (Important)');
   b.writeln(
-    '- Map features depend on third-party APIs (Naver Cloud Platform, Google Cloud Platform, OpenStreetMap, etc.) and are subject to those providers\' policies, pricing, downtime, and quotas.',
+    '- Map features depend on third-party APIs (Naver Cloud Platform, Google Cloud Platform, etc.) and are subject to those providers\' policies, pricing, downtime, and quotas.',
   );
   b.writeln(
     '- Monthly map-open counts stated after official release are general targets, not guaranteed availability.',
@@ -245,7 +246,7 @@ String _getSubscriptionPolicyEn({required bool isBeta}) {
     '- This is a Fair Use Policy and operational safeguard. Refunds caused by such limitations may be restricted.',
   );
   b.writeln(
-    '- OpenStreetMap-based fallback maps may continue to be available even when paid map providers are limited.',
+    '- When limitations are applied, some map display, address search, or place search features may be unavailable.',
   );
   b.writeln();
   b.writeln('3. GPS Location-Based Service Notice');
@@ -273,6 +274,9 @@ String _getSubscriptionPolicyEn({required bool isBeta}) {
   );
   b.writeln(
     '- Missed Trigger: Use the "Bug Report" button on the GPS page to send logs. We will fix resolvable issues as quickly as possible.',
+  );
+  b.writeln(
+    '- If the device time zone, date, or time is manually changed, or if an alarm crosses midnight during OS time synchronization, repeat-alarm date calculations may change and alarms may be delayed or fire differently than expected.',
   );
   b.writeln(
     '- By agreeing to these terms, including paid subscribers, you agree not to hold the developer liable for \u26a1False Triggers or Missed Triggers caused by GPS errors.',
@@ -445,14 +449,14 @@ String _getSubscriptionPolicyJa({required bool isBeta}) {
   b.writeln();
   b.writeln('2-1. マップサービス提供条件（重要）');
   b.writeln(
-    '- マップ機能は外部API（ネイバークラウド、Google Cloud、OpenStreetMap等）に依存し、それらのポリシー、料金体系、サービス状況に左右されます。',
+    '- マップ機能は外部API（ネイバークラウド、Google Cloud等）に依存し、それらのポリシー、料金体系、サービス状況に左右されます。',
   );
   b.writeln('- 正式リリース後に明示される月間マップ表示回数は一般的な提供目標であり、保証されるものではありません。');
   b.writeln(
     '- 外部API費用の急増、不正利用、サービス運営の安定性確保のため、無料ユーザーや全ユーザーのマップ機能が予告なく一時的に制限・停止される場合があります。',
   );
   b.writeln('- これは公正利用ポリシーとサービス安定運営のための措置であり、これによる返金は制限される場合があります。');
-  b.writeln('- OpenStreetMapベースの代替マップは、有料マップ提供者が制限されている間も提供される場合があります。');
+  b.writeln('- 制限が適用される場合、地図表示・住所検索・場所検索の一部が利用できないことがあります。');
   b.writeln();
   b.writeln('3. GPS位置情報サービスのご案内');
   b.writeln('- 本サービスはGPS位置情報を利用したアラームサービスです。');
@@ -574,13 +578,11 @@ String _getSubscriptionPolicyZh({required bool isBeta}) {
   }
   b.writeln();
   b.writeln('2-1. 地图服务提供条件（重要）');
-  b.writeln(
-    '- 地图功能依赖于第三方API（Naver Cloud、Google Cloud、OpenStreetMap等），受其政策、价格、可用性和配额影响。',
-  );
+  b.writeln('- 地图功能依赖于第三方API（Naver Cloud、Google Cloud等），受其政策、价格、可用性和配额影响。');
   b.writeln('- 正式发布后标明的每月地图打开次数为一般提供目标，并非保证。');
   b.writeln('- 为应对第三方API费用突增、滥用、运营稳定性问题，免费用户或全体用户的地图功能可能被临时限制或暂停，恕不另行通知。');
   b.writeln('- 此为公平使用政策及服务稳定运营措施，由此产生的退款可能受限。');
-  b.writeln('- OpenStreetMap基础的备用地图可能在付费地图受限期间仍然提供。');
+  b.writeln('- 当限制生效时，地图显示、地址搜索或地点搜索的部分功能可能无法使用。');
   b.writeln();
   b.writeln('3. GPS位置服务说明');
   b.writeln('- 本服务利用GPS位置信息提供闹钟服务。');
