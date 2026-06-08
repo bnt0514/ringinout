@@ -1,0 +1,3 @@
+• Guardado de alarmas más fiable: el botón Guardar responde al instante y se evitan los guardados duplicados.
+• Avisos más claros: se añadió información, en los Términos y la Política de privacidad, sobre cómo el reinicio, la detención forzada y la terminación por el sistema operativo pueden afectar a las alarmas.
+• Localización: se añadieron las traducciones de las políticas en alemán, francés y español, y se mejoró la precisión en varios idiomas.

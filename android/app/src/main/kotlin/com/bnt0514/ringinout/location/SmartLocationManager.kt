@@ -29,7 +29,9 @@ class SmartLocationManager private constructor(private val context: Context) {
         private const val KEY_PENDING_WIFI_EVENTS = "pending_wifi_events"
         private const val KEY_PENDING_BT_EVENTS = "pending_bluetooth_events"
         private const val KEY_PENDING_TRANSITIONS = "pending_activity_transitions"
-        private const val ENABLE_NATIVE_ALARM_FALLBACK = false
+        private const val KEY_ACTIVE_OWNER_UID = "active_owner_uid"
+        private const val ENABLE_NATIVE_ALARM_FALLBACK = true
+        private const val ENABLE_BLUETOOTH_FEATURES = false
 
         @Volatile private var instance: SmartLocationManager? = null
 
@@ -77,7 +79,13 @@ class SmartLocationManager private constructor(private val context: Context) {
             ownerUid: String = ""
     ) {
         Log.d(TAG, "🚀 v2 모니터링 시작 (${places.size}개 장소, 독립 기기: ${deviceAlarmMacs.size}개)")
-        activeOwnerUid = resolveOwnerUid(ownerUid, places)
+        if (ownerUid.isEmpty()) {
+            Log.w(TAG, "⛔ active owner 없이 모니터링 시작 요청 — 중지 처리")
+            stopMonitoring()
+            return
+        }
+        activeOwnerUid = ownerUid
+        saveActiveOwnerUid(activeOwnerUid)
 
         // 장소 저장
         alarmPlaces.clear()
@@ -97,8 +105,11 @@ class SmartLocationManager private constructor(private val context: Context) {
         // Wi-Fi 모니터링 시작
         startWifiMonitoring(alarmPlaces.values.toList())
 
-        // ✅ 블루투스 모니터링 시작
-        startBluetoothMonitoring(alarmPlaces.values.toList(), deviceAlarmMacs)
+        if (ENABLE_BLUETOOTH_FEATURES) {
+            startBluetoothMonitoring(alarmPlaces.values.toList(), deviceAlarmMacs)
+        } else {
+            bluetoothMonitorManager.stopMonitoring()
+        }
 
         isMonitoring = true
         Log.d(TAG, "✅ v2 지오펜스 + ActivityTransition + Wi-Fi + Bluetooth 가동 완료")
@@ -113,6 +124,9 @@ class SmartLocationManager private constructor(private val context: Context) {
         bluetoothMonitorManager.stopMonitoring()
         alarmPlaces.clear()
         saveAlarmPlaces()
+        clearPendingEvents()
+        activeOwnerUid = ""
+        saveActiveOwnerUid("")
         isMonitoring = false
     }
 
@@ -123,7 +137,13 @@ class SmartLocationManager private constructor(private val context: Context) {
             ownerUid: String = ""
     ) {
         Log.d(TAG, "🔄 장소 업데이트 (${places.size}개, 독립 기기: ${deviceAlarmMacs.size}개)")
-        activeOwnerUid = resolveOwnerUid(ownerUid, places)
+        if (ownerUid.isEmpty()) {
+            Log.w(TAG, "⛔ active owner 없이 장소 업데이트 요청 — 중지 처리")
+            stopMonitoring()
+            return
+        }
+        activeOwnerUid = ownerUid
+        saveActiveOwnerUid(activeOwnerUid)
 
         alarmPlaces.clear()
         val droppedByOwner = places.count { !isOwnedByActiveUser(it) }
@@ -137,8 +157,11 @@ class SmartLocationManager private constructor(private val context: Context) {
         // Wi-Fi 장소 업데이트
         wifiMonitorManager.updatePlaces(currentPlaces)
 
-        // ✅ 블루투스 장소 + 독립 기기 MAC 업데이트
-        bluetoothMonitorManager.updatePlaces(currentPlaces, deviceAlarmMacs)
+        if (ENABLE_BLUETOOTH_FEATURES) {
+            bluetoothMonitorManager.updatePlaces(currentPlaces, deviceAlarmMacs)
+        } else {
+            bluetoothMonitorManager.stopMonitoring()
+        }
 
         // 지오펜스 재등록
         nativeGeofenceManager.registerGeofences(currentPlaces)
@@ -260,6 +283,11 @@ class SmartLocationManager private constructor(private val context: Context) {
 
     /** 블루투스 감시 시작 — 장소에 등록된 BT 기기 감지 */
     private fun startBluetoothMonitoring(places: List<AlarmPlace>, deviceAlarmMacs: Set<String> = emptySet()) {
+        if (!ENABLE_BLUETOOTH_FEATURES) {
+            bluetoothMonitorManager.stopMonitoring()
+            Log.d(TAG, "Bluetooth monitoring skipped: feature disabled")
+            return
+        }
         bluetoothMonitorManager.onBluetoothPlaceEvent = { placeId, isEnter ->
             onBluetoothEvent(placeId, isEnter)
         }
@@ -272,6 +300,7 @@ class SmartLocationManager private constructor(private val context: Context) {
 
     /** 블루투스 장소 진입/진출 이벤트 → Flutter로 전달. 실패 시 보류 저장. */
     private fun onBluetoothEvent(placeId: String, isEnter: Boolean) {
+        if (!ENABLE_BLUETOOTH_FEATURES) return
         val place = alarmPlaces[placeId]
         val placeName = place?.name ?: placeId
         if (place == null || !isOwnedByActiveUser(place)) {
@@ -316,6 +345,7 @@ class SmartLocationManager private constructor(private val context: Context) {
 
     /** 독립형 기기 BT 연결/해제 이벤트 → Flutter로 전달 */
     private fun onBluetoothDeviceEvent(macAddress: String, deviceName: String, isConnected: Boolean) {
+        if (!ENABLE_BLUETOOTH_FEATURES) return
         Log.d(TAG, "🔵 BT Device: $deviceName ($macAddress) ${if (isConnected) "CONNECTED" else "DISCONNECTED"}")
 
         if (flutterChannel == null) {
@@ -463,6 +493,7 @@ class SmartLocationManager private constructor(private val context: Context) {
         try {
             val json = prefs.getString(KEY_ALARM_PLACES, null) ?: return
             val jsonArray = JSONArray(json)
+            val restoredPlaces = mutableListOf<AlarmPlace>()
 
             for (i in 0 until jsonArray.length()) {
                 val obj = jsonArray.getJSONObject(i)
@@ -512,6 +543,20 @@ class SmartLocationManager private constructor(private val context: Context) {
                                     } else emptyList()
                                 } catch (e: Exception) { emptyList() },
                         )
+                restoredPlaces.add(place)
+            }
+
+            if (activeOwnerUid.isEmpty()) {
+                activeOwnerUid = readNativeOwnerUid().ifEmpty { readActiveOwnerUid() }
+            }
+
+            if (activeOwnerUid.isEmpty()) {
+                Log.w(TAG, "📦 active owner 없음 — 저장 장소 복구 스킵")
+                alarmPlaces.clear()
+                return
+            }
+
+            for (place in restoredPlaces) {
                 if (isOwnedByActiveUser(place)) {
                     alarmPlaces[place.id] = place
                 }
@@ -684,10 +729,6 @@ class SmartLocationManager private constructor(private val context: Context) {
             flutterPrefs.edit()
                     .putLong("flutter.cooldown_until_$placeId", System.currentTimeMillis() + 10000)
                     .apply()
-            val todayStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
-            flutterPrefs.edit()
-                    .putString("flutter.alarm_triggered_date_$placeId", todayStr)
-                    .apply()
         } catch (e: Exception) {
             Log.w(TAG, "⚠️ 네이티브 폴백: 쿨다운 설정 실패: ${e.message}")
         }
@@ -703,8 +744,10 @@ class SmartLocationManager private constructor(private val context: Context) {
                 putExtra("message", message)
                 putExtra("alarmId", alarmIdHash)
                 putExtra("alarmKey", placeId)
+                putExtra("ownerUid", place.ownerUid)
                 putExtra("placeId", placeId)
                 putExtra("isRepeat", !place.isFirstOnly)
+                putExtra("trigger", if (isEnter) "entry" else "exit")
                 putExtra("isBackgroundAlarm", true)
                 addFlags(
                         Intent.FLAG_ACTIVITY_NEW_TASK or
@@ -781,6 +824,7 @@ class SmartLocationManager private constructor(private val context: Context) {
 
     /** Flutter 엔진이 없을 때 BT 이벤트를 SharedPreferences에 저장 */
     private fun savePendingBluetoothEvent(placeId: String, placeName: String, isEnter: Boolean) {
+        if (!ENABLE_BLUETOOTH_FEATURES) return
         try {
             val pendingJson = prefs.getString(KEY_PENDING_BT_EVENTS, "[]")
             val pendingArray = JSONArray(pendingJson)
@@ -807,6 +851,12 @@ class SmartLocationManager private constructor(private val context: Context) {
             val pendingArray = JSONArray(pendingJson)
 
             prefs.edit().remove(KEY_PENDING_BT_EVENTS).apply()
+            if (!ENABLE_BLUETOOTH_FEATURES) {
+                if (pendingArray.length() > 0) {
+                    Log.d(TAG, "🗑️ 보류 BT 이벤트 ${pendingArray.length()}개 폐기 (feature disabled)")
+                }
+                return
+            }
             if (pendingArray.length() == 0) Log.d(TAG, "📬 보류 BT 이벤트 없음")
             else Log.d(TAG, "🗑️ 보류 BT 이벤트 ${pendingArray.length()}개 폐기 (stale — 재전달 금지)")
         } catch (e: Exception) {
@@ -824,15 +874,39 @@ class SmartLocationManager private constructor(private val context: Context) {
         }
     }
 
-    private fun resolveOwnerUid(ownerUid: String, places: List<AlarmPlace>): String {
-        if (ownerUid.isNotEmpty()) return ownerUid
-        val savedOwner = readActiveOwnerUid()
-        if (savedOwner.isNotEmpty()) return savedOwner
-        return places.firstOrNull { it.ownerUid.isNotEmpty() }?.ownerUid ?: ""
+    private fun readNativeOwnerUid(): String {
+        return try {
+            prefs.getString(KEY_ACTIVE_OWNER_UID, "") ?: ""
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
+    private fun saveActiveOwnerUid(ownerUid: String) {
+        try {
+            if (ownerUid.isEmpty()) {
+                prefs.edit().remove(KEY_ACTIVE_OWNER_UID).apply()
+            } else {
+                prefs.edit().putString(KEY_ACTIVE_OWNER_UID, ownerUid).apply()
+            }
+        } catch (_: Exception) {}
+    }
+
+    private fun clearPendingEvents() {
+        try {
+            prefs.edit()
+                    .remove(KEY_PENDING_EVENTS)
+                    .remove(KEY_PENDING_WIFI_EVENTS)
+                    .remove(KEY_PENDING_BT_EVENTS)
+                    .remove(KEY_PENDING_TRANSITIONS)
+                    .apply()
+        } catch (_: Exception) {}
     }
 
     private fun isOwnedByActiveUser(place: AlarmPlace): Boolean {
-        val owner = activeOwnerUid.ifEmpty { readActiveOwnerUid() }
+        val owner = activeOwnerUid
+                .ifEmpty { readNativeOwnerUid() }
+                .ifEmpty { readActiveOwnerUid() }
         return owner.isNotEmpty() && place.ownerUid == owner
     }
 }

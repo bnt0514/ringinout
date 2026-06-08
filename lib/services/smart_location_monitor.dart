@@ -14,6 +14,7 @@
 
 import 'dart:async';
 import 'package:flutter/services.dart';
+import 'package:ringinout/config/app_config.dart';
 import 'package:ringinout/services/app_log_buffer.dart';
 import 'package:ringinout/services/location_monitor_service.dart';
 import 'package:ringinout/services/background_service.dart';
@@ -42,13 +43,19 @@ class SmartLocationMonitor {
 
       await BackgroundServiceManager.initialize();
 
+      final ownerUid = HiveHelper.activeOwnerUid;
+      if (ownerUid == null || ownerUid.isEmpty) {
+        AppLogBuffer.record('SLM', 'active owner missing; stop monitoring');
+        await stopMonitoring();
+        return;
+      }
+
       final activeAlarms = await _getActiveAlarmsCount();
       AppLogBuffer.record('SLM', '🎯 활성 알람 ${activeAlarms}개 발견');
 
       if (activeAlarms == 0) {
         AppLogBuffer.record('SLM', '📭 활성 알람이 없어 모니터링 중단');
-        final locationService = LocationMonitorService();
-        await locationService.stopMonitoring();
+        await stopMonitoring();
         return;
       }
 
@@ -163,6 +170,13 @@ class SmartLocationMonitor {
             _locationService!.onWifiHardwareChanged(isEnabled);
           }
         } else if (type == 'bluetooth') {
+          if (!AppConfig.enableBluetoothFeatures) {
+            AppLogBuffer.record(
+              'SLM',
+              'Bluetooth event ignored: feature disabled',
+            );
+            return;
+          }
           // ✅ 블루투스 장소 진입/진출 이벤트
           final placeId = args['placeId'] as String? ?? '';
           final isEnter = args['isEnter'] as bool? ?? true;
@@ -176,6 +190,13 @@ class SmartLocationMonitor {
             _locationService!.onBluetoothEvent(placeId, isEnter);
           }
         } else if (type == 'bluetoothDevice') {
+          if (!AppConfig.enableBluetoothFeatures) {
+            AppLogBuffer.record(
+              'SLM',
+              'Bluetooth device event ignored: feature disabled',
+            );
+            return;
+          }
           // ✅ 독립형 기기 알람 BT 연결/해제 이벤트
           final macAddress = args['macAddress'] as String? ?? '';
           final deviceName = args['deviceName'] as String? ?? '';
@@ -210,11 +231,16 @@ class SmartLocationMonitor {
         '🔁 30분 서비스 체크: 활성 알람 ${activeAlarms}개, lmsRunning=${_locationService?.isRunning}, lmsNull=${_locationService == null}',
       );
 
+      final ownerUid = HiveHelper.activeOwnerUid;
+      if (ownerUid == null || ownerUid.isEmpty) {
+        AppLogBuffer.record('SLM', 'active owner missing; stop service');
+        await stopMonitoring();
+        return;
+      }
+
       if (activeAlarms == 0) {
         AppLogBuffer.record('SLM', '📭 활성 알람 없음 - 서비스 중단');
-        if (_locationService != null) {
-          await _locationService!.stopMonitoring();
-        }
+        await stopMonitoring();
         return;
       }
 
@@ -274,6 +300,15 @@ class SmartLocationMonitor {
         _locationService = null;
       }
 
+      try {
+        await _nativeChannel.invokeMethod('stopMonitoring');
+        AppLogBuffer.record('SLM', 'native monitoring stopped');
+      } catch (e) {
+        AppLogBuffer.record('SLM', 'native monitoring stop failed: $e');
+      }
+
+      await LocationMonitorService.clearWatchdogHeartbeat();
+
       AppLogBuffer.record('SLM', '✅ 모니터링 완전 중단');
     } catch (e) {
       AppLogBuffer.record('SLM', '❌ 모니터링 중단 실패: $e');
@@ -317,20 +352,31 @@ class SmartLocationMonitor {
   /// startSmartMonitoring() 및 복구 시 호웉
   static Future<void> _registerNativeGeofences() async {
     try {
+      final ownerUid = HiveHelper.activeOwnerUid;
+      if (ownerUid == null || ownerUid.isEmpty) {
+        AppLogBuffer.record(
+          'SLM',
+          'active owner missing; stop native register',
+        );
+        await _nativeChannel.invokeMethod('stopMonitoring');
+        return;
+      }
+
       final places = _buildNativePlacesList();
+      final deviceAlarmMacs = _buildDeviceAlarmMacList();
       AppLogBuffer.record(
         'SLM',
         '📋 _buildNativePlacesList 결과: ${places.length}개 → ${places.map((p) => p["name"] ?? p["id"]).toList()}',
       );
-      if (places.isEmpty) {
+      if (places.isEmpty && deviceAlarmMacs.isEmpty) {
         AppLogBuffer.record('SLM', '🔴 등록할 네이티브 장소 없음! 지오펜스 미등록 — 알람 동작 불가');
+        await _nativeChannel.invokeMethod('stopMonitoring');
         return;
       }
-      final deviceAlarmMacs = _buildDeviceAlarmMacList();
       await _nativeChannel.invokeMethod('startMonitoring', {
         'places': places,
         'deviceAlarmMacs': deviceAlarmMacs,
-        'ownerUid': HiveHelper.activeOwnerUid ?? '',
+        'ownerUid': ownerUid,
       });
       await _recordNativeStatus('startMonitoring');
       AppLogBuffer.record(
@@ -344,6 +390,13 @@ class SmartLocationMonitor {
 
   /// 장소 목록 변경 시 호웉 — LMS + 네이티브 지오펜스 동시 업데이트
   static Future<void> updatePlaces() async {
+    final ownerUid = HiveHelper.activeOwnerUid;
+    if (ownerUid == null || ownerUid.isEmpty) {
+      AppLogBuffer.record('SLM', 'active owner missing; stop updatePlaces');
+      await stopMonitoring();
+      return;
+    }
+
     // 1. Flutter LMS 업데이트
     if (_locationService != null) {
       await _locationService!.updatePlaces();
@@ -356,7 +409,7 @@ class SmartLocationMonitor {
       await _nativeChannel.invokeMethod('updatePlaces', {
         'places': places,
         'deviceAlarmMacs': deviceAlarmMacs,
-        'ownerUid': HiveHelper.activeOwnerUid ?? '',
+        'ownerUid': ownerUid,
       });
       await _recordNativeStatus('updatePlaces');
       AppLogBuffer.record(
@@ -468,17 +521,19 @@ class SmartLocationMonitor {
                   : [],
           // ✅ 블루투스 기기 데이터 전달 (장소에 등록된 BT 기기 목록)
           'bluetoothDevices':
-              (place['bluetoothDevices'] as List?)
-                  ?.map(
-                    (d) => {
-                      'name': (d as Map)['name'] ?? '',
-                      'macAddress': d['macAddress'] ?? '',
-                      'deviceType': d['deviceType'] ?? 0,
-                      'alias': d['alias'] ?? '',
-                    },
-                  )
-                  .toList() ??
-              [],
+              AppConfig.enableBluetoothFeatures
+                  ? ((place['bluetoothDevices'] as List?)
+                          ?.map(
+                            (d) => {
+                              'name': (d as Map)['name'] ?? '',
+                              'macAddress': d['macAddress'] ?? '',
+                              'deviceType': d['deviceType'] ?? 0,
+                              'alias': d['alias'] ?? '',
+                            },
+                          )
+                          .toList() ??
+                      [])
+                  : [],
         });
       }
       return result;
@@ -498,11 +553,24 @@ class SmartLocationMonitor {
           wifi is Map ? (wifi['wifiPlaceCount']?.toString() ?? '?') : '?';
       final wifiMonitoring =
           wifi is Map ? (wifi['isMonitoring']?.toString() ?? '?') : '?';
+      final wifiConnected =
+          wifi is Map ? (wifi['connectedPlaceIds']?.toString() ?? '?') : '?';
+      final wifiPendingEnter =
+          wifi is Map ? (wifi['pendingEnterDebounce']?.toString() ?? '?') : '?';
+      final nativePlaceCount =
+          status['alarmCount']?.toString() ??
+          status['placeCount']?.toString() ??
+          '?';
+      final nativeState =
+          status['state']?.toString() ??
+          status['isMonitoring']?.toString() ??
+          '?';
       AppLogBuffer.record(
         'SLM',
-        'native status after $source: places=${status['placeCount']}, '
-            'monitoring=${status['isMonitoring']}, '
-            'wifiPlaces=$wifiCount, wifiMonitoring=$wifiMonitoring',
+        'native status after $source: places=$nativePlaceCount, '
+            'state=$nativeState, wifiPlaces=$wifiCount, '
+            'wifiMonitoring=$wifiMonitoring, wifiConnected=$wifiConnected, '
+            'wifiPendingEnter=$wifiPendingEnter',
       );
     } catch (e) {
       AppLogBuffer.record('SLM', 'native status read failed after $source: $e');
@@ -510,6 +578,7 @@ class SmartLocationMonitor {
   }
 
   static List<String> _buildDeviceAlarmMacList() {
+    if (!AppConfig.enableBluetoothFeatures) return [];
     try {
       return HiveHelper.getActiveDeviceAlarms()
           .map((a) => (a['macAddress'] ?? '').toString().toUpperCase())

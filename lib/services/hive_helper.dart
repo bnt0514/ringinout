@@ -1,10 +1,10 @@
 // lib/services/hive_helper.dart
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:path_provider/path_provider.dart'; // ✅ 추가
+import 'package:ringinout/config/app_config.dart';
 import 'package:ringinout/utils/alarm_detection_mode.dart';
 import 'package:ringinout/utils/geocoding_cache.dart';
 import 'package:ringinout/utils/report_rate_limiter.dart';
@@ -19,6 +19,10 @@ class HiveHelper {
   static const Uuid _uuid = Uuid();
   static String? _activeOwnerUid;
   static const String _activeOwnerKey = 'active_owner_uid';
+  static const String _canonicalOwnerResetKey = 'canonical_owner_reset_v1';
+
+  static bool get _bluetoothFeaturesEnabled =>
+      AppConfig.enableBluetoothFeatures;
 
   // ✅ 앱 시작 시 반드시 호출해야 함
   static Future<void> init() async {
@@ -204,14 +208,7 @@ class HiveHelper {
   // ✅ 초기화 상태 확인
   static bool get isInitialized => _isInitialized;
 
-  static String? get activeOwnerUid {
-    final firebaseUid = FirebaseAuth.instance.currentUser?.uid;
-    if (firebaseUid != null && firebaseUid.isNotEmpty) {
-      _activeOwnerUid = firebaseUid;
-      return firebaseUid;
-    }
-    return null;
-  }
+  static String? get activeOwnerUid => storedActiveOwnerUid;
 
   static String? get storedActiveOwnerUid {
     final cached = _activeOwnerUid;
@@ -229,6 +226,97 @@ class HiveHelper {
   static bool get hasStoredActiveOwnerUid {
     final stored = storedActiveOwnerUid;
     return stored != null && stored.isNotEmpty;
+  }
+
+  static bool needsCanonicalOwnerReset(String canonicalOwnerUid) {
+    if (!_isInitialized || canonicalOwnerUid.isEmpty) return false;
+    final doneFor = _settingsBox.get(_canonicalOwnerResetKey)?.toString();
+    return doneFor != canonicalOwnerUid;
+  }
+
+  static Future<void> resetAccountScopedLocalDataForCanonicalOwner(
+    String canonicalOwnerUid,
+  ) async {
+    if (!_isInitialized || canonicalOwnerUid.isEmpty) return;
+    if (!needsCanonicalOwnerReset(canonicalOwnerUid)) return;
+
+    await _placeBox.clear();
+    await _alarmBox.clear();
+    await _deviceAlarmBox.clear();
+    await _myDevicesBox.clear();
+
+    try {
+      final triggerBox = await Hive.openBox('trigger_counts_v2');
+      final snoozeBox = await Hive.openBox('snoozeSchedules');
+      await triggerBox.clear();
+      await snoozeBox.clear();
+    } catch (e) {
+      debugPrint('account-scoped runtime box clear failed: $e');
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final runtimePrefixes = <String>[
+      'alarm_name_',
+      'alarm_disabled_',
+      'alarm_snoozed_',
+      'place_state_',
+      'cooldown_until_',
+      'alarm_triggered_date_',
+      'pause_until_entry_',
+      'pause_until_exit_',
+      'trigger_count_',
+      'native_alarm_',
+      'snooze_',
+    ];
+    for (final key in prefs.getKeys().toList()) {
+      if (runtimePrefixes.any((prefix) => key.startsWith(prefix))) {
+        await prefs.remove(key);
+      }
+    }
+
+    await setActiveOwnerUid(canonicalOwnerUid);
+    await _settingsBox.put(_canonicalOwnerResetKey, canonicalOwnerUid);
+    debugPrint('Account-scoped local data reset for canonical owner');
+  }
+
+  static Future<void> clearAllAccountScopedLocalData() async {
+    if (!_isInitialized) return;
+    await _placeBox.clear();
+    await _alarmBox.clear();
+    await _deviceAlarmBox.clear();
+    await _myDevicesBox.clear();
+
+    try {
+      final triggerBox = await Hive.openBox('trigger_counts_v2');
+      final snoozeBox = await Hive.openBox('snoozeSchedules');
+      await triggerBox.clear();
+      await snoozeBox.clear();
+    } catch (e) {
+      debugPrint('account-scoped runtime box clear failed: $e');
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final runtimePrefixes = <String>[
+      'alarm_name_',
+      'alarm_disabled_',
+      'alarm_snoozed_',
+      'place_state_',
+      'cooldown_until_',
+      'alarm_triggered_date_',
+      'pause_until_entry_',
+      'pause_until_exit_',
+      'trigger_count_',
+      'native_alarm_',
+      'snooze_',
+    ];
+    for (final key in prefs.getKeys().toList()) {
+      if (runtimePrefixes.any((prefix) => key.startsWith(prefix))) {
+        await prefs.remove(key);
+      }
+    }
+
+    await setActiveOwnerUid(null);
+    await _settingsBox.delete(_canonicalOwnerResetKey);
   }
 
   static Future<void> setActiveOwnerUid(String? uid) async {
@@ -1141,6 +1229,9 @@ class HiveHelper {
   ///   - trigger: 'connect' | 'disconnect' (연결/해제 시 알람)
   ///   - enabled: bool
   static Future<String> saveDeviceAlarm(Map<String, dynamic> alarmData) async {
+    if (!_bluetoothFeaturesEnabled) {
+      throw StateError('Bluetooth/device alarms are currently disabled.');
+    }
     try {
       final id =
           alarmData['id']?.toString().trim().isNotEmpty == true
@@ -1163,6 +1254,7 @@ class HiveHelper {
 
   /// 모든 독립형 기기 알람 조회
   static List<Map<String, dynamic>> getDeviceAlarms() {
+    if (!_bluetoothFeaturesEnabled) return [];
     try {
       return _deviceAlarmBox.values
           .map((e) => Map<String, dynamic>.from(e as Map))
@@ -1191,6 +1283,9 @@ class HiveHelper {
     String id,
     Map<String, dynamic> updatedAlarm,
   ) async {
+    if (!_bluetoothFeaturesEnabled) {
+      throw StateError('Bluetooth/device alarms are currently disabled.');
+    }
     try {
       if (!_deviceAlarmBox.containsKey(id)) {
         throw Exception('기기 알람 ID를 찾을 수 없습니다: $id');
@@ -1207,6 +1302,7 @@ class HiveHelper {
 
   /// 독립형 기기 알람 삭제 (ID 기반)
   static Future<void> deleteDeviceAlarm(String id) async {
+    if (!_bluetoothFeaturesEnabled) return;
     try {
       await _deviceAlarmBox.delete(id);
       debugPrint('✅ 기기 알람 삭제 완료 (ID: $id)');
@@ -1218,6 +1314,7 @@ class HiveHelper {
 
   /// 특정 MAC 주소에 매칭되는 독립형 기기 알람 조회
   static List<Map<String, dynamic>> getDeviceAlarmsByMac(String macAddress) {
+    if (!_bluetoothFeaturesEnabled) return [];
     try {
       return getDeviceAlarms()
           .where(
@@ -1240,6 +1337,9 @@ class HiveHelper {
 
   /// 내 기기 저장 (macAddress 기반 ID)
   static Future<String> saveMyDevice(Map<String, dynamic> deviceData) async {
+    if (!_bluetoothFeaturesEnabled) {
+      throw StateError('Bluetooth/device alarms are currently disabled.');
+    }
     try {
       final mac = (deviceData['macAddress'] ?? '').toString().toUpperCase();
       if (mac.isEmpty) throw Exception('MAC 주소가 비어있습니다');
@@ -1257,6 +1357,7 @@ class HiveHelper {
 
   /// 모든 내 기기 조회
   static List<Map<String, dynamic>> getMyDevices() {
+    if (!_bluetoothFeaturesEnabled) return [];
     try {
       return _myDevicesBox.values
           .map((e) => Map<String, dynamic>.from(e as Map))
@@ -1272,6 +1373,9 @@ class HiveHelper {
     String mac,
     Map<String, dynamic> updatedDevice,
   ) async {
+    if (!_bluetoothFeaturesEnabled) {
+      throw StateError('Bluetooth/device alarms are currently disabled.');
+    }
     try {
       final key = mac.toUpperCase();
       final normalized = Map<String, dynamic>.from(updatedDevice);
@@ -1286,6 +1390,7 @@ class HiveHelper {
 
   /// 내 기기 삭제
   static Future<void> deleteMyDevice(String mac) async {
+    if (!_bluetoothFeaturesEnabled) return;
     try {
       await _myDevicesBox.delete(mac.toUpperCase());
       debugPrint('✅ 내 기기 삭제 완료 (MAC: $mac)');
@@ -1297,6 +1402,7 @@ class HiveHelper {
 
   /// 내 기기 존재 확인
   static bool hasMyDevice(String mac) {
+    if (!_bluetoothFeaturesEnabled) return false;
     return _myDevicesBox.containsKey(mac.toUpperCase());
   }
 }

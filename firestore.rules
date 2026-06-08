@@ -11,6 +11,14 @@ service cloud.firestore {
           && request.auth.uid == 'IPf2TW0c62et7bwi8B5hZGyKLlc2';
     }
 
+    function ownsCanonicalAccount(accountId) {
+      let path = /databases/$(database)/documents/accounts/$(accountId);
+      return isAuthenticated()
+          && exists(path)
+          && get(path).data.firebase_uids is list
+          && request.auth.uid in get(path).data.firebase_uids;
+    }
+
     // ── 지도 사용량: 클라이언트 직접 쓰기 차단, Cloud Functions 전용
     match /map_usage/{month} {
       allow read: if isAdmin();
@@ -58,6 +66,20 @@ service cloud.firestore {
     }
 
     // ── 구독 정보: 읽기만 본인 허용, 쓰기는 Cloud Functions 전용
+    match /accounts/{accountId} {
+      allow read: if isAdmin() || ownsCanonicalAccount(accountId);
+      allow write: if false;
+
+      match /agreements/{agreementId} {
+        allow read: if isAdmin() || ownsCanonicalAccount(accountId);
+        allow create, update: if ownsCanonicalAccount(accountId)
+            && agreementId == 'terms'
+            && request.resource.data.keys().hasOnly(['version', 'agreedAt'])
+            && request.resource.data.version is string;
+        allow delete: if isAdmin();
+      }
+    }
+
     match /subscriptions/{userId} {
       allow read: if request.auth != null
           && request.auth.uid == userId;

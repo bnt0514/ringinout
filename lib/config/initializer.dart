@@ -125,6 +125,11 @@ class AppInitializer {
   @pragma('vm:entry-point')
   static Future<int> _getActiveAlarmsCount() async {
     try {
+      if (!HiveHelper.hasStoredActiveOwnerUid) {
+        print('No active owner; skip startup monitoring');
+        return 0;
+      }
+
       if (!Hive.isBoxOpen('locationAlarms_v2')) {
         await Hive.openBox('locationAlarms_v2');
       }

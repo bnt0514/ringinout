@@ -18,6 +18,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ringinout/services/subscription_service.dart';
 import 'package:ringinout/config/app_config.dart';
 import 'package:ringinout/services/secure_http_headers.dart';
+import 'package:ringinout/services/hive_helper.dart';
 
 /// 한 달치 전체 지도 사용량 통계 (Firestore에서 읽어온 값)
 class MapUsageStats {
@@ -139,7 +140,7 @@ class MapUsageService {
 
   /// 이번 달 지도 오픈 횟수 반환 (모든 플랜 공통 카운터)
   static Future<int> getMapOpenCount() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = _currentOwnerKey();
     if (uid == null) return 0;
     final prefs = await SharedPreferences.getInstance();
     final key = '$_kFreeOpensPrefix${uid}_${_currentMonth()}';
@@ -161,7 +162,7 @@ class MapUsageService {
   static Future<void> incrementFreeUserOpenCount({
     String provider = 'naver',
   }) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = _currentOwnerKey();
     if (uid == null) return;
     final plan = await SubscriptionService.getCurrentPlan();
 
@@ -476,6 +477,12 @@ class MapUsageService {
   static String _currentMonth() {
     final now = DateTime.now();
     return '${now.year}-${now.month.toString().padLeft(2, '0')}';
+  }
+
+  static String? _currentOwnerKey() {
+    final canonical = HiveHelper.storedActiveOwnerUid;
+    if (canonical != null && canonical.isNotEmpty) return canonical;
+    return FirebaseAuth.instance.currentUser?.uid;
   }
 
   /// 이번 주 키 반환 — yyyy-Www 형식 (월요일 기준)

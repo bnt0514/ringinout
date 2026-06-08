@@ -61,6 +61,7 @@ class _AddDeviceAlarmPageState extends State<AddDeviceAlarmPage> {
   String _voiceTarget = '';
 
   bool get _isEditing => widget.existingAlarm != null;
+  bool _isSaving = false; // ✅ 중복 저장 방지 가드
 
   final List<String> _weekdayCodes = [
     'sun',
@@ -555,8 +556,11 @@ class _AddDeviceAlarmPageState extends State<AddDeviceAlarmPage> {
   }
 
   Future<void> _save() async {
+    if (_isSaving) return; // ✅ 중복 저장 방지
     if (_selectedDevice == null) return;
     if (!triggerOnConnect && !triggerOnDisconnect) return;
+
+    setState(() => _isSaving = true);
 
     final l10n = AppLocalizations.of(context);
     final sortedWeekdays =
@@ -612,7 +616,18 @@ class _AddDeviceAlarmPageState extends State<AddDeviceAlarmPage> {
               : DateTime.now().millisecondsSinceEpoch,
     };
 
-    await HiveHelper.saveDeviceAlarm(alarmData);
+    try {
+      await HiveHelper.saveDeviceAlarm(alarmData);
+    } catch (e) {
+      print('❌ 기기 알람 저장 실패: $e');
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
+      }
+      return;
+    }
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1063,7 +1078,7 @@ class _AddDeviceAlarmPageState extends State<AddDeviceAlarmPage> {
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
-                  onPressed: canSave ? _save : null,
+                  onPressed: (canSave && !_isSaving) ? _save : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
@@ -1072,13 +1087,25 @@ class _AddDeviceAlarmPageState extends State<AddDeviceAlarmPage> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: Text(
-                    l10n.get('save'),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child:
+                      _isSaving
+                          ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          )
+                          : Text(
+                            l10n.get('save'),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                 ),
               ),
             ),

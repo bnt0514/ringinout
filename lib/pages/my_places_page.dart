@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ringinout/config/app_config.dart';
 import 'package:ringinout/config/app_theme.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:ringinout/pages/add_location_alarm_page.dart';
@@ -38,6 +39,7 @@ class MyPlacesPageState extends State<MyPlacesPage> {
 
   /// 장소에 블루투스 기기가 등록되어 있는지 확인
   bool _placeHasBluetooth(Map<String, dynamic> place) {
+    if (!AppConfig.enableBluetoothFeatures) return false;
     final bt = place['bluetoothDevices'];
     return bt is List && bt.isNotEmpty;
   }

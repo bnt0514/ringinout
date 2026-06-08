@@ -1,7 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 // Project imports
+import 'package:ringinout/config/app_config.dart';
 import 'package:ringinout/pages/add_device_alarm_page.dart';
 import 'package:ringinout/pages/add_location_alarm_page.dart';
 import 'package:ringinout/pages/edit_location_alarm_page.dart';
@@ -28,6 +29,9 @@ class AppRoutes {
     '/permission_guide': (context) => const PermissionGuidePage(),
     '/add_location_alarm': (context) => const AddLocationAlarmPage(),
     '/add_device_alarm': (context) {
+      if (!AppConfig.enableBluetoothFeatures) {
+        return const MainNavigationPage();
+      }
       final args = ModalRoute.of(context)?.settings.arguments as Map?;
       return AddDeviceAlarmPage(
         existingAlarm: args?['existingAlarm'],

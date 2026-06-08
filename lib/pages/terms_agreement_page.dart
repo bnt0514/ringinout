@@ -1,10 +1,14 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:ringinout/config/app_config.dart';
 import 'package:ringinout/services/app_localizations.dart';
+import 'package:ringinout/services/auth_service.dart';
+import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/policy_texts.dart';
+import 'package:ringinout/services/smart_location_service.dart';
 
 class TermsAgreementPage extends StatefulWidget {
   const TermsAgreementPage({super.key, required this.requiredVersion});
@@ -26,9 +30,12 @@ class _TermsAgreementPageState extends State<TermsAgreementPage> {
     if (user == null) return;
 
     try {
+      final authService = context.read<AuthService>();
+      final session = await authService.ensureServerSession(forceRefresh: true);
+      final accountId = session?.canonicalAccountId ?? user.uid;
       await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
+          .collection('accounts')
+          .doc(accountId)
           .collection('agreements')
           .doc('terms')
           .set({
@@ -49,7 +56,14 @@ class _TermsAgreementPageState extends State<TermsAgreementPage> {
   }
 
   Future<void> _decline() async {
-    await FirebaseAuth.instance.signOut();
+    await SmartLocationService.cancelAllSnoozes();
+    await SmartLocationService.stopMonitoring();
+    await HiveHelper.setActiveOwnerUid(null);
+    if (mounted) {
+      await context.read<AuthService>().signOut();
+    } else {
+      await FirebaseAuth.instance.signOut();
+    }
     await _appLifecycleChannel.invokeMethod('moveTaskToBack');
   }
 

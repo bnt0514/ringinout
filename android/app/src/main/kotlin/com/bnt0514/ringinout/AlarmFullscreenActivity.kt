@@ -137,6 +137,7 @@ class AlarmFullscreenActivity : Activity() {
 
         // ✅ 네이티브 UI 생성
         setupNativeUI()
+        markAlarmDisplayed()
 
         // ✅ 벨소리 직접 재생 (SnoozeReceiver/일반 알람 모두 여기서 재생)
         playAlarmRingtone()
@@ -202,9 +203,23 @@ class AlarmFullscreenActivity : Activity() {
 
         // UI 교체 (기존 벨소리는 그대로 유지 — 이미 울리고 있으므로)
         setupNativeUI()
+        markAlarmDisplayed()
 
         // Intent 업데이트
         intent = newAlarmIntent
+    }
+
+    private fun markAlarmDisplayed() {
+        if (!isRepeat || alarmKey.isEmpty()) return
+        val todayStr = java.text.SimpleDateFormat(
+                "yyyy-MM-dd",
+                java.util.Locale.getDefault()
+        ).format(java.util.Date())
+        val flutterPrefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        flutterPrefs.edit()
+                .putString("flutter.alarm_triggered_date_$alarmKey", todayStr)
+                .apply()
+        Log.d("AlarmFullscreen", "✅ 반복 알람 표시 ACK 저장: $alarmKey → $todayStr")
     }
 
     /// 알람 벨소리 직접 재생 (MainActivity 의존 제거)
@@ -729,6 +744,7 @@ class AlarmFullscreenActivity : Activity() {
             remove("flutter.native_alarm_title")
             remove("flutter.native_alarm_place_id")
             remove("flutter.native_alarm_id")
+            remove("flutter.native_alarm_owner_uid")
             if (alarmKey.isNotEmpty()) {
                 remove("flutter.alarm_triggered_date_$alarmKey")
                 remove("flutter.cooldown_until_$alarmKey")
@@ -815,6 +831,7 @@ class AlarmFullscreenActivity : Activity() {
             remove("flutter.native_alarm_title")
             remove("flutter.native_alarm_place_id")
             remove("flutter.native_alarm_id")
+            remove("flutter.native_alarm_owner_uid")
             // 오발동 = 트리거 안 된 것으로 처리 → 당일 트리거 기록만 초기화
             // cooldown은 Flutter에서 30초로 재설정하므로 여기서는 제거하지 않음
             if (alarmKey.isNotEmpty()) {
@@ -900,6 +917,7 @@ class AlarmFullscreenActivity : Activity() {
 
         // UI 갱신
         setupNativeUI()
+        markAlarmDisplayed()
 
         // 벨소리가 꺼져있으면 다시 재생
         if (flutterRingtone?.isPlaying != true) {
@@ -918,6 +936,7 @@ class AlarmFullscreenActivity : Activity() {
             remove("flutter.native_alarm_title")
             remove("flutter.native_alarm_place_id")
             remove("flutter.native_alarm_id")
+            remove("flutter.native_alarm_owner_uid")
             apply()
         }
         Log.d("AlarmFullscreen", "✅ 알람 상태 플래그 클리어 완료")
@@ -1004,6 +1023,7 @@ class AlarmFullscreenActivity : Activity() {
             putString("flutter.native_alarm_title", alarmTitle)
             putString("flutter.native_alarm_place_id", placeId)
             putString("flutter.native_alarm_id", if (alarmKey.isNotEmpty()) alarmKey else alarmId.toString())
+            putString("flutter.native_alarm_owner_uid", ownerUid)
             apply()
         }
         Log.d(

@@ -39,14 +39,6 @@
     <!-- Android 13+ Wi-Fi 스캔에 필요 -->
     <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" android:usesPermissionFlags="neverForLocation" />
 
-    <!-- ✅ 블루투스 감지 권한 -->
-    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <!-- BT 하드웨어 없어도 앱 설치 가능 (선택적 기능) -->
-    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
-    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
-
     <!-- ??배터�?최적??무시 (강제 종료 방�?) -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
@@ -67,6 +59,16 @@
 
         <!-- ??Google Maps Flutter Impeller ?�환??(?�이브리??컴포지?? -->
         <meta-data android:name="io.flutter.embedding.android.EnableImpeller" android:value="false" />
+
+        <!-- Kakao Login callback -->
+        <activity android:name="com.kakao.sdk.flutter.AuthCodeCustomTabsActivity" android:exported="true">
+            <intent-filter android:label="flutter_web_auth">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="kakaoeca1fe0b96ef7826827219fe4004590b" android:host="oauth" />
+            </intent-filter>
+        </activity>
 
         <!-- MainActivity (앱 실행 메인) -->
         <!-- ⚠️ taskAffinity 제거: 기본 패키지명 affinity 사용 → 앱 런처에서 항상 같은 task로 열림 -->

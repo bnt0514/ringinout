@@ -30,6 +30,7 @@ import 'package:ringinout/config/app_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ringinout/services/secure_http_headers.dart';
 import 'package:ringinout/services/subscription_service.dart';
+import 'package:ringinout/services/hive_helper.dart';
 
 /// 쿼터 체크 결과
 enum QuotaStatus {
@@ -133,7 +134,7 @@ class QuotaService {
 
     final prefs = await SharedPreferences.getInstance();
     final month = _month();
-    final key = '${_usedKey(category)}$month';
+    final key = _scopedKey(_usedKey(category), month);
     final cur = prefs.getInt(key) ?? 0;
     await prefs.setInt(key, cur + 1);
 
@@ -153,7 +154,7 @@ class QuotaService {
   static Future<void> refund(QuotaCategory category) async {
     final prefs = await SharedPreferences.getInstance();
     final month = _month();
-    final key = '${_usedKey(category)}$month';
+    final key = _scopedKey(_usedKey(category), month);
     final cur = prefs.getInt(key) ?? 0;
     if (cur <= 0) {
       debugPrint('💸 [Quota] ${category.name} 환불 스킵 (이미 0)');
@@ -175,7 +176,7 @@ class QuotaService {
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final today = _dateKey();
-    final dailyKey = '$_kRewardDaily$today';
+    final dailyKey = _scopedKey(_kRewardDaily, today);
     final dailyCount = prefs.getInt(dailyKey) ?? 0;
     if (dailyCount >= kDailyRewardMax) {
       debugPrint('🚫 [Quota] 일일 보상 상한 도달 ($dailyCount/$kDailyRewardMax)');
@@ -183,7 +184,7 @@ class QuotaService {
     }
 
     final month = _month();
-    final key = '${_rewardKey(category)}$month';
+    final key = _scopedKey(_rewardKey(category), month);
     final cur = prefs.getInt(key) ?? 0;
     await prefs.setInt(key, cur + amount);
     await prefs.setInt(dailyKey, dailyCount + 1);
@@ -208,7 +209,7 @@ class QuotaService {
   /// 오늘 지급된 보상 횟수 (일일 상한 UI 표시용)
   static Future<int> getTodayRewardGrants() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt('$_kRewardDaily${_dateKey()}') ?? 0;
+    return prefs.getInt(_scopedKey(_kRewardDaily, _dateKey())) ?? 0;
   }
 
   // ──────────────────────────────────────────────
@@ -248,12 +249,20 @@ class QuotaService {
 
   static Future<int> _getUsed(QuotaCategory c) async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt('${_usedKey(c)}${_month()}') ?? 0;
+    return prefs.getInt(_scopedKey(_usedKey(c), _month())) ?? 0;
   }
 
   static Future<int> _getRewards(QuotaCategory c) async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt('${_rewardKey(c)}${_month()}') ?? 0;
+    return prefs.getInt(_scopedKey(_rewardKey(c), _month())) ?? 0;
+  }
+
+  static String _scopedKey(String prefix, String suffix) {
+    final owner =
+        HiveHelper.storedActiveOwnerUid ??
+        FirebaseAuth.instance.currentUser?.uid ??
+        'signed_out';
+    return '$prefix$owner.$suffix';
   }
 
   static String _month() {

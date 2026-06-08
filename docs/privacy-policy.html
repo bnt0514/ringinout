@@ -142,17 +142,22 @@
 
         <!-- ===== KOREAN ===== -->
         <div class="lang-section active" id="lang-ko">
-            <p class="updated">최종 업데이트: 2026년 5월</p>
+            <p class="updated">최종 업데이트: 2026년 6월</p>
 
             <div class="section">
                 <h2>1. 처리하는 정보</h2>
                 <p>Ringinout은 앱 기능 제공에 필요한 범위에서만 정보를 처리하며, 광고 목적의 추적·판매·프로파일링을 하지 않습니다.</p>
                 <ul>
-                    <li><strong>위치 정보:</strong> 위치 알람을 위해 주로 기기 내에서 처리됩니다. 지도 표시, 주소 검색, 역지오코딩 등 사용자가 요청한 기능을 제공하기 위해 좌표나 검색어가 일시적으로 외부 지도/지오코딩 제공자에게 전달될 수 있으나, Ringinout 서버에는 위치 이력으로 저장하지 않습니다.</li>
+                    <li><strong>위치 정보:</strong> 위치 알람을 위해 주로 기기 내에서 처리됩니다. 지도 표시, 주소 검색, 역지오코딩 등 사용자가 요청한 기능을 제공하기 위해
+                        좌표나 검색어가 일시적으로 외부 지도/지오코딩 제공자에게 전달될 수 있으나, Ringinout 서버에는 위치 이력으로 저장하지 않습니다.</li>
                     <li><strong>장소 및 알람 정보:</strong> 사용자가 등록한 장소, 반경, 알람 조건은 기기 내에 저장됩니다.</li>
-                    <li><strong>음성 인식:</strong> 알람 입력을 위해 사용자가 선택한 경우에만 일시적으로 마이크를 사용하며, 음성 데이터는 Ringinout 서버에 저장되지 않습니다.</li>
-                    <li><strong>계정 및 구독 정보:</strong> Google 로그인 및 구독 상태 확인을 위해 Firebase 인증 ID, 익명화된 ID, 결제/구독 상태가 처리될 수 있습니다. 원본 이메일은 구독 판정 목적으로 직접 저장하지 않습니다.</li>
-                    <li><strong>사용량 및 오류 정보:</strong> 서비스 안정성, 쿼터 관리, 버그 수정을 위해 지도/검색 사용량, 앱 버전, 기기 정보, 사용자가 전송한 로그와 메모가 저장될 수 있습니다.</li>
+                    <li><strong>음성 인식:</strong> 알람 입력을 위해 사용자가 선택한 경우에만 일시적으로 마이크를 사용하며, 음성 데이터는 Ringinout 서버에 저장되지
+                        않습니다.</li>
+                    <li><strong>계정 및 구독 정보:</strong> 언어와 국가에 따라 Google, Kakao, Naver, LINE, Facebook, 이메일 매직 링크 등 로그인
+                        제공자가 사용될 수 있으며, Firebase 인증 ID, 익명화된 ID, 연결된 로그인 방법, 결제/구독 상태가 처리될 수 있습니다. 원본 이메일은 구독 판정 목적으로 직접
+                        저장하지 않습니다.</li>
+                    <li><strong>사용량 및 오류 정보:</strong> 서비스 안정성, 쿼터 관리, 버그 수정을 위해 지도/검색 사용량, 앱 버전, 기기 정보, 사용자가 전송한 로그와 메모가
+                        저장될 수 있습니다.</li>
                 </ul>
             </div>
 
@@ -163,12 +168,17 @@
 
             <div class="section">
                 <h2>3. 데이터 저장</h2>
-                <p>알람 데이터와 장소 정보는 기본적으로 사용자의 기기 내에 저장됩니다. 서버에는 구독 상태, 익명화된 계정 ID, 사용량 통계, 사용자가 직접 제출한 버그 리포트 등 앱 운영에 필요한 정보만 저장됩니다. 위치 좌표는 지도/주소 변환 요청을 처리하는 순간에만 사용되며, Ringinout 서버에 위치 이력으로 저장하지 않습니다.</p>
+                <p>알람 데이터와 장소 정보는 기본적으로 사용자의 기기 내에 저장됩니다. 서버에는 구독 상태, 익명화된 계정 ID, 연결된 로그인 방법, 사용량 통계, 사용자가 직접 제출한 버그 리포트
+                    등 앱 운영에 필요한 정보만 저장됩니다. 위치 좌표는 지도/주소 변환 요청을 처리하는 순간에만 사용되며, Ringinout 서버에 위치 이력으로 저장하지 않습니다.</p>
+                <p>장소와 알람은 활성 기기와 활성 계정 기준으로 로컬 저장됩니다. 계정을 전환하는 경우 설정에서 로컬 데이터를 현재 계정으로 전송할 수 있으며, 계정 삭제 시 서버의 계정 데이터는
+                    삭제되지만 기기 내 로컬 데이터는 앱 데이터 삭제 또는 앱 삭제 전까지 남아 있을 수 있습니다.</p>
             </div>
 
             <div class="section">
                 <h2>4. 제3자 공유</h2>
-                <p>Ringinout은 사용자 정보를 판매하거나 광고 목적으로 제3자와 공유하지 않습니다. 다만 앱 기능 제공을 위해 Google/Firebase, Google Play 결제, Naver 지도/지오코딩, Google 지도/지오코딩 등 외부 서비스가 사용될 수 있으며, 해당 요청은 각 제공자의 정책이 적용됩니다.</p>
+                <p>Ringinout은 사용자 정보를 판매하거나 광고 목적으로 제3자와 공유하지 않습니다. 다만 앱 기능 제공을 위해 Google/Firebase, Kakao, Naver, LINE,
+                    Facebook 등 로그인 제공자, Google Play 결제, Naver 지도/지오코딩, Google 지도/지오코딩 등 외부 서비스가 사용될 수 있으며, 해당 요청은 각 제공자의
+                    정책이 적용됩니다.</p>
             </div>
 
             <div class="section">
@@ -194,14 +204,28 @@
             </div>
 
             <div class="section">
-                <h2>7. 문의</h2>
+                <h2>7. 앱 실행 상태 및 알람 작동 안내</h2>
+                <p>알람은 앱(백그라운드 서비스)이 정상적으로 실행 중일 때 작동합니다. 다음의 경우 알람이 울리지 않을 수 있습니다.</p>
+                <ul>
+                    <li><strong>기기 재부팅 시:</strong> 재부팅 후에는 백그라운드 알람 감시가 일시 중지됩니다. 활성화된 알람이 있는 경우 앱을 다시 실행하도록 안내하는 푸시 알림을
+                        주기적으로 보내드리며, 이를 확인하지 않고 앱을 다시 실행하지 않으면 알람이 정상적으로 울리지 않을 수 있습니다.</li>
+                    <li><strong>앱 강제 중지 시:</strong> 사용자가 기기 설정에서 앱을 '강제 중지'한 경우(또는 어떤 이유로든 강제 중지된 경우), 운영체제 정책상 앱이 스스로
+                        복구되거나 알림을 보낼 수 없습니다. 이 경우 반드시 앱을 다시 실행해야만 알람이 작동합니다.</li>
+                    <li><strong>운영체제에 의한 종료 시:</strong> 메모리 부족, 제조사 배터리 절전 정책 등으로 운영체제가 앱을 종료한 경우, 일정 시간이 지난 뒤 복구를 안내하는
+                        알림을 보내드립니다. 다만 그 시간 동안 또는 종료 사실을 인지하지 못한 경우에는 알람이 울리지 않을 수 있습니다.</li>
+                </ul>
+                <p>안정적인 알람 작동을 위해 배터리 최적화 예외 허용 및 자동 실행 허용 설정을 권장합니다.</p>
+            </div>
+
+            <div class="section">
+                <h2>8. 문의</h2>
                 <p>개인정보 관련 문의사항이 있으시면 앱 내 '건의사항 보내기' 기능을 이용해주세요.</p>
             </div>
         </div>
 
         <!-- ===== ENGLISH ===== -->
         <div class="lang-section" id="lang-en">
-            <p class="updated">Last updated: May 2026</p>
+            <p class="updated">Last updated: June 2026</p>
 
             <div class="section">
                 <h2>1. Information We Process</h2>
@@ -214,8 +238,10 @@
                         history on its servers.</li>
                     <li><strong>Voice recognition:</strong> The microphone is used temporarily to enter alarm details
                         via voice. Audio data is not stored on Ringinout servers.</li>
-                    <li><strong>Account and subscription info:</strong> Firebase authentication ID, anonymized ID, and
-                        subscription/payment status may be processed to provide account and paid-plan features.</li>
+                    <li><strong>Account and subscription info:</strong> Depending on locale and country, sign-in
+                        providers may include Google, Kakao, Naver, LINE, Facebook, and email magic links. Firebase
+                        authentication ID, anonymized ID, linked provider status, and subscription/payment status may be
+                        processed to provide account and paid-plan features.</li>
                     <li><strong>Usage and diagnostics:</strong> Map/search usage counters, app version, device details,
                         logs, and user-submitted memos may be stored for quota management, service stability, and bug
                         fixing.</li>
@@ -231,16 +257,22 @@
             <div class="section">
                 <h2>3. Data Storage</h2>
                 <p>Alarm and saved-place data is stored primarily on your device. Ringinout servers store only
-                    operational data such as subscription status, anonymized account IDs, usage counters, and
-                    user-submitted bug reports. Coordinates are used only at the moment a map or address-conversion
-                    request is made and are not stored by Ringinout as location history.</p>
+                    operational data such as subscription status, anonymized account IDs, linked provider status, usage
+                    counters, and user-submitted bug reports. Coordinates are used only at the moment a map or
+                    address-conversion request is made and are not stored by Ringinout as location history.</p>
+                <p>Places and alarms are stored locally under the active device and active
+                    account. If you switch accounts, Settings may offer a transfer flow to assign local data to the
+                    current account. Deleting an account removes server-side account data; local data on the device may
+                    remain until app data is cleared or the app is uninstalled.</p>
             </div>
 
             <div class="section">
                 <h2>4. Third-Party Sharing</h2>
                 <p>Ringinout does not sell user information or share it for advertising. To provide app functionality,
-                    we may use Google/Firebase, Google Play billing, Naver map/geocoding, and Google map/geocoding
-                    services. Those requests are subject to each provider's policy.</p>
+                    we may use sign-in providers such as Google/Firebase, Kakao, Naver, LINE, and Facebook, Google Play
+                    billing,
+                    Naver map/geocoding, and Google map/geocoding services. Those requests are subject to each
+                    provider's policy.</p>
             </div>
 
             <div class="section">
@@ -272,38 +304,68 @@
             </div>
 
             <div class="section">
-                <h2>7. Contact</h2>
+                <h2>7. App Execution Status &amp; Alarm Operation Notice</h2>
+                <p>Alarms work only while the app (background service) is running normally. Please note that alarms may
+                    not ring in the following cases.</p>
+                <ul>
+                    <li><strong>After a device reboot:</strong> Background alarm monitoring is temporarily suspended
+                        after a reboot. If you have active alarms, we periodically send a push notification asking you
+                        to reopen the app. If you ignore it and do not reopen the app, alarms may not ring properly.
+                    </li>
+                    <li><strong>When the app is force-stopped:</strong> If you "Force Stop" the app from device settings
+                        (or it is force-stopped for any reason), the operating system prevents the app from recovering
+                        itself or sending notifications. In this case, alarms work only after you manually reopen the
+                        app.</li>
+                    <li><strong>When terminated by the OS:</strong> If the OS terminates the app due to low memory,
+                        manufacturer battery-saving policies, etc., we send a recovery notification after some time.
+                        However, during that period—or if you do not notice the termination—alarms may not ring.</li>
+                </ul>
+                <p>For reliable operation, we recommend allowing battery-optimization exceptions and auto-start
+                    permissions.</p>
+            </div>
+
+            <div class="section">
+                <h2>8. Contact</h2>
                 <p>For privacy-related inquiries, please use the 'Send Feedback' feature in the app.</p>
             </div>
         </div>
 
         <!-- ===== JAPANESE ===== -->
         <div class="lang-section" id="lang-ja">
-            <p class="updated">最終更新日：2026年1月</p>
+            <p class="updated">最終更新日：2026年6月</p>
 
             <div class="section">
-                <h2>1. 収集する情報</h2>
-                <p>Ringinoutはユーザーの個人情報を収集しません。</p>
+                <h2>1. 処理する情報</h2>
+                <p>Ringinoutはアプリ機能の提供に必要な範囲でのみ情報を処理し、広告目的の追跡・販売・プロファイリングは行いません。</p>
                 <ul>
-                    <li><strong>位置情報：</strong>アラーム機能のためにデバイス内でのみ処理され、外部サーバーには送信されません。</li>
-                    <li><strong>音声認識：</strong>アラームの入力時に一時的にマイクを使用します。音声データはサーバーに保存されません。</li>
-                    <li><strong>アカウント情報：</strong>Googleログイン時、メールアドレスは匿名化されたランダムIDに変換されます。元のメールアドレスは保存されません。</li>
+                    <li><strong>位置情報：</strong>位置アラームのため主にデバイス内で処理されます。地図表示、住所検索、逆ジオコーディングなどユーザーが要求した機能を提供するため、座標や検索語が一時的に外部の地図/ジオコーディング提供者へ送信されることがありますが、Ringinoutのサーバーに位置履歴として保存することはありません。
+                    </li>
+                    <li><strong>場所・アラーム情報：</strong>ユーザーが登録した場所、半径、アラーム条件はデバイス内に保存されます。</li>
+                    <li><strong>音声認識：</strong>アラーム入力のためユーザーが選択した場合にのみ一時的にマイクを使用し、音声データはRinginoutのサーバーに保存されません。</li>
+                    <li><strong>アカウント・サブスクリプション情報：</strong>言語や国によってGoogle、Kakao、Naver、LINE、Facebook、メールのマジックリンクなどのログイン提供者が使用されることがあり、Firebase認証ID、匿名化ID、連携されたログイン方法、決済/サブスクリプション状態が処理されることがあります。元のメールはサブスクリプション判定のために直接保存しません。
+                    </li>
+                    <li><strong>使用量・エラー情報：</strong>サービスの安定性、クォータ管理、バグ修正のため、地図/検索の使用量、アプリのバージョン、デバイス情報、ユーザーが送信したログやメモが保存されることがあります。
+                    </li>
                 </ul>
             </div>
 
             <div class="section">
                 <h2>2. 匿名化IDの使用目的</h2>
-                <p>匿名化IDは、有料サブスクリプションの確認のみに使用されます。このIDによって個人を特定・追跡することはできません。</p>
+                <p>匿名化IDは、サブスクリプションの確認、使用量の管理、サービスの安定性の保護のためにのみ使用されます。Ringinoutはこの情報を広告やその他の目的の追跡には使用しません。</p>
             </div>
 
             <div class="section">
                 <h2>3. データの保存</h2>
-                <p>すべてのアラームデータと場所情報はユーザーのデバイス内にのみ保存され、外部サーバーには送信されません。</p>
+                <p>アラームデータと場所情報は基本的にユーザーのデバイス内に保存されます。サーバーには、サブスクリプション状態、匿名化されたアカウントID、連携されたログイン方法、使用量統計、ユーザーが送信したバグレポートなど、アプリ運営に必要な情報のみが保存されます。位置座標は地図/住所変換リクエストを処理する瞬間にのみ使用され、Ringinoutのサーバーに位置履歴として保存されません。
+                </p>
+                <p>場所とアラームは有効なデバイスと有効なアカウントを基準にローカル保存されます。アカウントを切り替える場合、設定からローカルデータを現在のアカウントへ転送でき、アカウント削除時にはサーバーのアカウントデータは削除されますが、デバイス内のローカルデータはアプリデータの消去またはアプリの削除まで残る場合があります。
+                </p>
             </div>
 
             <div class="section">
                 <h2>4. 第三者への共有</h2>
-                <p>Ringinoutはいかなるユーザー情報も第三者と共有しません。</p>
+                <p>Ringinoutはユーザー情報を販売したり、広告目的で第三者と共有したりしません。ただし、アプリ機能の提供のため、Google/Firebase、Kakao、Naver、LINE、Facebookなどのログイン提供者、Google
+                    Play決済、Naver地図/ジオコーディング、Google地図/ジオコーディングなどの外部サービスが使用されることがあり、該当するリクエストには各提供者のポリシーが適用されます。</p>
             </div>
 
             <div class="section">
@@ -328,38 +390,59 @@
             </div>
 
             <div class="section">
-                <h2>7. お問い合わせ</h2>
+                <h2>7. アプリの実行状態とアラーム動作のご案内</h2>
+                <p>アラームは、アプリ（バックグラウンドサービス）が正常に実行されている場合に作動します。以下の場合はアラームが鳴らないことがあります。</p>
+                <ul>
+                    <li><strong>端末の再起動時：</strong>再起動後はバックグラウンドのアラーム監視が一時停止します。有効なアラームがある場合、アプリの再実行を促すプッシュ通知を定期的にお送りします。この通知を確認せずアプリを再実行しない場合、アラームが正常に鳴らないことがあります。
+                    </li>
+                    <li><strong>アプリの強制停止時：</strong>端末の設定からアプリを「強制停止」した場合（または何らかの理由で強制停止された場合）、OSの仕様によりアプリは自動復旧も通知送信もできません。この場合、アプリを手動で再実行しない限りアラームは作動しません。
+                    </li>
+                    <li><strong>OSによる終了時：</strong>メモリ不足やメーカーの省電力ポリシーなどでOSがアプリを終了した場合、一定時間の経過後に復旧を案内する通知をお送りします。ただしその間、または終了に気づかなかった場合は、アラームが鳴らないことがあります。
+                    </li>
+                </ul>
+                <p>安定したアラーム動作のため、電池最適化の除外や自動起動の許可などの設定を推奨します。</p>
+            </div>
+
+            <div class="section">
+                <h2>8. お問い合わせ</h2>
                 <p>プライバシーに関するお問い合わせは、アプリ内の「フィードバックを送る」機能をご利用ください。</p>
             </div>
         </div>
 
         <!-- ===== CHINESE ===== -->
         <div class="lang-section" id="lang-zh">
-            <p class="updated">最后更新：2026年1月</p>
+            <p class="updated">最后更新：2026年6月</p>
 
             <div class="section">
-                <h2>1. 收集的信息</h2>
-                <p>Ringinout不收集用户个人信息。</p>
+                <h2>1. 我们处理的信息</h2>
+                <p>Ringinout仅在提供应用功能所需的范围内处理信息，不会进行广告追踪、出售或画像分析。</p>
                 <ul>
-                    <li><strong>位置信息：</strong>仅在设备内处理，用于闹钟功能，不发送至外部服务器。</li>
-                    <li><strong>语音识别：</strong>输入闹钟时临时使用麦克风，语音数据不会存储在任何服务器上。</li>
-                    <li><strong>账户信息：</strong>通过Google登录时，邮箱地址将被转换为匿名随机ID。原始邮箱不会被存储。</li>
+                    <li><strong>位置信息：</strong>主要在设备内处理，用于位置闹钟。为提供地图显示、地址搜索、逆地理编码等您所请求的功能，坐标或搜索词可能会临时发送给外部地图/地理编码提供商，但Ringinout不会在其服务器上存储位置历史。
+                    </li>
+                    <li><strong>地点及闹钟信息：</strong>您注册的地点、半径和闹钟条件存储在设备内。</li>
+                    <li><strong>语音识别：</strong>仅在您选择通过语音输入闹钟时临时使用麦克风，语音数据不会存储在Ringinout服务器上。</li>
+                    <li><strong>账户及订阅信息：</strong>根据语言和国家/地区，可能使用Google、Kakao、Naver、LINE、Facebook、电子邮件魔法链接等登录提供商，并可能处理Firebase认证ID、匿名化ID、关联的登录方式、支付/订阅状态。原始邮箱不会为订阅判定而直接存储。
+                    </li>
+                    <li><strong>使用量及错误信息：</strong>为保障服务稳定性、配额管理和错误修复，可能存储地图/搜索使用量、应用版本、设备信息以及用户发送的日志和备注。</li>
                 </ul>
             </div>
 
             <div class="section">
                 <h2>2. 匿名ID的使用目的</h2>
-                <p>匿名ID仅用于验证付费订阅状态。该ID无法用于识别或追踪个人。</p>
+                <p>匿名ID仅用于订阅状态确认、使用量管理和服务稳定性保护。Ringinout不会将此信息用于广告或其他用途的追踪。</p>
             </div>
 
             <div class="section">
                 <h2>3. 数据存储</h2>
-                <p>所有闹钟数据和位置信息仅存储在用户设备上，不传输至外部服务器。</p>
+                <p>闹钟数据和地点信息基本上存储在您的设备内。服务器仅存储订阅状态、匿名化账户ID、关联的登录方式、使用量统计、用户提交的错误报告等应用运营所需的信息。位置坐标仅在处理地图/地址转换请求的瞬间使用，不会作为位置历史存储在Ringinout服务器上。
+                </p>
+                <p>地点和闹钟以活跃设备和活跃账户为基准进行本地存储。切换账户时，可在设置中将本地数据转移到当前账户；删除账户时服务器的账户数据会被删除，但设备内的本地数据可能在清除应用数据或卸载应用前一直保留。</p>
             </div>
 
             <div class="section">
                 <h2>4. 第三方共享</h2>
-                <p>Ringinout不与任何第三方共享用户信息。</p>
+                <p>Ringinout不会出售用户信息，也不会为广告目的与第三方共享。但为提供应用功能，可能使用Google/Firebase、Kakao、Naver、LINE、Facebook等登录提供商、Google
+                    Play支付、Naver地图/地理编码、Google地图/地理编码等外部服务，相关请求适用各提供商的政策。</p>
             </div>
 
             <div class="section">
@@ -384,43 +467,80 @@
             </div>
 
             <div class="section">
-                <h2>7. 联系方式</h2>
+                <h2>7. 应用运行状态与闹钟运作说明</h2>
+                <p>闹钟仅在应用（后台服务）正常运行时才会作动。以下情况下闹钟可能不会响铃。</p>
+                <ul>
+                    <li><strong>设备重启时：</strong>重启后后台闹钟监控会暂时中止。如有已启用的闹钟，我们会定期发送提示您重新打开应用的推送通知。若您忽略该通知且不重新打开应用，闹钟可能无法正常响铃。
+                    </li>
+                    <li><strong>应用被强制停止时：</strong>当您在设备设置中“强制停止”本应用（或因任何原因被强制停止）时，根据操作系统机制，应用无法自行恢复或发送通知。此时必须手动重新打开应用，闹钟才能作动。
+                    </li>
+                    <li><strong>被操作系统终止时：</strong>当操作系统因内存不足、厂商省电策略等终止应用时，我们会在一段时间后发送恢复通知。但在此期间，以及您未察觉应用被终止的情况下，闹钟可能不会响铃。
+                    </li>
+                </ul>
+                <p>为确保闹钟稳定运作，建议允许电池优化例外及自动启动等设置。</p>
+            </div>
+
+            <div class="section">
+                <h2>8. 联系方式</h2>
                 <p>如有隐私相关问题，请使用应用内的"发送反馈"功能与我们联系。</p>
             </div>
         </div>
 
         <!-- ===== GERMAN ===== -->
         <div class="lang-section" id="lang-de">
-            <p class="updated">Letzte Aktualisierung: April 2026</p>
+            <p class="updated">Letzte Aktualisierung: Juni 2026</p>
 
             <div class="section">
-                <h2>1. Erhobene Informationen</h2>
-                <p>Ringinout erhebt keine persönlichen Daten.</p>
+                <h2>1. Informationen, die wir verarbeiten</h2>
+                <p>Ringinout verarbeitet Informationen nur im für die Bereitstellung der App-Funktionen erforderlichen
+                    Umfang und betreibt kein Werbe-Tracking, keinen Datenverkauf und keine Profilbildung.</p>
                 <ul>
-                    <li><strong>Standortdaten:</strong> Werden nur auf Ihrem Gerät für die Alarmfunktion verarbeitet.
-                        Keine Übertragung an externe Server.</li>
-                    <li><strong>Spracherkennung:</strong> Das Mikrofon wird vorübergehend zur Spracheingabe von
-                        Alarmdetails verwendet. Audiodaten werden nicht gespeichert.</li>
-                    <li><strong>Kontoinformationen:</strong> Bei der Anmeldung mit Google wird Ihre E-Mail in eine
-                        anonymisierte zufällige ID umgewandelt. Die Original-E-Mail wird nicht gespeichert.</li>
+                    <li><strong>Standortdaten:</strong> Werden hauptsächlich auf Ihrem Gerät verarbeitet. Um von Ihnen
+                        angeforderte Funktionen wie Kartenanzeige, Adresssuche oder Reverse-Geocoding bereitzustellen,
+                        können Koordinaten oder Suchbegriffe vorübergehend an externe Karten-/Geocoding-Anbieter
+                        gesendet werden. Ringinout speichert keinen Standortverlauf auf seinen Servern.</li>
+                    <li><strong>Orts- und Alarmdaten:</strong> Von Ihnen registrierte Orte, Radien und Alarmbedingungen
+                        werden auf dem Gerät gespeichert.</li>
+                    <li><strong>Spracherkennung:</strong> Das Mikrofon wird nur verwendet, wenn Sie die Spracheingabe
+                        für Alarme wählen; Audiodaten werden nicht auf den Servern von Ringinout gespeichert.</li>
+                    <li><strong>Konto- und Abonnementinformationen:</strong> Je nach Sprache und Land können
+                        Anmeldeanbieter wie Google, Kakao, Naver, LINE, Facebook und E-Mail-Magic-Links verwendet
+                        werden; Firebase-Authentifizierungs-ID, anonymisierte ID, verknüpfte Anmeldemethoden sowie
+                        Zahlungs-/Abonnementstatus können verarbeitet werden. Die Original-E-Mail wird nicht direkt zur
+                        Abonnementprüfung gespeichert.</li>
+                    <li><strong>Nutzungs- und Fehlerinformationen:</strong> Zur Servicestabilität, Kontingentverwaltung
+                        und Fehlerbehebung können Karten-/Suchnutzung, App-Version, Geräteinformationen sowie von Ihnen
+                        gesendete Protokolle und Notizen gespeichert werden.</li>
                 </ul>
             </div>
 
             <div class="section">
                 <h2>2. Zweck der anonymisierten ID</h2>
-                <p>Die anonymisierte ID dient ausschließlich der Überprüfung des Premium-Abonnementstatus. Diese ID kann
-                    nicht zur Identifizierung oder Verfolgung von Personen verwendet werden.</p>
+                <p>Die anonymisierte ID wird nur für Abonnementprüfungen, Nutzungsverwaltung und Servicestabilität
+                    verwendet. Ringinout verwendet diese Informationen nicht für Werbung oder anderweitiges Tracking.
+                </p>
             </div>
 
             <div class="section">
                 <h2>3. Datenspeicherung</h2>
-                <p>Alle Alarm- und Standortdaten werden nur auf Ihrem Gerät gespeichert und nicht an externe Server
-                    übertragen.</p>
+                <p>Alarm- und Ortsdaten werden grundsätzlich auf Ihrem Gerät gespeichert. Auf den Servern werden nur
+                    betriebsnotwendige Informationen wie Abonnementstatus, anonymisierte Konto-IDs, verknüpfte
+                    Anmeldemethoden, Nutzungszähler und von Ihnen übermittelte Fehlerberichte gespeichert.
+                    Standortkoordinaten werden nur im Moment der Verarbeitung einer Karten-/Adressumwandlungsanfrage
+                    verwendet und nicht als Standortverlauf auf den Servern von Ringinout gespeichert.</p>
+                <p>Orte und Alarme werden lokal auf Basis des aktiven Geräts und aktiven Kontos gespeichert. Beim
+                    Kontowechsel können Sie lokale Daten in den Einstellungen auf das aktuelle Konto übertragen; beim
+                    Löschen des Kontos werden die serverseitigen Kontodaten entfernt, lokale Daten auf dem Gerät können
+                    jedoch bis zum Löschen der App-Daten oder zur Deinstallation der App verbleiben.</p>
             </div>
 
             <div class="section">
                 <h2>4. Weitergabe an Dritte</h2>
-                <p>Ringinout gibt keine Benutzerinformationen an Dritte weiter.</p>
+                <p>Ringinout verkauft keine Benutzerinformationen und gibt sie nicht zu Werbezwecken an Dritte weiter.
+                    Zur Bereitstellung der App-Funktionen können jedoch externe Dienste wie Anmeldeanbieter
+                    (Google/Firebase, Kakao, Naver, LINE, Facebook), Google Play-Zahlungen, Naver Karten/Geocoding und
+                    Google Karten/Geocoding genutzt werden; für die jeweiligen Anfragen gelten die Richtlinien des
+                    jeweiligen Anbieters.</p>
             </div>
 
             <div class="section">
@@ -453,43 +573,96 @@
             </div>
 
             <div class="section">
-                <h2>7. Kontakt</h2>
+                <h2>7. Hinweis zum App-Ausführungsstatus und zur Alarmfunktion</h2>
+                <p>Alarme funktionieren nur, während die App (Hintergrunddienst) normal läuft. Bitte beachten Sie, dass
+                    Alarme in den folgenden Fällen möglicherweise nicht ertönen.</p>
+                <ul>
+                    <li><strong>Nach einem Geräteneustart:</strong> Nach einem Neustart wird die Hintergrundüberwachung
+                        der Alarme vorübergehend ausgesetzt. Wenn Sie aktive Alarme haben, senden wir regelmäßig eine
+                        Push-Benachrichtigung mit der Aufforderung, die App erneut zu öffnen. Wenn Sie diese ignorieren
+                        und die App nicht erneut öffnen, ertönen Alarme möglicherweise nicht ordnungsgemäß.</li>
+                    <li><strong>Bei erzwungenem Beenden der App:</strong> Wenn Sie die App in den Geräteeinstellungen
+                        über „Beenden erzwingen“ schließen (oder sie aus irgendeinem Grund zwangsweise beendet wird),
+                        verhindert das Betriebssystem, dass sich die App selbst wiederherstellt oder Benachrichtigungen
+                        sendet. In diesem Fall funktionieren Alarme erst, nachdem Sie die App manuell erneut geöffnet
+                        haben.</li>
+                    <li><strong>Bei Beendigung durch das Betriebssystem:</strong> Wenn das Betriebssystem die App
+                        aufgrund von Speichermangel, herstellerspezifischen Energiesparrichtlinien usw. beendet, senden
+                        wir nach einiger Zeit eine Wiederherstellungsbenachrichtigung. Während dieser Zeit – oder wenn
+                        Sie die Beendigung nicht bemerken – ertönen Alarme jedoch möglicherweise nicht.</li>
+                </ul>
+                <p>Für einen zuverlässigen Betrieb empfehlen wir, Ausnahmen von der Akkuoptimierung und
+                    Autostart-Berechtigungen zuzulassen.</p>
+            </div>
+
+            <div class="section">
+                <h2>8. Kontakt</h2>
                 <p>Bei datenschutzbezogenen Anfragen nutzen Sie bitte die Funktion „Feedback senden" in der App.</p>
             </div>
         </div>
 
         <!-- ===== FRENCH ===== -->
         <div class="lang-section" id="lang-fr">
-            <p class="updated">Dernière mise à jour : avril 2026</p>
+            <p class="updated">Dernière mise à jour : juin 2026</p>
 
             <div class="section">
-                <h2>1. Informations collectées</h2>
-                <p>Ringinout ne collecte aucune information personnelle.</p>
+                <h2>1. Informations que nous traitons</h2>
+                <p>Ringinout ne traite les informations que dans la mesure nécessaire à la fourniture des
+                    fonctionnalités de l'application et ne pratique aucun suivi publicitaire, vente de données ou
+                    profilage.</p>
                 <ul>
-                    <li><strong>Données de localisation :</strong> Traitées uniquement sur votre appareil pour la
-                        fonction d'alarme. Non transmises à des serveurs externes.</li>
-                    <li><strong>Reconnaissance vocale :</strong> Le microphone est utilisé temporairement pour saisir
-                        les détails de l'alarme par la voix. Les données audio ne sont pas stockées.</li>
-                    <li><strong>Informations de compte :</strong> Lors de la connexion avec Google, votre e-mail est
-                        converti en un identifiant aléatoire anonymisé. L'e-mail original n'est pas stocké.</li>
+                    <li><strong>Données de localisation :</strong> Traitées principalement sur votre appareil. Pour
+                        fournir les fonctionnalités que vous demandez, telles que l'affichage de carte, la recherche
+                        d'adresse ou le géocodage inversé, des coordonnées ou des termes de recherche peuvent être
+                        envoyés temporairement à des fournisseurs externes de cartes/géocodage. Ringinout ne conserve
+                        pas d'historique de localisation sur ses serveurs.</li>
+                    <li><strong>Lieux et alarmes :</strong> Les lieux, rayons et conditions d'alarme que vous
+                        enregistrez sont stockés sur l'appareil.</li>
+                    <li><strong>Reconnaissance vocale :</strong> Le microphone n'est utilisé que lorsque vous choisissez
+                        la saisie vocale d'une alarme ; les données audio ne sont pas stockées sur les serveurs de
+                        Ringinout.</li>
+                    <li><strong>Informations de compte et d'abonnement :</strong> Selon la langue et le pays, des
+                        fournisseurs de connexion tels que Google, Kakao, Naver, LINE, Facebook et les liens magiques
+                        par e-mail peuvent être utilisés ; l'identifiant d'authentification Firebase, l'identifiant
+                        anonymisé, les méthodes de connexion liées et le statut de paiement/d'abonnement peuvent être
+                        traités. L'e-mail original n'est pas stocké directement à des fins de vérification d'abonnement.
+                    </li>
+                    <li><strong>Informations d'utilisation et d'erreur :</strong> Pour la stabilité du service, la
+                        gestion des quotas et la correction des bogues, l'utilisation des cartes/de la recherche, la
+                        version de l'application, les informations sur l'appareil ainsi que les journaux et notes que
+                        vous envoyez peuvent être stockés.</li>
                 </ul>
             </div>
 
             <div class="section">
                 <h2>2. Objectif de l'identifiant anonymisé</h2>
-                <p>L'identifiant anonymisé est utilisé uniquement pour vérifier le statut d'abonnement premium. Cet
-                    identifiant ne peut pas être utilisé pour identifier ou suivre des individus.</p>
+                <p>L'identifiant anonymisé est utilisé uniquement pour les vérifications d'abonnement, la gestion de
+                    l'utilisation et la stabilité du service. Ringinout n'utilise pas ces informations à des fins
+                    publicitaires ou de suivi sans rapport.</p>
             </div>
 
             <div class="section">
                 <h2>3. Stockage des données</h2>
-                <p>Toutes les données d'alarme et de localisation sont stockées uniquement sur votre appareil et ne sont
-                    pas transmises à des serveurs externes.</p>
+                <p>Les données d'alarme et de lieux sont par défaut stockées sur votre appareil. Les serveurs ne
+                    stockent que les informations nécessaires au fonctionnement, telles que le statut d'abonnement, les
+                    identifiants de compte anonymisés, les méthodes de connexion liées, les compteurs d'utilisation et
+                    les rapports de bogues que vous soumettez. Les coordonnées de localisation ne sont utilisées qu'au
+                    moment du traitement d'une requête de carte/conversion d'adresse et ne sont pas conservées comme
+                    historique de localisation sur les serveurs de Ringinout.</p>
+                <p>Les lieux et les alarmes sont stockés localement en fonction de l'appareil actif et du compte actif.
+                    Si vous changez de compte, vous pouvez transférer les données locales vers le compte actuel dans les
+                    Paramètres ; la suppression du compte supprime les données de compte côté serveur, mais les données
+                    locales sur l'appareil peuvent subsister jusqu'à l'effacement des données de l'application ou sa
+                    désinstallation.</p>
             </div>
 
             <div class="section">
                 <h2>4. Partage avec des tiers</h2>
-                <p>Ringinout ne partage aucune information utilisateur avec des tiers.</p>
+                <p>Ringinout ne vend pas les informations des utilisateurs et ne les partage pas à des fins
+                    publicitaires. Toutefois, pour fournir les fonctionnalités de l'application, des services externes
+                    peuvent être utilisés, tels que les fournisseurs de connexion (Google/Firebase, Kakao, Naver, LINE,
+                    Facebook), le paiement Google Play, Naver cartes/géocodage et Google cartes/géocodage ; les requêtes
+                    concernées sont soumises à la politique de chaque fournisseur.</p>
             </div>
 
             <div class="section">
@@ -524,7 +697,31 @@
             </div>
 
             <div class="section">
-                <h2>7. Contact</h2>
+                <h2>7. Avis sur l'état d'exécution de l'application et le fonctionnement des alarmes</h2>
+                <p>Les alarmes ne fonctionnent que lorsque l'application (service en arrière-plan) s'exécute
+                    normalement. Veuillez noter que les alarmes peuvent ne pas sonner dans les cas suivants.</p>
+                <ul>
+                    <li><strong>Après un redémarrage de l'appareil :</strong> Après un redémarrage, la surveillance des
+                        alarmes en arrière-plan est temporairement suspendue. Si vous avez des alarmes actives, nous
+                        envoyons régulièrement une notification push vous demandant de rouvrir l'application. Si vous
+                        l'ignorez et ne rouvrez pas l'application, les alarmes peuvent ne pas sonner correctement.</li>
+                    <li><strong>En cas d'arrêt forcé de l'application :</strong> Si vous « forcez l'arrêt » de
+                        l'application depuis les paramètres de l'appareil (ou si elle est arrêtée de force pour une
+                        raison quelconque), le système d'exploitation empêche l'application de se rétablir elle-même ou
+                        d'envoyer des notifications. Dans ce cas, les alarmes ne fonctionnent qu'après avoir rouvert
+                        manuellement l'application.</li>
+                    <li><strong>En cas d'arrêt par le système d'exploitation :</strong> Si le système d'exploitation
+                        arrête l'application en raison d'un manque de mémoire, des politiques d'économie de batterie du
+                        fabricant, etc., nous envoyons une notification de récupération après un certain temps.
+                        Cependant, pendant cette période — ou si vous ne remarquez pas l'arrêt — les alarmes peuvent ne
+                        pas sonner.</li>
+                </ul>
+                <p>Pour un fonctionnement fiable, nous recommandons d'autoriser les exceptions d'optimisation de la
+                    batterie et les autorisations de démarrage automatique.</p>
+            </div>
+
+            <div class="section">
+                <h2>8. Contact</h2>
                 <p>Pour toute question relative à la confidentialité, veuillez utiliser la fonction « Envoyer un
                     commentaire » dans l'application.</p>
             </div>
@@ -532,36 +729,62 @@
 
         <!-- ===== SPANISH ===== -->
         <div class="lang-section" id="lang-es">
-            <p class="updated">Última actualización: abril de 2026</p>
+            <p class="updated">Última actualización: junio de 2026</p>
 
             <div class="section">
-                <h2>1. Información recopilada</h2>
-                <p>Ringinout no recopila información personal.</p>
+                <h2>1. Información que tratamos</h2>
+                <p>Ringinout solo trata la información en la medida necesaria para ofrecer las funciones de la
+                    aplicación y no realiza seguimiento publicitario, venta de datos ni elaboración de perfiles.</p>
                 <ul>
-                    <li><strong>Datos de ubicación:</strong> Se procesan únicamente en su dispositivo para la función de
-                        alarma. No se envían a servidores externos.</li>
-                    <li><strong>Reconocimiento de voz:</strong> El micrófono se utiliza temporalmente para introducir
-                        los detalles de la alarma por voz. Los datos de audio no se almacenan.</li>
-                    <li><strong>Información de la cuenta:</strong> Al iniciar sesión con Google, su correo electrónico
-                        se convierte en un identificador aleatorio anónimo. El correo original no se almacena.</li>
+                    <li><strong>Datos de ubicación:</strong> Se tratan principalmente en su dispositivo. Para ofrecer
+                        las funciones que usted solicita, como la visualización de mapas, la búsqueda de direcciones o
+                        la geocodificación inversa, las coordenadas o los términos de búsqueda pueden enviarse
+                        temporalmente a proveedores externos de mapas/geocodificación. Ringinout no almacena el
+                        historial de ubicaciones en sus servidores.</li>
+                    <li><strong>Lugares y alarmas:</strong> Los lugares, radios y condiciones de alarma que usted
+                        registra se almacenan en el dispositivo.</li>
+                    <li><strong>Reconocimiento de voz:</strong> El micrófono se utiliza solo cuando usted elige la
+                        entrada por voz de una alarma; los datos de audio no se almacenan en los servidores de
+                        Ringinout.</li>
+                    <li><strong>Información de cuenta y suscripción:</strong> Según el idioma y el país, pueden
+                        utilizarse proveedores de inicio de sesión como Google, Kakao, Naver, LINE, Facebook y enlaces
+                        mágicos por correo electrónico; pueden tratarse el ID de autenticación de Firebase, el ID
+                        anonimizado, los métodos de inicio de sesión vinculados y el estado de pago/suscripción. El
+                        correo original no se almacena directamente con fines de verificación de la suscripción.</li>
+                    <li><strong>Información de uso y errores:</strong> Para la estabilidad del servicio, la gestión de
+                        cuotas y la corrección de errores, pueden almacenarse el uso de mapas/búsqueda, la versión de la
+                        aplicación, la información del dispositivo y los registros y notas que usted envía.</li>
                 </ul>
             </div>
 
             <div class="section">
                 <h2>2. Propósito del identificador anónimo</h2>
-                <p>El identificador anónimo se utiliza únicamente para verificar el estado de la suscripción premium.
-                    Este identificador no puede utilizarse para identificar o rastrear a personas.</p>
+                <p>El identificador anónimo se utiliza únicamente para verificaciones de suscripción, gestión del uso y
+                    estabilidad del servicio. Ringinout no utiliza esta información para publicidad ni seguimiento no
+                    relacionado.</p>
             </div>
 
             <div class="section">
                 <h2>3. Almacenamiento de datos</h2>
-                <p>Todos los datos de alarma y ubicación se almacenan únicamente en su dispositivo y no se transmiten a
-                    servidores externos.</p>
+                <p>Los datos de alarmas y lugares se almacenan de forma predeterminada en su dispositivo. Los servidores
+                    solo almacenan la información necesaria para el funcionamiento, como el estado de suscripción, los
+                    ID de cuenta anonimizados, los métodos de inicio de sesión vinculados, los contadores de uso y los
+                    informes de errores que usted envía. Las coordenadas de ubicación solo se utilizan en el momento de
+                    procesar una solicitud de mapa/conversión de dirección y no se conservan como historial de
+                    ubicaciones en los servidores de Ringinout.</p>
+                <p>Los lugares y las alarmas se almacenan localmente según el dispositivo activo y la cuenta activa. Si
+                    cambia de cuenta, puede transferir los datos locales a la cuenta actual desde Ajustes; al eliminar
+                    la cuenta se eliminan los datos de la cuenta del servidor, pero los datos locales del dispositivo
+                    pueden permanecer hasta que se borren los datos de la aplicación o se desinstale.</p>
             </div>
 
             <div class="section">
                 <h2>4. Compartir con terceros</h2>
-                <p>Ringinout no comparte ninguna información del usuario con terceros.</p>
+                <p>Ringinout no vende la información de los usuarios ni la comparte con fines publicitarios. No
+                    obstante, para ofrecer las funciones de la aplicación, pueden utilizarse servicios externos como
+                    proveedores de inicio de sesión (Google/Firebase, Kakao, Naver, LINE, Facebook), el pago de Google
+                    Play, Naver mapas/geocodificación y Google mapas/geocodificación; las solicitudes correspondientes
+                    están sujetas a la política de cada proveedor.</p>
             </div>
 
             <div class="section">
@@ -595,7 +818,30 @@
             </div>
 
             <div class="section">
-                <h2>7. Contacto</h2>
+                <h2>7. Aviso sobre el estado de ejecución de la aplicación y el funcionamiento de las alarmas</h2>
+                <p>Las alarmas solo funcionan mientras la aplicación (servicio en segundo plano) se ejecuta con
+                    normalidad. Tenga en cuenta que las alarmas pueden no sonar en los siguientes casos.</p>
+                <ul>
+                    <li><strong>Tras un reinicio del dispositivo:</strong> Tras un reinicio, la supervisión de alarmas
+                        en segundo plano se suspende temporalmente. Si tiene alarmas activas, enviamos periódicamente
+                        una notificación push pidiéndole que vuelva a abrir la aplicación. Si la ignora y no vuelve a
+                        abrir la aplicación, es posible que las alarmas no suenen correctamente.</li>
+                    <li><strong>Cuando se fuerza la detención de la aplicación:</strong> Si fuerza la detención de la
+                        aplicación desde los ajustes del dispositivo (o se detiene a la fuerza por cualquier motivo), el
+                        sistema operativo impide que la aplicación se recupere por sí misma o envíe notificaciones. En
+                        este caso, las alarmas solo funcionan después de que vuelva a abrir manualmente la aplicación.
+                    </li>
+                    <li><strong>Cuando el sistema operativo la termina:</strong> Si el sistema operativo cierra la
+                        aplicación por falta de memoria, políticas de ahorro de batería del fabricante, etc., enviamos
+                        una notificación de recuperación después de un tiempo. Sin embargo, durante ese período —o si no
+                        se da cuenta de la terminación— es posible que las alarmas no suenen.</li>
+                </ul>
+                <p>Para un funcionamiento fiable, recomendamos permitir las excepciones de optimización de batería y los
+                    permisos de inicio automático.</p>
+            </div>
+
+            <div class="section">
+                <h2>8. Contacto</h2>
                 <p>Para consultas relacionadas con la privacidad, utilice la función «Enviar comentarios» en la
                     aplicación.</p>
             </div>

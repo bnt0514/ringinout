@@ -13,6 +13,7 @@ import 'package:ringinout/widgets/permission_gate.dart';
 import 'package:ringinout/app/routes.dart';
 import 'package:ringinout/services/locale_provider.dart';
 import 'package:ringinout/services/app_localizations.dart';
+import 'package:ringinout/services/auth_service.dart';
 import 'package:ringinout/services/billing_service.dart';
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/map_provider_service.dart';
@@ -86,10 +87,10 @@ class RinginoutApp extends StatelessWidget {
                   if (_lastAppliedOwnerUid != null ||
                       HiveHelper.hasStoredActiveOwnerUid) {
                     _lastAppliedOwnerUid = null;
-                    HiveHelper.setActiveOwnerUid(null).then((_) async {
+                    Future<void>(() async {
                       await SmartLocationService.cancelAllSnoozes();
-                      await SmartLocationService.updatePlaces();
                       await SmartLocationService.stopMonitoring();
+                      await HiveHelper.setActiveOwnerUid(null);
                     });
                   }
                 });
@@ -216,9 +217,9 @@ class _AuthenticatedHome extends StatefulWidget {
 }
 
 class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
-  Future<void>? _ownerFuture;
+  Future<AuthSessionInfo?>? _ownerFuture;
   String? _ownerFutureUid;
-  String? _notifiedReadyUid;
+  String? _notifiedReadyOwner;
 
   @override
   void initState() {
@@ -233,28 +234,59 @@ class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
     if (_ownerFutureUid != widget.userUid) {
       _ownerFuture = _ensureOwnerApplied();
       _ownerFutureUid = widget.userUid;
-      _notifiedReadyUid = null;
+      _notifiedReadyOwner = null;
     }
   }
 
-  Future<void> _ensureOwnerApplied() async {
+  Future<AuthSessionInfo?> _ensureOwnerApplied({
+    bool forceDeviceTransfer = false,
+  }) async {
+    final authService = context.read<AuthService>();
+    final session = await authService.ensureServerSession(
+      forceRefresh: true,
+      forceDeviceTransfer: forceDeviceTransfer,
+    );
+    if (session == null) return null;
+    if (session.deviceTransferRequired && !forceDeviceTransfer) {
+      return session;
+    }
+
+    await _applyCanonicalOwner(session.canonicalAccountId);
+    return session;
+  }
+
+  Future<void> _applyCanonicalOwner(String canonicalOwnerUid) async {
     final previousOwnerUid =
         RinginoutApp._lastAppliedOwnerUid ?? HiveHelper.storedActiveOwnerUid;
+    final needsReset = HiveHelper.needsCanonicalOwnerReset(canonicalOwnerUid);
 
-    if (previousOwnerUid != null && previousOwnerUid != widget.userUid) {
+    if ((previousOwnerUid != null && previousOwnerUid != canonicalOwnerUid) ||
+        needsReset) {
       await SmartLocationService.cancelAllSnoozes();
       await SmartLocationService.stopMonitoring();
     }
 
-    RinginoutApp._lastAppliedOwnerUid = widget.userUid;
-    await HiveHelper.setActiveOwnerUid(widget.userUid);
+    RinginoutApp._lastAppliedOwnerUid = canonicalOwnerUid;
+    await HiveHelper.setActiveOwnerUid(canonicalOwnerUid);
+    if (needsReset) {
+      await HiveHelper.resetAccountScopedLocalDataForCanonicalOwner(
+        canonicalOwnerUid,
+      );
+    }
     await SmartLocationService.updatePlaces();
     await SmartLocationService.startMonitoring();
   }
 
-  void _notifyReadyOnce() {
-    if (_notifiedReadyUid == widget.userUid) return;
-    _notifiedReadyUid = widget.userUid;
+  void _acceptDeviceTransfer() {
+    setState(() {
+      _ownerFuture = _ensureOwnerApplied(forceDeviceTransfer: true);
+      _notifiedReadyOwner = null;
+    });
+  }
+
+  void _notifyReadyOnce(String ownerUid) {
+    if (_notifiedReadyOwner == ownerUid) return;
+    _notifiedReadyOwner = ownerUid;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) widget.onReady(context);
     });
@@ -262,7 +294,7 @@ class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<void>(
+    return FutureBuilder<AuthSessionInfo?>(
       future: _ownerFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
@@ -271,11 +303,139 @@ class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
           );
         }
 
-        _notifyReadyOnce();
+        if (snapshot.hasError) {
+          return _AccountSessionErrorGate(
+            onRetry: () {
+              setState(() {
+                _ownerFuture = _ensureOwnerApplied();
+                _notifiedReadyOwner = null;
+              });
+            },
+            onSignOut: () async {
+              await context.read<AuthService>().signOut();
+            },
+          );
+        }
+
+        final session = snapshot.data;
+        if (session != null && session.deviceTransferRequired) {
+          return _DeviceTransferGate(
+            previousDeviceLabel: session.previousDeviceLabel,
+            onConfirm: _acceptDeviceTransfer,
+          );
+        }
+
+        final ownerUid =
+            session?.canonicalAccountId ?? HiveHelper.storedActiveOwnerUid;
+        if (ownerUid != null && ownerUid.isNotEmpty) {
+          _notifyReadyOnce(ownerUid);
+        }
         return const PermissionGate(
           child: TermsGate(child: MainNavigationPage()),
         );
       },
+    );
+  }
+}
+
+class _DeviceTransferGate extends StatelessWidget {
+  const _DeviceTransferGate({
+    required this.previousDeviceLabel,
+    required this.onConfirm,
+  });
+
+  final String? previousDeviceLabel;
+  final VoidCallback onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    final label =
+        previousDeviceLabel?.isNotEmpty == true
+            ? previousDeviceLabel!
+            : 'another device';
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.phonelink_lock, size: 56),
+                const SizedBox(height: 20),
+                const Text(
+                  'Use This Device?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'This account is already active on $label. Continuing here will stop app access and alarm monitoring on the previous device when it next connects.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: onConfirm,
+                    child: const Text('Move to This Device'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountSessionErrorGate extends StatelessWidget {
+  const _AccountSessionErrorGate({
+    required this.onRetry,
+    required this.onSignOut,
+  });
+
+  final VoidCallback onRetry;
+  final Future<void> Function() onSignOut;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.cloud_off, size: 52),
+                const SizedBox(height: 18),
+                const Text(
+                  'Account Check Failed',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Ringinout could not confirm the active account. Please try again with a stable connection.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: onRetry,
+                    child: const Text('Try Again'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextButton(onPressed: onSignOut, child: const Text('Sign Out')),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

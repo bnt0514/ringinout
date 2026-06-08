@@ -1,6 +1,7 @@
 import 'package:permission_handler/permission_handler.dart' as ph;
 import 'package:flutter/foundation.dart';
 import 'package:android_intent_plus/android_intent.dart';
+import 'package:ringinout/config/app_config.dart';
 
 class PermissionManager {
   /// Request all required permissions
@@ -9,7 +10,9 @@ class PermissionManager {
     await _requestNotificationPermissions();
     await _requestSystemPermissions();
     await _requestBatteryOptimization(); // ✅ 배터리 최적화 해제 추가
-    await _requestBluetoothPermissions(); // ✅ 블루투스 권한 추가
+    if (AppConfig.enableBluetoothFeatures) {
+      await _requestBluetoothPermissions(); // ✅ 블루투스 권한 추가
+    }
   }
 
   /// Request location permissions
@@ -28,6 +31,7 @@ class PermissionManager {
 
   /// ✅ 블루투스 권한 확인
   static Future<bool> hasBluetoothPermissions() async {
+    if (!AppConfig.enableBluetoothFeatures) return false;
     return await ph.Permission.bluetoothConnect.status.isGranted;
   }
 

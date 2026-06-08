@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 /// 앱 전체 다국어 지원 클래스
 class AppLocalizations {
@@ -147,6 +147,42 @@ class AppLocalizations {
       'feedback_hint': 'Enter your feedback or suggestions',
       'feedback_sent': '✅ Feedback sent. Thank you!',
       'app_info': 'App Info',
+      'account_not_logged_in': 'Not logged in',
+      'account_signed_in_as': 'Signed in as',
+      'account_sign_in_methods': 'Sign-in methods',
+      'account_provider_linked': 'Linked',
+      'account_provider_not_linked': 'Not linked',
+      'account_provider_primary': 'Primary',
+      'account_link_provider': 'Link',
+      'account_unlink_provider': 'Unlink',
+      'account_link_provider_confirm': 'Link {provider} to this account?',
+      'account_unlink_provider_confirm': 'Unlink {provider} from this account?',
+      'account_provider_action_failed':
+          'Provider action failed. Please try again.',
+      'account_active_device_title': 'Active device',
+      'account_active_device_subtitle':
+          'This device keeps places and alarms locally under the active account.',
+      'account_active_device_current': 'Active account',
+      'account_active_device_summary': 'Local data',
+      'account_local_data_counts': '{places} places, {alarms} alarms',
+      'account_local_data_unassigned': 'Not assigned',
+      'account_active_device_other_data_warning':
+          'This device also has local data from another account. Transfer only if you want this signed-in account to own it.',
+      'account_transfer_local_data': 'Transfer local data',
+      'account_transfer_warning_title': 'Transfer local data?',
+      'account_transfer_warning_body':
+          'Places and alarms stored on this device will be assigned to the current account. This can change which account sees them on this device.',
+      'account_transfer_success':
+          'Transferred {places} places and {alarms} alarms.',
+      'account_delete_device_warning':
+          'Deleting the account removes synced account data and stops alarms on this active device. Local app data may remain on the device until the app data is cleared or the app is uninstalled.',
+      'provider_google': 'Google',
+      'provider_apple': 'Apple',
+      'provider_kakao': 'Kakao',
+      'provider_naver': 'Naver',
+      'provider_line': 'LINE',
+      'provider_facebook': 'Facebook',
+      'provider_email': 'Email',
 
       // 로그인 페이지
       'login_app_description':
@@ -157,6 +193,27 @@ class AppLocalizations {
       'login_data_deletion_warning':
           'All saved places and alarm settings will be deleted when you uninstall the app.',
       'login_continue_with_google': 'Continue with Google',
+      'login_continue_with_apple': 'Continue with Apple',
+      'login_continue_with_kakao': 'Continue with Kakao',
+      'login_continue_with_naver': 'Continue with Naver',
+      'login_continue_with_line': 'Continue with LINE',
+      'login_continue_with_facebook': 'Continue with Facebook',
+      'login_continue_with_email': 'Continue with email',
+      'login_sign_in_methods_title': 'Choose a sign-in method',
+      'login_country_methods_hint':
+          'Available methods may vary by locale and country.',
+      'login_or': 'or',
+      'login_email_label': 'Email',
+      'login_email_hint': 'you@example.com',
+      'login_send_magic_link': 'Send magic link',
+      'login_magic_link_sent_title': 'Magic link sent',
+      'login_magic_link_sent_body':
+          'Check your inbox on this device. The link expires soon for your security.',
+      'login_magic_link_error':
+          'Could not send the magic link. Please try again.',
+      'login_email_invalid': 'Enter a valid email address.',
+      'login_active_device_notice_body':
+          'Places and alarms stay on this device under the active account. If you switch accounts, review transfer options in Settings before deleting anything.',
       'login_cancelled': 'Login cancelled',
       'login_not_supported': 'Google login is not supported on this device',
       'version': 'Version',
@@ -165,7 +222,7 @@ class AppLocalizations {
 
       // Privacy Policy
       'privacy_policy_title': 'Privacy Policy',
-      'privacy_last_updated': 'Last updated: May 2026',
+      'privacy_last_updated': 'Last updated: June 2026',
       'privacy_section_1_title': '1. Information We Process',
       'privacy_section_1_content':
           'Ringinout processes information only as needed to provide app features and does not use it for advertising tracking or unrelated purposes.\n\n'
@@ -185,6 +242,17 @@ class AppLocalizations {
       'privacy_section_5_title': '5. Contact',
       'privacy_section_5_content':
           'For privacy-related inquiries, please use the \'Send Feedback\' feature in the app.',
+      'privacy_section_6_title': 'Sign-in and active device',
+      'privacy_section_6_content':
+          'Sign-in providers may include Google, Kakao, Naver, LINE, Facebook, and email magic links depending on locale and country. Linked provider status is used only to let you access the same account with multiple methods. Places and alarms are primarily stored on the active device and can be transferred to the currently signed-in account from Settings. Account deletion removes server-side account data; local data on the device may require clearing app data or uninstalling the app.',
+
+      'privacy_section_7_title': 'App Execution Status & Alarm Operation',
+      'privacy_section_7_content':
+          'Alarms work only while the app (background service) is running normally. Alarms may not ring in the following cases.\n\n'
+          '• After a device reboot: If you have active alarms, we periodically send a push notification asking you to reopen the app. If you ignore it and do not reopen the app, alarms may not ring properly.\n\n'
+          '• When the app is force-stopped: If you \'Force Stop\' the app from device settings (or it is force-stopped for any reason), the OS prevents the app from recovering itself or sending notifications. In this case, alarms work only after you manually reopen the app.\n\n'
+          '• When terminated by the OS: If the OS terminates the app due to low memory, manufacturer battery-saving policies, etc., we send a recovery notification after some time. However, during that period—or if you do not notice the termination—alarms may not ring.\n\n'
+          'For reliable operation, we recommend allowing battery-optimization exceptions and auto-start permissions.',
 
       // 권한
       'permission_required': 'Permission Required',
@@ -947,6 +1015,37 @@ class AppLocalizations {
       'feedback_hint': '건의사항이나 피드백을 입력해주세요',
       'feedback_sent': '✅ 건의사항이 전송되었습니다. 감사합니다!',
       'app_info': '앱 정보',
+      'account_not_logged_in': '로그인되지 않음',
+      'account_signed_in_as': '로그인 계정',
+      'account_sign_in_methods': '로그인 방법',
+      'account_provider_linked': '연결됨',
+      'account_provider_not_linked': '연결되지 않음',
+      'account_provider_primary': '기본',
+      'account_link_provider': '연결',
+      'account_unlink_provider': '해제',
+      'account_link_provider_confirm': '{provider} 로그인을 이 계정에 연결할까요?',
+      'account_unlink_provider_confirm': '{provider} 로그인을 이 계정에서 해제할까요?',
+      'account_provider_action_failed': '로그인 방법 처리에 실패했습니다. 다시 시도해 주세요.',
+      'account_active_device_title': '활성 기기',
+      'account_active_device_subtitle': '이 기기의 장소와 알람은 현재 활성 계정 기준으로 로컬 저장됩니다.',
+      'account_active_device_current': '활성 계정',
+      'account_active_device_summary': '로컬 데이터',
+      'account_local_data_counts': '장소 {places}개, 알람 {alarms}개',
+      'account_local_data_unassigned': '할당 안 됨',
+      'account_active_device_other_data_warning':
+          '이 기기에 다른 계정의 로컬 데이터도 있습니다. 현재 로그인한 계정으로 소유권을 옮기려는 경우에만 전송하세요.',
+      'account_transfer_local_data': '로컬 데이터 전송',
+      'account_transfer_warning_title': '로컬 데이터를 전송할까요?',
+      'account_transfer_warning_body':
+          '이 기기에 저장된 장소와 알람이 현재 계정 소유로 변경됩니다. 이 기기에서 어떤 계정이 데이터를 볼 수 있는지가 바뀔 수 있습니다.',
+      'account_transfer_success': '장소 {places}개, 알람 {alarms}개를 전송했습니다.',
+      'account_delete_device_warning':
+          '계정을 삭제하면 서버에 저장된 계정 데이터가 삭제되고 이 활성 기기의 알람도 중지됩니다. 기기에 남은 로컬 데이터는 앱 데이터 삭제 또는 앱 삭제 전까지 남아 있을 수 있습니다.',
+      'provider_google': 'Google',
+      'provider_apple': 'Apple',
+      'provider_kakao': 'Kakao',
+      'provider_naver': 'Naver',
+      'provider_email': '이메일',
       'version': '버전',
       'location_based_alarm': '위치 기반 알람 앱',
 
@@ -957,13 +1056,29 @@ class AppLocalizations {
           '위치 알람은 주로 기기 내에서 처리됩니다. 계정, 구독, 사용량, 사용자가 제출한 진단 정보는 앱 기능 제공과 유지보수 목적으로만 사용됩니다.',
       'login_data_deletion_warning': '앱 삭제 시 저장된 장소와 알람 설정이 모두 삭제됩니다.',
       'login_continue_with_google': 'Google로 계속하기',
+      'login_continue_with_apple': 'Apple로 계속하기',
+      'login_continue_with_kakao': 'Kakao로 계속하기',
+      'login_continue_with_naver': 'Naver로 계속하기',
+      'login_continue_with_email': '이메일로 계속하기',
+      'login_sign_in_methods_title': '로그인 방법 선택',
+      'login_country_methods_hint': '사용 가능한 로그인 방법은 언어와 국가에 따라 달라질 수 있습니다.',
+      'login_or': '또는',
+      'login_email_label': '이메일',
+      'login_email_hint': 'you@example.com',
+      'login_send_magic_link': '매직 링크 보내기',
+      'login_magic_link_sent_title': '매직 링크 전송됨',
+      'login_magic_link_sent_body': '이 기기에서 메일함을 확인하세요. 보안을 위해 링크는 곧 만료됩니다.',
+      'login_magic_link_error': '매직 링크를 보낼 수 없습니다. 다시 시도해 주세요.',
+      'login_email_invalid': '올바른 이메일 주소를 입력해 주세요.',
+      'login_active_device_notice_body':
+          '장소와 알람은 활성 계정 기준으로 이 기기에 저장됩니다. 계정을 바꾸는 경우 삭제하기 전에 설정에서 데이터 전송 옵션을 확인하세요.',
       'login_cancelled': '로그인이 취소되었습니다',
       'login_not_supported': '이 기기에서는 Google 로그인을 지원하지 않습니다',
       'privacy_policy': '개인정보 처리방침',
 
       // Privacy Policy
       'privacy_policy_title': '개인정보 처리방침',
-      'privacy_last_updated': '최종 업데이트: 2026년 5월',
+      'privacy_last_updated': '최종 업데이트: 2026년 6월',
       'privacy_section_1_title': '1. 처리하는 정보',
       'privacy_section_1_content':
           'Ringinout은 앱 기능 제공에 필요한 범위에서만 정보를 처리하며, 광고 목적의 추적이나 다른 용도로 사용하지 않습니다.\n\n'
@@ -983,6 +1098,17 @@ class AppLocalizations {
       'privacy_section_5_title': '5. 문의',
       'privacy_section_5_content':
           '개인정보 관련 문의사항이 있으시면 앱 내 \'건의사항 보내기\' 기능을 이용해주세요.',
+      'privacy_section_6_title': '로그인 및 활성 기기',
+      'privacy_section_6_content':
+          '로그인 제공자는 언어와 국가에 따라 Google, Kakao, Naver, LINE, Facebook, 이메일 매직 링크를 포함할 수 있습니다. 연결된 로그인 방법 정보는 하나의 계정에 여러 방법으로 접근할 수 있도록 하는 목적으로만 사용됩니다. 장소와 알람은 주로 활성 기기에 저장되며 설정에서 현재 로그인한 계정으로 전송할 수 있습니다. 계정 삭제 시 서버의 계정 데이터는 삭제되지만, 기기 내 로컬 데이터는 앱 데이터 삭제 또는 앱 삭제 전까지 남아 있을 수 있습니다.',
+
+      'privacy_section_7_title': '앱 실행 상태 및 알람 작동 안내',
+      'privacy_section_7_content':
+          '알람은 앱(백그라운드 서비스)이 정상적으로 실행 중일 때 작동합니다. 다음의 경우 알람이 울리지 않을 수 있습니다.\n\n'
+          '• 기기 재부팅 후: 활성화된 알람이 있으면 앱을 다시 실행하도록 안내하는 푸시 알림을 주기적으로 보내드립니다. 이를 확인하지 않고 앱을 다시 실행하지 않으면 알람이 정상적으로 울리지 않을 수 있습니다.\n\n'
+          '• 앱 강제 중지: 기기 설정에서 앱을 \'강제 중지\'한 경우(또는 어떤 이유로든 강제 중지된 경우), 운영체제 정책상 앱이 스스로 복구되거나 알림을 보낼 수 없습니다. 이 경우 반드시 앱을 다시 실행해야만 알람이 작동합니다.\n\n'
+          '• 운영체제에 의한 종료: 메모리 부족, 제조사 배터리 절전 정책 등으로 운영체제가 앱을 종료한 경우, 일정 시간이 지난 뒤 복구를 안내하는 알림을 보내드립니다. 다만 그 시간 동안 또는 종료 사실을 인지하지 못한 경우에는 알람이 울리지 않을 수 있습니다.\n\n'
+          '안정적인 알람 작동을 위해 배터리 최적화 예외 허용 및 자동 실행 허용 설정을 권장합니다.',
 
       // 권한
       'permission_required': '권한 필요',
@@ -1722,25 +1848,37 @@ class AppLocalizations {
 
       // Privacy Policy
       'privacy_policy_title': 'プライバシーポリシー',
-      'privacy_last_updated': '最終更新: 2026年1月',
-      'privacy_section_1_title': '1. 収集する情報',
+      'privacy_last_updated': '最終更新: 2026年6月',
+      'privacy_section_1_title': '1. 処理する情報',
       'privacy_section_1_content':
-          'Ringinoutはユーザーの個人情報を収集しません。\n\n'
-          '• 位置情報: アラーム機能のためデバイス内でのみ処理され、外部サーバーには送信されません。\n\n'
-          '• アカウント情報: Googleログイン時、メールアドレスは匿名化されたランダムIDに変換されて保存されます。元のメールは保存されません。',
+          'Ringinoutはアプリ機能の提供に必要な範囲でのみ情報を処理し、広告目的の追跡やその他の用途には使用しません。\n\n'
+          '• 位置情報: 位置アラームのため主にデバイス内で処理されます。地図表示、住所検索、逆ジオコーディング機能の利用時に、座標や検索語が地図/ジオコーディング提供者へ一時的に送信されることがありますが、Ringinoutのサーバーに位置履歴として保存することはありません。\n\n'
+          '• アカウント・サブスクリプション・使用量・ユーザーが送信した診断情報: ログイン、有料機能、クォータ管理、サービスの安定性、バグ修正のためにのみ使用されます。',
       'privacy_section_2_title': '2. 匿名化IDの使用目的',
       'privacy_section_2_content':
-          '匿名化されたIDは、プレミアムサブスクリプションの確認目的でのみ使用されます。'
-          'このIDで個人を特定または追跡することはできません。',
-      'privacy_section_3_title': '3. データ保存',
+          '匿名化IDは、サブスクリプションの確認、使用量の管理、サービスの安定性の保護のためにのみ使用されます。'
+          '広告やその他の目的の追跡には使用しません。',
+      'privacy_section_3_title': '3. データの保存',
       'privacy_section_3_content':
-          'すべてのアラームと場所データはデバイス内にのみ保存され、'
-          '外部サーバーには送信されません。',
+          'アラームデータと場所情報は主にユーザーのデバイス内に保存されます。'
+          'サーバーには、サブスクリプション状態、匿名化されたアカウントID、使用量統計、ユーザーが送信したバグレポートなど、アプリ運営に必要な情報のみが保存されます。',
       'privacy_section_4_title': '4. 第三者への共有',
-      'privacy_section_4_content': 'Ringinoutはユーザー情報を第三者と共有しません。',
+      'privacy_section_4_content':
+          'Ringinoutはユーザー情報を販売したり、広告目的で第三者と共有したりしません。地図、住所変換、ログイン、決済、バックエンドの各提供者は、アプリ機能の提供に必要なリクエストに限り使用されることがあります。',
       'privacy_section_5_title': '5. お問い合わせ',
       'privacy_section_5_content':
           'プライバシーに関するお問い合わせは、アプリ内の「フィードバックを送信」機能をご利用ください。',
+      'privacy_section_6_title': 'ログインと有効なデバイス',
+      'privacy_section_6_content':
+          'ログイン提供者は、言語や国によってGoogle、Kakao、Naver、LINE、Facebook、メールのマジックリンクを含むことがあります。連携されたログイン方法の情報は、1つのアカウントに複数の方法でアクセスできるようにする目的でのみ使用されます。場所とアラームは主に有効なデバイスに保存され、設定から現在ログイン中のアカウントへ転送できます。アカウントを削除するとサーバー上のアカウントデータは削除されますが、デバイス内のローカルデータはアプリデータの消去またはアプリのアンインストールまで残る場合があります。',
+
+      'privacy_section_7_title': 'アプリの実行状態とアラーム動作のご案内',
+      'privacy_section_7_content':
+          'アラームは、アプリ（バックグラウンドサービス）が正常に実行されている場合に作動します。以下の場合はアラームが鳴らないことがあります。\n\n'
+          '• 端末の再起動後：有効なアラームがある場合、アプリの再実行を促すプッシュ通知を定期的にお送りします。この通知を確認せずアプリを再実行しない場合、アラームが正常に鳴らないことがあります。\n\n'
+          '• アプリの強制停止時：端末の設定からアプリを「強制停止」した場合（または何らかの理由で強制停止された場合）、OSの仕様によりアプリは自動復旧も通知送信もできません。この場合、アプリを手動で再実行しない限りアラームは作動しません。\n\n'
+          '• OSによる終了時：メモリ不足やメーカーの省電力ポリシーなどでOSがアプリを終了した場合、一定時間の経過後に復旧を案内する通知をお送りします。ただしその間、または終了に気づかなかった場合は、アラームが鳴らないことがあります。\n\n'
+          '安定したアラーム動作のため、電池最適化の除外や自動起動の許可などの設定を推奨します。',
 
       // 권한
       'permission_required': '権限が必要です',
@@ -2474,24 +2612,36 @@ class AppLocalizations {
 
       // Privacy Policy
       'privacy_policy_title': '隐私政策',
-      'privacy_last_updated': '最后更新：2026年1月',
-      'privacy_section_1_title': '1. 收集的信息',
+      'privacy_last_updated': '最后更新：2026年6月',
+      'privacy_section_1_title': '1. 我们处理的信息',
       'privacy_section_1_content':
-          'Ringinout不收集用户的个人信息。\n\n'
-          '• 位置信息：仅在设备内处理用于闹钟功能，不会发送到外部服务器。\n\n'
-          '• 账户信息：使用Google登录时，电子邮件地址会被转换为匿名随机ID存储。原始电子邮件不会被存储。',
+          'Ringinout仅在提供应用功能所需的范围内处理信息，不会用于广告追踪或其他无关用途。\n\n'
+          '• 位置信息：主要在您的设备上处理，用于位置闹钟。当您使用地图显示、地址搜索或逆地理编码功能时，坐标或搜索词可能会临时发送给地图/地理编码提供商，但Ringinout不会在其服务器上存储位置历史。\n\n'
+          '• 账户、订阅、使用量及用户提交的诊断信息：仅用于登录、付费功能、配额管理、服务稳定性和错误修复。',
       'privacy_section_2_title': '2. 匿名ID的使用目的',
       'privacy_section_2_content':
-          '匿名ID仅用于验证高级订阅状态。'
-          '无法通过此ID识别或追踪个人。',
+          '匿名ID仅用于订阅验证、使用量管理和服务稳定性保护。'
+          '不会用于广告或其他无关追踪。',
       'privacy_section_3_title': '3. 数据存储',
       'privacy_section_3_content':
-          '所有闹钟和位置数据仅存储在您的设备上，'
-          '不会传输到外部服务器。',
+          '闹钟数据和地点信息主要存储在您的设备上。'
+          '服务器仅存储订阅状态、匿名账户ID、使用量统计、用户提交的错误报告等应用运营所需的信息。',
       'privacy_section_4_title': '4. 第三方共享',
-      'privacy_section_4_content': 'Ringinout不会与第三方共享任何用户信息。',
+      'privacy_section_4_content':
+          'Ringinout不会出售用户信息，也不会为广告目的与第三方共享。地图、地址转换、登录、支付和后端提供商仅在提供应用功能所需时处理请求。',
       'privacy_section_5_title': '5. 联系方式',
       'privacy_section_5_content': '如有隐私相关问题，请使用应用内的"发送反馈"功能。',
+      'privacy_section_6_title': '登录与活跃设备',
+      'privacy_section_6_content':
+          '登录提供商可能因语言和国家/地区而包括Google、Kakao、Naver、LINE、Facebook以及电子邮件魔法链接。关联的登录方式信息仅用于让您通过多种方式访问同一账户。地点和闹钟主要存储在活跃设备上，可在设置中转移到当前登录的账户。删除账户会移除服务器端的账户数据；设备上的本地数据可能需要清除应用数据或卸载应用才会删除。',
+
+      'privacy_section_7_title': '应用运行状态与闹钟运作说明',
+      'privacy_section_7_content':
+          '闹钟仅在应用（后台服务）正常运行时才会作动。以下情况下闹钟可能不会响铃。\n\n'
+          '• 设备重启后：如有已启用的闹钟，我们会定期发送提示您重新打开应用的推送通知。若您忽略该通知且不重新打开应用，闹钟可能无法正常响铃。\n\n'
+          '• 应用被强制停止时：当您在设备设置中“强制停止”本应用（或因任何原因被强制停止）时，根据操作系统机制，应用无法自行恢复或发送通知。此时必须手动重新打开应用，闹钟才能作动。\n\n'
+          '• 被操作系统终止时：当操作系统因内存不足、厂商省电策略等终止应用时，我们会在一段时间后发送恢复通知。但在此期间，以及您未察觉应用被终止的情况下，闹钟可能不会响铃。\n\n'
+          '为确保闹钟稳定运作，建议允许电池优化例外及自动启动等设置。',
 
       // 권한
       'permission_required': '需要权限',
@@ -3220,26 +3370,37 @@ class AppLocalizations {
 
       // Datenschutzrichtlinie
       'privacy_policy_title': 'Datenschutzrichtlinie',
-      'privacy_last_updated': 'Zuletzt aktualisiert: Januar 2026',
-      'privacy_section_1_title': '1. Informationen, die wir erheben',
+      'privacy_last_updated': 'Zuletzt aktualisiert: Juni 2026',
+      'privacy_section_1_title': '1. Informationen, die wir verarbeiten',
       'privacy_section_1_content':
-          'Ringinout erhebt keine personenbezogenen Daten.\n\n'
-          '• Standortdaten: Werden nur auf Ihrem Gerät für die Alarmfunktion verarbeitet. Werden nicht an externe Server gesendet.\n\n'
-          '• Kontoinformationen: Bei der Anmeldung mit Google wird Ihre E-Mail in eine anonymisierte zufällige ID umgewandelt. Die Original-E-Mail wird nicht gespeichert.',
+          'Ringinout verarbeitet Informationen nur im für die Bereitstellung der App-Funktionen erforderlichen Umfang und verwendet sie nicht für Werbe-Tracking oder andere Zwecke.\n\n'
+          '• Standortdaten: Werden hauptsächlich auf Ihrem Gerät verarbeitet. Bei der Nutzung von Kartenanzeige, Adresssuche oder Reverse-Geocoding können Koordinaten oder Suchbegriffe vorübergehend an Karten-/Geocoding-Anbieter gesendet werden. Ringinout speichert keinen Standortverlauf auf seinen Servern.\n\n'
+          '• Konto-, Abonnement-, Nutzungs- und vom Nutzer übermittelte Diagnosedaten: Werden nur für Anmeldung, kostenpflichtige Funktionen, Kontingentverwaltung, Servicestabilität und Fehlerbehebung verwendet.',
       'privacy_section_2_title': '2. Zweck der anonymisierten ID',
       'privacy_section_2_content':
-          'Die anonymisierte ID wird ausschließlich zur Überprüfung des Premium-Abonnementstatus verwendet. '
-          'Diese ID kann nicht zur Identifizierung oder Verfolgung von Personen verwendet werden.',
+          'Die anonymisierte ID wird nur für Abonnementprüfungen, Nutzungsverwaltung und Servicestabilität verwendet. '
+          'Sie wird nicht für Werbung oder anderweitiges Tracking verwendet.',
       'privacy_section_3_title': '3. Datenspeicherung',
       'privacy_section_3_content':
-          'Alle Alarm- und Standortdaten werden nur auf Ihrem Gerät gespeichert '
-          'und nicht an externe Server übertragen.',
+          'Alarm- und Ortsdaten werden hauptsächlich auf Ihrem Gerät gespeichert. '
+          'Ringinout-Server speichern nur Betriebsdaten wie Abonnementstatus, anonymisierte Konto-IDs, Nutzungszähler und vom Nutzer übermittelte Fehlerberichte.',
       'privacy_section_4_title': '4. Weitergabe an Dritte',
       'privacy_section_4_content':
-          'Ringinout gibt keine Benutzerdaten an Dritte weiter.',
+          'Ringinout verkauft keine Nutzerinformationen und gibt sie nicht zu Werbezwecken weiter. Karten-, Geocoding-, Anmelde-, Zahlungs- und Backend-Anbieter können Anfragen nur im für die Bereitstellung der App-Funktionalität erforderlichen Umfang verarbeiten.',
       'privacy_section_5_title': '5. Kontakt',
       'privacy_section_5_content':
           'Bei datenschutzbezogenen Anfragen nutzen Sie bitte die Funktion \'Feedback senden\' in der App.',
+      'privacy_section_6_title': 'Anmeldung und aktives Gerät',
+      'privacy_section_6_content':
+          'Anmeldeanbieter können je nach Sprache und Land Google, Kakao, Naver, LINE, Facebook und E-Mail-Magic-Links umfassen. Informationen zu verknüpften Anmeldemethoden werden nur verwendet, um Ihnen den Zugriff auf dasselbe Konto mit mehreren Methoden zu ermöglichen. Orte und Alarme werden hauptsächlich auf dem aktiven Gerät gespeichert und können in den Einstellungen auf das aktuell angemeldete Konto übertragen werden. Beim Löschen des Kontos werden die serverseitigen Kontodaten entfernt; lokale Daten auf dem Gerät erfordern möglicherweise das Löschen der App-Daten oder die Deinstallation der App.',
+
+      'privacy_section_7_title': 'App-Ausführungsstatus und Alarmfunktion',
+      'privacy_section_7_content':
+          'Alarme funktionieren nur, während die App (Hintergrunddienst) normal läuft. In den folgenden Fällen ertönen Alarme möglicherweise nicht.\n\n'
+          '• Nach einem Geräteneustart: Wenn Sie aktive Alarme haben, senden wir regelmäßig eine Push-Benachrichtigung mit der Aufforderung, die App erneut zu öffnen. Wenn Sie diese ignorieren und die App nicht erneut öffnen, ertönen Alarme möglicherweise nicht ordnungsgemäß.\n\n'
+          '• Bei erzwungenem Beenden: Wenn Sie die App in den Geräteeinstellungen über „Beenden erzwingen“ schließen (oder sie aus irgendeinem Grund zwangsweise beendet wird), kann sich die App laut Betriebssystem nicht selbst wiederherstellen oder Benachrichtigungen senden. In diesem Fall funktionieren Alarme erst, nachdem Sie die App manuell erneut geöffnet haben.\n\n'
+          '• Bei Beendigung durch das Betriebssystem: Wenn das Betriebssystem die App aufgrund von Speichermangel, herstellerspezifischen Energiesparrichtlinien usw. beendet, senden wir nach einiger Zeit eine Wiederherstellungsbenachrichtigung. Während dieser Zeit – oder wenn Sie die Beendigung nicht bemerken – ertönen Alarme jedoch möglicherweise nicht.\n\n'
+          'Für einen zuverlässigen Betrieb empfehlen wir, Ausnahmen von der Akkuoptimierung und Autostart-Berechtigungen zuzulassen.',
 
       // Berechtigungen
       'permission_required': 'Berechtigung erforderlich',
@@ -4017,26 +4178,38 @@ class AppLocalizations {
 
       // Politique de confidentialité
       'privacy_policy_title': 'Politique de confidentialité',
-      'privacy_last_updated': 'Dernière mise à jour : janvier 2026',
-      'privacy_section_1_title': '1. Informations que nous collectons',
+      'privacy_last_updated': 'Dernière mise à jour : juin 2026',
+      'privacy_section_1_title': '1. Informations que nous traitons',
       'privacy_section_1_content':
-          'Ringinout ne collecte pas d\'informations personnelles.\n\n'
-          '• Données de localisation : Traitées uniquement sur votre appareil pour la fonctionnalité d\'alarme. Non envoyées à des serveurs externes.\n\n'
-          '• Informations de compte : Lors de la connexion avec Google, votre e-mail est converti en un identifiant aléatoire anonymisé. L\'e-mail original n\'est pas stocké.',
+          'Ringinout ne traite les informations que dans la mesure nécessaire à la fourniture des fonctionnalités de l\'application et ne les utilise pas à des fins de suivi publicitaire ou autres.\n\n'
+          '• Données de localisation : Traitées principalement sur votre appareil. Lorsque vous utilisez l\'affichage de carte, la recherche d\'adresse ou le géocodage inversé, des coordonnées ou des termes de recherche peuvent être envoyés temporairement aux fournisseurs de cartes/géocodage. Ringinout ne conserve pas d\'historique de localisation sur ses serveurs.\n\n'
+          '• Données de compte, d\'abonnement, d\'utilisation et de diagnostic soumises par l\'utilisateur : Utilisées uniquement pour la connexion, les fonctionnalités payantes, la gestion des quotas, la stabilité du service et la correction des bogues.',
       'privacy_section_2_title': '2. Objectif de l\'identifiant anonymisé',
       'privacy_section_2_content':
-          'L\'identifiant anonymisé est utilisé uniquement pour vérifier le statut d\'abonnement premium. '
-          'Cet identifiant ne peut pas être utilisé pour identifier ou suivre des individus.',
+          'L\'identifiant anonymisé est utilisé uniquement pour les vérifications d\'abonnement, la gestion de l\'utilisation et la stabilité du service. '
+          'Il n\'est pas utilisé à des fins publicitaires ou de suivi sans rapport.',
       'privacy_section_3_title': '3. Stockage des données',
       'privacy_section_3_content':
-          'Toutes les données d\'alarme et de localisation sont stockées uniquement sur votre appareil '
-          'et ne sont pas transmises à des serveurs externes.',
+          'Les données d\'alarme et de lieux sont stockées principalement sur votre appareil. '
+          'Les serveurs de Ringinout ne stockent que des données opérationnelles telles que le statut d\'abonnement, les identifiants de compte anonymisés, les compteurs d\'utilisation et les rapports de bogues soumis par l\'utilisateur.',
       'privacy_section_4_title': '4. Partage avec des tiers',
       'privacy_section_4_content':
-          'Ringinout ne partage aucune information utilisateur avec des tiers.',
+          'Ringinout ne vend pas les informations des utilisateurs et ne les partage pas à des fins publicitaires. Les fournisseurs de cartes, de géocodage, de connexion, de paiement et de backend peuvent traiter des requêtes uniquement dans la mesure nécessaire à la fourniture des fonctionnalités de l\'application.',
       'privacy_section_5_title': '5. Contact',
       'privacy_section_5_content':
           'Pour les demandes liées à la confidentialité, veuillez utiliser la fonction \'Envoyer un commentaire\' dans l\'application.',
+      'privacy_section_6_title': 'Connexion et appareil actif',
+      'privacy_section_6_content':
+          'Les fournisseurs de connexion peuvent inclure Google, Kakao, Naver, LINE, Facebook et les liens magiques par e-mail selon la langue et le pays. Les informations sur les méthodes de connexion liées sont utilisées uniquement pour vous permettre d\'accéder au même compte avec plusieurs méthodes. Les lieux et les alarmes sont principalement stockés sur l\'appareil actif et peuvent être transférés vers le compte actuellement connecté depuis les Paramètres. La suppression du compte supprime les données de compte côté serveur ; les données locales sur l\'appareil peuvent nécessiter l\'effacement des données de l\'application ou sa désinstallation.',
+
+      'privacy_section_7_title':
+          'Statut d\'exécution de l\'application et fonctionnement des alarmes',
+      'privacy_section_7_content':
+          'Les alarmes ne fonctionnent que lorsque l\'application (service en arrière-plan) s\'exécute normalement. Les alarmes peuvent ne pas sonner dans les cas suivants.\n\n'
+          '• Après un redémarrage de l\'appareil : si vous avez des alarmes actives, nous envoyons régulièrement une notification push vous demandant de rouvrir l\'application. Si vous l\'ignorez et ne rouvrez pas l\'application, les alarmes peuvent ne pas sonner correctement.\n\n'
+          '• En cas d\'arrêt forcé : si vous « forcez l\'arrêt » de l\'application depuis les paramètres de l\'appareil (ou si elle est arrêtée de force pour une raison quelconque), le système d\'exploitation empêche l\'application de se rétablir ou d\'envoyer des notifications. Dans ce cas, les alarmes ne fonctionnent qu\'après avoir rouvert manuellement l\'application.\n\n'
+          '• En cas d\'arrêt par le système d\'exploitation : si le système arrête l\'application en raison d\'un manque de mémoire, des politiques d\'économie de batterie du fabricant, etc., nous envoyons une notification de récupération après un certain temps. Cependant, pendant cette période — ou si vous ne remarquez pas l\'arrêt — les alarmes peuvent ne pas sonner.\n\n'
+          'Pour un fonctionnement fiable, nous recommandons d\'autoriser les exceptions d\'optimisation de la batterie et les autorisations de démarrage automatique.',
 
       // Autorisations
       'permission_required': 'Autorisation requise',
@@ -4822,26 +4995,38 @@ class AppLocalizations {
 
       // Política de privacidad
       'privacy_policy_title': 'Política de privacidad',
-      'privacy_last_updated': 'Última actualización: enero de 2026',
-      'privacy_section_1_title': '1. Información que recopilamos',
+      'privacy_last_updated': 'Última actualización: junio de 2026',
+      'privacy_section_1_title': '1. Información que tratamos',
       'privacy_section_1_content':
-          'Ringinout no recopila información personal.\n\n'
-          '• Datos de ubicación: Se procesan solo en su dispositivo para la función de alarma. No se envían a servidores externos.\n\n'
-          '• Información de cuenta: Al iniciar sesión con Google, su correo electrónico se convierte en un ID aleatorio anonimizado. El correo original no se almacena.',
+          'Ringinout solo trata la información en la medida necesaria para ofrecer las funciones de la aplicación y no la utiliza para seguimiento publicitario ni otros fines.\n\n'
+          '• Datos de ubicación: Se tratan principalmente en su dispositivo. Cuando utiliza la visualización de mapas, la búsqueda de direcciones o la geocodificación inversa, las coordenadas o los términos de búsqueda pueden enviarse temporalmente a los proveedores de mapas/geocodificación. Ringinout no almacena el historial de ubicaciones en sus servidores.\n\n'
+          '• Datos de cuenta, suscripción, uso y diagnóstico enviados por el usuario: Se utilizan únicamente para el inicio de sesión, las funciones de pago, la gestión de cuotas, la estabilidad del servicio y la corrección de errores.',
       'privacy_section_2_title': '2. Propósito del ID anonimizado',
       'privacy_section_2_content':
-          'El ID anonimizado se utiliza únicamente para verificar el estado de suscripción premium. '
-          'Este ID no puede utilizarse para identificar o rastrear individuos.',
+          'El ID anonimizado se utiliza únicamente para verificaciones de suscripción, gestión del uso y estabilidad del servicio. '
+          'No se utiliza para publicidad ni seguimiento no relacionado.',
       'privacy_section_3_title': '3. Almacenamiento de datos',
       'privacy_section_3_content':
-          'Todos los datos de alarma y ubicación se almacenan solo en su dispositivo '
-          'y no se transmiten a servidores externos.',
+          'Los datos de alarmas y lugares se almacenan principalmente en su dispositivo. '
+          'Los servidores de Ringinout solo almacenan datos operativos como el estado de suscripción, los ID de cuenta anonimizados, los contadores de uso y los informes de errores enviados por el usuario.',
       'privacy_section_4_title': '4. Compartir con terceros',
       'privacy_section_4_content':
-          'Ringinout no comparte ninguna información de usuario con terceros.',
+          'Ringinout no vende información de los usuarios ni la comparte con fines publicitarios. Los proveedores de mapas, geocodificación, inicio de sesión, pago y backend pueden procesar solicitudes únicamente en la medida necesaria para ofrecer la funcionalidad de la aplicación.',
       'privacy_section_5_title': '5. Contacto',
       'privacy_section_5_content':
           'Para consultas relacionadas con la privacidad, utilice la función \'Enviar comentario\' en la aplicación.',
+      'privacy_section_6_title': 'Inicio de sesión y dispositivo activo',
+      'privacy_section_6_content':
+          'Los proveedores de inicio de sesión pueden incluir Google, Kakao, Naver, LINE, Facebook y enlaces mágicos por correo electrónico según el idioma y el país. La información sobre los métodos de inicio de sesión vinculados se utiliza únicamente para permitirle acceder a la misma cuenta con varios métodos. Los lugares y las alarmas se almacenan principalmente en el dispositivo activo y pueden transferirse a la cuenta con la que ha iniciado sesión desde Ajustes. Al eliminar la cuenta se eliminan los datos de la cuenta del servidor; los datos locales del dispositivo pueden requerir borrar los datos de la aplicación o desinstalarla.',
+
+      'privacy_section_7_title':
+          'Estado de ejecución de la aplicación y funcionamiento de las alarmas',
+      'privacy_section_7_content':
+          'Las alarmas solo funcionan mientras la aplicación (servicio en segundo plano) se ejecuta con normalidad. Las alarmas pueden no sonar en los siguientes casos.\n\n'
+          '• Tras un reinicio del dispositivo: si tiene alarmas activas, enviamos periódicamente una notificación push pidiéndole que vuelva a abrir la aplicación. Si la ignora y no vuelve a abrir la aplicación, es posible que las alarmas no suenen correctamente.\n\n'
+          '• Cuando se fuerza la detención: si fuerza la detención de la aplicación desde los ajustes del dispositivo (o se detiene a la fuerza por cualquier motivo), el sistema operativo impide que la aplicación se recupere o envíe notificaciones. En este caso, las alarmas solo funcionan después de que vuelva a abrir manualmente la aplicación.\n\n'
+          '• Cuando el sistema operativo la termina: si el sistema operativo cierra la aplicación por falta de memoria, políticas de ahorro de batería del fabricante, etc., enviamos una notificación de recuperación después de un tiempo. Sin embargo, durante ese período —o si no se da cuenta de la terminación— es posible que las alarmas no suenen.\n\n'
+          'Para un funcionamiento fiable, recomendamos permitir las excepciones de optimización de batería y los permisos de inicio automático.',
 
       // Permisos
       'permission_required': 'Permiso requerido',

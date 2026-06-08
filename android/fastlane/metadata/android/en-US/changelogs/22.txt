@@ -1,0 +1,3 @@
+• More reliable alarm saving: the Save button responds instantly and duplicate saves are prevented.
+• Clearer notices: added guidance on how device reboot, force-stop, and OS termination can affect alarms in the Terms and Privacy Policy.
+• Localization: added German, French, and Spanish policy translations and improved accuracy in several languages.

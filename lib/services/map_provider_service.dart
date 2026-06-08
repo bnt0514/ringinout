@@ -9,12 +9,10 @@ enum MapProvider { naver, google }
 
 class MapProviderService extends ChangeNotifier {
   static const String _storageKey = 'map_provider';
-  static const String _googleLanguageKey = 'google_map_language';
 
   MapProvider _provider = MapProvider.naver;
   bool _isKoreanRegion = false;
-  String _googleLanguage = 'ko';
-  bool _hasSavedGoogleLanguage = false;
+  String _googleLanguage = 'en';
 
   MapProvider get provider => _provider;
   bool get isNaver => _provider == MapProvider.naver;
@@ -45,9 +43,7 @@ class MapProviderService extends ChangeNotifier {
     final country = countryCode?.toUpperCase();
     _isKoreanRegion =
         country == 'KR' || (country == null && languageCode == 'ko');
-    if (!_hasSavedGoogleLanguage) {
-      _googleLanguage = _normalizeGoogleLanguage(languageCode);
-    }
+    _googleLanguage = _normalizeGoogleLanguage(languageCode);
     if (!isCurrentProviderAvailable) {
       _provider = _preferredProvider();
     }
@@ -116,17 +112,10 @@ class MapProviderService extends ChangeNotifier {
       } else {
         _provider = MapProvider.naver;
       }
-      final savedGoogleLanguage = HiveHelper.settingsBox.get(
-        _googleLanguageKey,
-      );
-      _hasSavedGoogleLanguage = savedGoogleLanguage != null;
-      _googleLanguage = _normalizeGoogleLanguage(
-        savedGoogleLanguage?.toString() ?? 'ko',
-      );
     } catch (e) {
       debugPrint('❌ MapProviderService load error: $e');
       _provider = MapProvider.naver;
-      _googleLanguage = 'ko';
+      _googleLanguage = 'en';
     }
   }
 
@@ -144,18 +133,6 @@ class MapProviderService extends ChangeNotifier {
     HiveHelper.settingsBox.put(_storageKey, newProvider.name);
     notifyListeners();
     debugPrint('🗺️ Map provider → ${newProvider.name}');
-  }
-
-  /// 현재 로케일에서 표시 가능한 제공자 목록
-  /// 한국: Naver 우선 / 해외: Google 우선
-  void setGoogleLanguage(String languageCode) {
-    final normalized = _normalizeGoogleLanguage(languageCode);
-    if (_googleLanguage == normalized) return;
-    _googleLanguage = normalized;
-    _hasSavedGoogleLanguage = true;
-    HiveHelper.settingsBox.put(_googleLanguageKey, normalized);
-    notifyListeners();
-    debugPrint('Google map/search language -> $normalized');
   }
 
   static String _normalizeGoogleLanguage(String languageCode) {

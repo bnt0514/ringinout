@@ -87,7 +87,10 @@ class PlayBillingPurchaseService extends ChangeNotifier {
       return false;
     }
 
-    final param = PurchaseParam(productDetails: product);
+    final param = PurchaseParam(
+      productDetails: product,
+      applicationUserName: await _billingService.getObfuscatedAccountId(),
+    );
     if (productId == removeAdsProductId) {
       return _iap.buyNonConsumable(purchaseParam: param);
     }

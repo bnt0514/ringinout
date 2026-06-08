@@ -148,14 +148,16 @@ class SnoozeReceiver : BroadcastReceiver() {
     }
 
     private fun isCurrentOwner(context: Context, ownerUid: String): Boolean {
-        val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-        val current = prefs.getString("flutter.active_owner_uid", "") ?: ""
-        if (current.isEmpty()) return false
-
         if (ownerUid.isEmpty()) {
-            Log.w("SnoozeReceiver", "⚠️ ownerUid 없는 기존 스누즈 허용: 현재 로그인 세션에서만 처리")
-            return true
+            Log.w("SnoozeReceiver", "⛔ ownerUid 없는 스누즈 폐기")
+            return false
         }
+
+        val nativePrefs = context.getSharedPreferences("smart_location_prefs", Context.MODE_PRIVATE)
+        val flutterPrefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val current = (nativePrefs.getString("active_owner_uid", "") ?: "")
+                .ifEmpty { flutterPrefs.getString("flutter.active_owner_uid", "") ?: "" }
+        if (current.isEmpty()) return false
 
         return current == ownerUid
     }

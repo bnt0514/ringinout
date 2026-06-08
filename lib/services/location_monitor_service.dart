@@ -30,6 +30,7 @@ import 'package:hive/hive.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ringinout/config/app_config.dart';
 import 'package:ringinout/services/alarm_notification_helper.dart';
 import 'package:ringinout/services/app_log_buffer.dart';
 import 'package:ringinout/services/hive_helper.dart';
@@ -84,6 +85,7 @@ class LocationMonitorService {
 
   /// Wi-Fi 연결 대기 타이머: GPS ENTER 후 15분 내 Wi-Fi 미연결 → GPS 보조 알람
   final Map<String, Timer> _wifiWaitTimers = {};
+  final Set<String> _wifiWaitTimersUsingConnectedWifi = {};
 
   /// ★ 현재 Wi-Fi 연결 중인 장소 ID 집합
   /// Wi-Fi ENTER 시 add, Wi-Fi EXIT 시 remove
@@ -270,6 +272,7 @@ class LocationMonitorService {
       timer.cancel();
     }
     _wifiWaitTimers.clear();
+    _wifiWaitTimersUsingConnectedWifi.clear();
     _pendingGpsEntryPlaces.clear();
     _wifiConnectedPlaceIds.clear();
     _alarmPlaceCache.clear();
@@ -278,6 +281,7 @@ class LocationMonitorService {
     _onTriggerCallback = null;
     _trackedPlaceNames = {};
     await _saveServiceState(false);
+    await clearWatchdogHeartbeat();
     _log('🛑 v3 중지');
   }
 
@@ -406,13 +410,6 @@ class LocationMonitorService {
   // ─── ENTER 처리 ───
 
   void _handleGeofenceEnter(String placeId, List<String> alarmIds) {
-    // Init Guard 체크
-    if (_initGuardUntil != null && DateTime.now().isBefore(_initGuardUntil!)) {
-      _log('🛡️ Init Guard — ENTER 무시, INSIDE_IDLE 설정: $placeId');
-      _setStatesForAlarms(alarmIds, PlaceState.insideIdle);
-      return;
-    }
-
     final activeAlarms = HiveHelper.getActiveAlarmsForMonitoring();
     final gpsAlarmIds = _getAlarmIdsForPlaceByMode(
       placeId,
@@ -424,6 +421,27 @@ class LocationMonitorService {
       activeAlarms,
       AlarmDetectionMode.wifi,
     );
+    final wifiNetworks = HiveHelper.getWifiNetworksForPlace(placeId);
+
+    // Init Guard 체크
+    if (_initGuardUntil != null && DateTime.now().isBefore(_initGuardUntil!)) {
+      final currentState = _getAggregatePlaceState(alarmIds);
+      if (currentState == PlaceState.outside &&
+          wifiAlarmIds.isNotEmpty &&
+          wifiNetworks.isNotEmpty) {
+        if (gpsAlarmIds.isNotEmpty) {
+          _setStatesForAlarms(gpsAlarmIds, PlaceState.insideIdle);
+        }
+        _pendingGpsEntryPlaces.add(placeId);
+        _startWifiWaitTimer(placeId);
+        _log('Init Guard ENTER pending Wi-Fi wait: $placeId');
+        return;
+      }
+      _log('🛡️ Init Guard — ENTER 무시, INSIDE_IDLE 설정: $placeId');
+      _setStatesForAlarms(alarmIds, PlaceState.insideIdle);
+      return;
+    }
+
     final currentState = _getAggregatePlaceState(alarmIds);
     final gpsState =
         gpsAlarmIds.isEmpty
@@ -450,7 +468,6 @@ class LocationMonitorService {
 
     // OUTSIDE → ENTER
     // GPS 알람은 즉시 발동, Wi-Fi 알람은 Wi-Fi 연결 확인 후 발동
-    final wifiNetworks = HiveHelper.getWifiNetworksForPlace(placeId);
     if (wifiAlarmIds.isNotEmpty && wifiNetworks.isNotEmpty) {
       _log(
         '📡 [$placeId] GPS ENTER — GPS알람=${gpsAlarmIds.length}, Wi-Fi알람=${wifiAlarmIds.length} → Wi-Fi 알람은 연결 대기',
@@ -590,6 +607,10 @@ class LocationMonitorService {
   /// 블루투스 장소 진입/진출 이벤트 (장소 종속형 — Wi-Fi와 동일 구조)
   /// 네이티브 BluetoothMonitorManager → SmartLocationManager → MethodChannel → SLM → 여기
   void onBluetoothEvent(String placeId, bool isEnter) {
+    if (!AppConfig.enableBluetoothFeatures) {
+      _log('Bluetooth event ignored: feature disabled');
+      return;
+    }
     if (!_isRunning) return;
 
     _log('🔵 BT ${isEnter ? "ENTER" : "EXIT"}: $placeId');
@@ -615,6 +636,10 @@ class LocationMonitorService {
     String deviceName,
     bool isConnected,
   ) async {
+    if (!AppConfig.enableBluetoothFeatures) {
+      _log('Bluetooth device event ignored: feature disabled');
+      return;
+    }
     if (!_isRunning) {
       _log(
         '⚠️ onBluetoothDeviceEvent 무시 (_isRunning=false): $deviceName ($macAddress)',
@@ -635,6 +660,10 @@ class LocationMonitorService {
     String deviceName,
     bool isConnected,
   ) async {
+    if (!AppConfig.enableBluetoothFeatures) {
+      _log('Device alarm force trigger ignored: feature disabled');
+      return;
+    }
     _log(
       '🧪 기기 알람 강제 트리거: $deviceName ($macAddress) ${isConnected ? "CONNECTED" : "DISCONNECTED"}',
     );
@@ -650,6 +679,7 @@ class LocationMonitorService {
     String deviceName,
     bool isConnected,
   ) async {
+    if (!AppConfig.enableBluetoothFeatures) return;
     final upperMac = macAddress.toUpperCase();
 
     // 활성화된 기기 알람 중 MAC 매칭
@@ -722,9 +752,7 @@ class LocationMonitorService {
         await prefs.setInt('cooldown_until_$alarmId', cooldownUntil);
 
         // 당일 트리거 기록
-        final todayStr = _todayDateString();
-        await prefs.setString('alarm_triggered_date_$alarmId', todayStr);
-        _log('📅 BT 기기 알람 당일 트리거 기록: ${_shortId(alarmId)} → $todayStr');
+        _log('BT cooldown set before alarm display: ${_shortId(alarmId)}');
       } catch (e) {
         _log('⚠️ BT 기기 알람 쿨다운 설정 실패: $e');
       }
@@ -824,6 +852,11 @@ class LocationMonitorService {
 
     // Init Guard 체크 (GPS와 동일)
     if (_initGuardUntil != null && DateTime.now().isBefore(_initGuardUntil!)) {
+      if (_pendingGpsEntryPlaces.contains(placeId)) {
+        _log('[InitGuard] Wi-Fi ENTER kept pending for stable check: $placeId');
+        _startWifiWaitTimer(placeId);
+        return;
+      }
       _log('🛡️ Init Guard — Wi-Fi ENTER 무시, INSIDE_IDLE 설정: $placeId');
       _setStatesForAlarms(alarmIds, PlaceState.insideIdle);
       return;
@@ -1771,9 +1804,7 @@ class LocationMonitorService {
         await prefs.setInt('cooldown_until_$alarmId', cooldownUntil);
 
         // ★ 당일 트리거 기록 — 반복 알람의 같은 날 재트리거 방지
-        final todayStr = _todayDateString();
-        await prefs.setString('alarm_triggered_date_$alarmId', todayStr);
-        _log('📅 당일 트리거 기록: ${_shortId(alarmId)} → $todayStr');
+        _log('cooldown set before alarm display: ${_shortId(alarmId)}');
       } catch (e) {
         _log('⚠️ 쿨다운/트리거 기록 설정 실패: $e');
       }
@@ -2120,11 +2151,16 @@ class LocationMonitorService {
 
       if (Hive.isBoxOpen('locationAlarms_v2')) {
         final box = Hive.box('locationAlarms_v2');
+        final prefs = await SharedPreferences.getInstance();
+        final activeOwner = prefs.getString('active_owner_uid');
+        if (activeOwner == null || activeOwner.isEmpty) return [];
         return box.values
             .whereType<Map>()
             .map((a) => Map<String, dynamic>.from(a))
             .where(
-              (a) => HiveHelper.isAlarmActiveForMonitoring(a, DateTime.now()),
+              (a) =>
+                  a['ownerUid']?.toString() == activeOwner &&
+                  HiveHelper.isAlarmActiveForMonitoring(a, DateTime.now()),
             )
             .toList();
       }
@@ -2221,22 +2257,35 @@ class LocationMonitorService {
   // ═══════════════════════════════════════════════════════════
 
   /// GPS ENTER 후 Wi-Fi 연결을 15분 대기. 미연결 시 GPS 위치 재확인하여 보조 알람.
-  void _startWifiWaitTimer(String placeId) {
+  void _startWifiWaitTimer(String placeId, {bool forceLongWait = false}) {
     _cancelWifiWaitTimer(placeId); // 기존 타이머 취소
+    final wifiAlreadyConnected =
+        !forceLongWait && _wifiConnectedPlaceIds.contains(placeId);
+    final waitDuration =
+        wifiAlreadyConnected
+            ? const Duration(seconds: 15)
+            : const Duration(minutes: 15);
 
     _log(
-      '⏱️ [$placeId] Wi-Fi 대기 타이머 시작 (15분) '
+      '⏱️ [$placeId] Wi-Fi 대기 타이머 시작 '
+      '(${wifiAlreadyConnected ? "15초/이미 연결" : "15분"}) '
       'pending=${_pendingGpsEntryPlaces.contains(placeId)}, '
       'trackedConnected=${_wifiConnectedPlaceIds.contains(placeId)}',
     );
+    if (wifiAlreadyConnected) {
+      _wifiWaitTimersUsingConnectedWifi.add(placeId);
+    } else if (!forceLongWait) {
+      unawaited(_promoteWifiWaitIfCurrentlyConnected(placeId));
+    }
     _wifiWaitTimers[placeId] = Timer(
-      const Duration(minutes: 15),
+      waitDuration,
       () => _onWifiWaitTimeout(placeId),
     );
   }
 
   void _cancelWifiWaitTimer(String placeId) {
     final timer = _wifiWaitTimers.remove(placeId);
+    _wifiWaitTimersUsingConnectedWifi.remove(placeId);
     if (timer != null) {
       timer.cancel();
       _log('⏱️ [$placeId] Wi-Fi 대기 타이머 취소');
@@ -2245,13 +2294,69 @@ class LocationMonitorService {
     }
   }
 
+  Future<void> _promoteWifiWaitIfCurrentlyConnected(String placeId) async {
+    try {
+      final registeredNetworks = HiveHelper.getWifiNetworksForPlace(placeId);
+      if (registeredNetworks.isEmpty) return;
+
+      final connected = await WifiService.getConnectedWifi();
+      if (connected == null) return;
+
+      final connectedBssid = (connected['bssid'] ?? '').toLowerCase();
+      final connectedSsid = (connected['ssid'] ?? '').toLowerCase();
+      final isMatched = registeredNetworks.any((net) {
+        final bssid = (net['bssid'] ?? '').toString().toLowerCase();
+        final ssid = (net['ssid'] ?? '').toString().toLowerCase();
+        final bssidMatched = bssid.isNotEmpty && bssid == connectedBssid;
+        final ssidMatched = ssid.isNotEmpty && ssid == connectedSsid;
+        return bssidMatched || ssidMatched;
+      });
+
+      if (!_isRunning ||
+          !isMatched ||
+          !_pendingGpsEntryPlaces.contains(placeId) ||
+          _wifiConnectedPlaceIds.contains(placeId)) {
+        return;
+      }
+
+      _wifiConnectedPlaceIds.add(placeId);
+      _log('📶 [$placeId] 현재 연결 Wi-Fi가 등록 Wi-Fi와 일치 → 15초 안정 확인으로 전환');
+      if (_wifiWaitTimers.containsKey(placeId)) {
+        _startWifiWaitTimer(placeId);
+      }
+    } catch (e) {
+      _log('📶 [$placeId] 현재 Wi-Fi 확인 실패: $e');
+    }
+  }
+
   /// 15분 Wi-Fi 대기 타임아웃 → GPS 위치 재확인
   Future<void> _onWifiWaitTimeout(String placeId) async {
     _wifiWaitTimers.remove(placeId);
+    final wasUsingConnectedWifi = _wifiWaitTimersUsingConnectedWifi.remove(
+      placeId,
+    );
 
     if (!_isRunning) return;
     if (!_pendingGpsEntryPlaces.contains(placeId)) {
       _log('⏱️ [$placeId] Wi-Fi 대기 만료 — 이미 해소됨, 스킵');
+      return;
+    }
+
+    if (wasUsingConnectedWifi) {
+      if (_wifiConnectedPlaceIds.contains(placeId)) {
+        _log('⏱️ [$placeId] 이미 연결된 Wi-Fi 15초 안정 확인 → Wi-Fi 진입 처리');
+        await _processEntryAlarm(
+          placeId,
+          detectionMode: AlarmDetectionMode.wifi,
+        );
+        if (_pendingGpsEntryPlaces.contains(placeId)) {
+          _log('⏱️ [$placeId] Wi-Fi 진입 처리 후 pending 유지 → 15분 GPS 보조로 전환');
+          _startWifiWaitTimer(placeId, forceLongWait: true);
+        }
+      } else {
+        _log('⏱️ [$placeId] 이미 연결 Wi-Fi 안정 확인 실패 → 15분 GPS 보조로 전환');
+        _startWifiWaitTimer(placeId, forceLongWait: true);
+      }
       return;
     }
 
@@ -2505,6 +2610,20 @@ class LocationMonitorService {
 
   /// 요일 필터 없이 enabled=true인 알람 수 (복구 판단용)
   /// - 목요일 전용 주간 알람이라도 수요일에 앱이 죽으면 복구해야 함
+  static Future<void> clearWatchdogHeartbeat() async {
+    try {
+      await _watchdogChannel.invokeMethod('sendHeartbeat', {
+        'activeAlarmsCount': 0,
+      });
+      await _watchdogChannel.invokeMethod('cancelDeathNotification');
+      await _watchdogChannel.invokeMethod('stopWatchdog');
+    } on MissingPluginException {
+      // Channel is unavailable when the native side has not attached yet.
+    } catch (e) {
+      debugPrint('[LMS] Watchdog clear failed: $e');
+    }
+  }
+
   static Future<int> _getEnabledAlarmsCountStatic() async {
     try {
       final box = HiveHelper.alarmBox;

@@ -1,0 +1,3 @@
+• Enregistrement des alarmes plus fiable : le bouton Enregistrer répond instantanément et les doublons sont évités.
+• Avis plus clairs : ajout d'explications, dans les Conditions et la Politique de confidentialité, sur l'impact du redémarrage, de l'arrêt forcé et de l'arrêt par le système d'exploitation sur les alarmes.
+• Localisation : ajout des traductions des politiques en allemand, français et espagnol, et amélioration de la précision dans plusieurs langues.

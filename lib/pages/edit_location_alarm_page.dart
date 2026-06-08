@@ -39,6 +39,7 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
   bool alarmSoundEnabled = true;
   bool vibrationEnabled = true;
   String detectionMode = AlarmDetectionMode.gps;
+  bool _isSaving = false; // ✅ 중복 저장/삭제 방지 가드
 
   List<String> _getWeekdays(AppLocalizations l10n) => [
     'sun',
@@ -893,16 +894,25 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () async {
-                      final id = widget.existingAlarmData['id']; // ✅ 고유 ID 확보
-                      await HiveHelper.deleteAlarmById(id); // ✅ ID 기반 통합 삭제
+                    onPressed:
+                        _isSaving
+                            ? null
+                            : () async {
+                              if (_isSaving) return;
+                              setState(() => _isSaving = true);
+                              final id =
+                                  widget.existingAlarmData['id']; // ✅ 고유 ID 확보
+                              await HiveHelper.deleteAlarmById(
+                                id,
+                              ); // ✅ ID 기반 통합 삭제
 
-                      // ✅ Watchdog heartbeat 전송 (활성 알람 수 동기화)
-                      await LocationMonitorService.sendWatchdogHeartbeat();
-                      print('🗑️ 알람 삭제 후 Heartbeat 전송');
+                              // ✅ Watchdog heartbeat 전송 (활성 알람 수 동기화)
+                              await LocationMonitorService.sendWatchdogHeartbeat();
+                              print('🗑️ 알람 삭제 후 Heartbeat 전송');
 
-                      Navigator.pop(context); // ✅ 뒤로 가기
-                    },
+                              if (!mounted) return;
+                              Navigator.pop(context); // ✅ 뒤로 가기
+                            },
                     child: Text(AppLocalizations.of(context).get('delete_btn')),
                   ),
                 ),
@@ -910,11 +920,14 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed:
-                        (alarmName.trim().isEmpty ||
+                        (_isSaving ||
+                                alarmName.trim().isEmpty ||
                                 (!triggerOnEntry && !triggerOnExit) ||
                                 (!alarmSoundEnabled && !vibrationEnabled))
                             ? null
                             : () async {
+                              if (_isSaving) return;
+                              setState(() => _isSaving = true);
                               try {
                                 final alarmId = widget.existingAlarmData['id'];
                                 final sortedWeekdays =
@@ -1020,6 +1033,7 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
                               } catch (e) {
                                 print('❌ 알람 저장 실패: $e');
                                 if (mounted) {
+                                  setState(() => _isSaving = false);
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
@@ -1035,7 +1049,21 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
                                 }
                               }
                             },
-                    child: Text(AppLocalizations.of(context).get('save_btn')),
+                    child:
+                        _isSaving
+                            ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            )
+                            : Text(
+                              AppLocalizations.of(context).get('save_btn'),
+                            ),
                   ),
                 ),
               ],

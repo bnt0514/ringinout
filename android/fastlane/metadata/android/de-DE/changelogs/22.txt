@@ -1,0 +1,3 @@
+• Zuverlässigeres Speichern von Alarmen: Die Schaltfläche zum Speichern reagiert sofort und doppeltes Speichern wird verhindert.
+• Klarere Hinweise: In den Nutzungsbedingungen und der Datenschutzrichtlinie wurde erläutert, wie Neustart, erzwungenes Beenden und Beendigung durch das Betriebssystem Alarme beeinflussen können.
+• Lokalisierung: Deutsche, französische und spanische Richtlinienübersetzungen hinzugefügt und die Genauigkeit in mehreren Sprachen verbessert.

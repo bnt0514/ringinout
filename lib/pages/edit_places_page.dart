@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ringinout/config/app_config.dart';
 import 'package:ringinout/config/app_theme.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' as gmap;
@@ -64,7 +65,7 @@ class _EditPlacePageState extends State<EditPlacePage> {
 
     // ✅ 블루투스 기기 초기화
     final bt = widget.initialData['bluetoothDevices'];
-    if (bt is List) {
+    if (AppConfig.enableBluetoothFeatures && bt is List) {
       _selectedBluetoothDevices =
           bt.map((b) => Map<String, dynamic>.from(b as Map)).toList();
     }
@@ -118,7 +119,8 @@ class _EditPlacePageState extends State<EditPlacePage> {
       'lng': _selectedLatLng.longitude,
       'radius': _radius,
       'wifiNetworks': _selectedWifiNetworks,
-      'bluetoothDevices': _selectedBluetoothDevices,
+      'bluetoothDevices':
+          AppConfig.enableBluetoothFeatures ? _selectedBluetoothDevices : [],
     };
 
     await HiveHelper.updateLocationAt(widget.index, updatedLocation);

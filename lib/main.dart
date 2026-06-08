@@ -7,6 +7,7 @@ import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:google_maps_flutter_android/google_maps_flutter_android.dart';
 import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart';
+import 'package:kakao_flutter_sdk_common/kakao_flutter_sdk_common.dart';
 
 // Project imports
 import 'package:ringinout/app/app.dart';
@@ -27,6 +28,10 @@ import 'package:ringinout/services/map_provider_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  KakaoSdk.init(nativeAppKey: 'eca1fe0b96ef7826827219fe4004590b');
+  if (kDebugMode) {
+    debugPrint('Kakao key hash: ${await KakaoSdk.origin}');
+  }
 
   // Firebase 초기화
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);

@@ -6,6 +6,11 @@ admin.initializeApp();
 
 const db = admin.firestore();
 const ADMIN_UIDS = new Set(['IPf2TW0c62et7bwi8B5hZGyKLlc2']);
+const ACCOUNT_COLLECTION = 'accounts';
+const ACCOUNT_IDENTITY_COLLECTION = 'account_identities';
+const ACCOUNT_DELETION_REQUEST_COLLECTION = 'account_deletion_requests';
+const INTERNAL_FIREBASE_PROVIDER = 'firebase';
+const DEVICE_PROVIDER = 'device';
 
 // Allowed origins for CORS (restrict in production)
 const ALLOWED_ORIGINS = ['https://ringgo-485705.web.app', 'https://ringgo-485705.firebaseapp.com'];
@@ -94,24 +99,8 @@ function generateAnonUserId(firebaseUid) {
 }
 
 async function requireFirebaseUid(req, res) {
-    const appCheckOk = await requireAppCheck(req, res);
-    if (!appCheckOk) return null;
-
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        res.status(401).json({ error: 'Authorization header missing' });
-        return null;
-    }
-
-    try {
-        const idToken = authHeader.split('Bearer ')[1];
-        const decodedToken = await admin.auth().verifyIdToken(idToken);
-        return decodedToken.uid;
-    } catch (error) {
-        console.error('Token verification failed:', error);
-        res.status(401).json({ error: 'Invalid or expired token' });
-        return null;
-    }
+    const decodedToken = await requireDecodedFirebaseToken(req, res);
+    return decodedToken?.uid || null;
 }
 
 function getBillingPackageName() {
@@ -131,6 +120,242 @@ function getProductPlanMap() {
 
 function hashPurchaseToken(token) {
     return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+function stripUndefined(value) {
+    return Object.fromEntries(
+        Object.entries(value).filter(([, entry]) => entry !== undefined)
+    );
+}
+
+function asArray(value) {
+    return Array.isArray(value) ? value : [];
+}
+
+function hmacIdentifier(value) {
+    const secret = getRequiredConfigValue('app', 'secret', 'APP_SECRET');
+    return crypto.createHmac('sha256', secret).update(String(value)).digest('hex');
+}
+
+function buildCanonicalAccountId(anonUserId) {
+    return `acct_${anonUserId.substring(0, 32)}`;
+}
+
+function normalizeProviderId(providerId) {
+    const normalized = String(providerId || '').trim().toLowerCase();
+    return normalized || INTERNAL_FIREBASE_PROVIDER;
+}
+
+function shouldUseProviderSubject(providerId) {
+    const normalized = normalizeProviderId(providerId);
+    return normalized !== 'email';
+}
+
+function buildIdentityKey(providerId, subject) {
+    const normalizedProviderId = normalizeProviderId(providerId);
+    const subjectText = String(subject || '').trim();
+    if (!subjectText) return null;
+    const subjectHash = hmacIdentifier(`${normalizedProviderId}:${subjectText}`);
+    return {
+        identityKey: `v1_${subjectHash}`,
+        providerId: normalizedProviderId,
+        subjectHash,
+    };
+}
+
+function buildIdentityLinks(decodedToken, deviceDescriptor = null) {
+    const links = [];
+    const pushLink = (providerId, subject, source) => {
+        const normalizedProviderId = normalizeProviderId(providerId);
+        if (!shouldUseProviderSubject(normalizedProviderId)) return;
+        const identity = buildIdentityKey(normalizedProviderId, subject);
+        if (!identity) return;
+        links.push({
+            ...identity,
+            source,
+        });
+    };
+
+    pushLink(INTERNAL_FIREBASE_PROVIDER, decodedToken.uid, 'firebase_uid');
+
+    if (decodedToken.provider_id && decodedToken.provider_subject) {
+        pushLink(decodedToken.provider_id, decodedToken.provider_subject, 'custom_provider_claim');
+    }
+
+    if (deviceDescriptor?.device_id_hash) {
+        pushLink(DEVICE_PROVIDER, deviceDescriptor.device_id_hash, 'device_id');
+    }
+
+    const firebaseIdentities = decodedToken.firebase?.identities || {};
+    Object.entries(firebaseIdentities).forEach(([providerId, values]) => {
+        const identityValues = Array.isArray(values) ? values : [values];
+        identityValues.forEach((value) => {
+            pushLink(providerId, value, 'firebase_provider_identity');
+        });
+    });
+
+    const seen = new Set();
+    return links.filter((link) => {
+        if (seen.has(link.identityKey)) return false;
+        seen.add(link.identityKey);
+        return true;
+    }).slice(0, 10);
+}
+
+function getIdentityAccountId(identityData) {
+    return identityData?.canonicalAccountId || identityData?.canonical_account_id || null;
+}
+
+function getProviderIdsFromLinks(identityLinks, decodedToken) {
+    const providerIds = new Set(
+        identityLinks
+            .map((link) => link.providerId)
+            .filter((providerId) => providerId
+                && ![INTERNAL_FIREBASE_PROVIDER, DEVICE_PROVIDER].includes(providerId))
+    );
+    const signInProvider = normalizeProviderId(decodedToken.firebase?.sign_in_provider);
+    if (signInProvider && !['anonymous', 'password', INTERNAL_FIREBASE_PROVIDER].includes(signInProvider)) {
+        providerIds.add(signInProvider);
+    }
+    return Array.from(providerIds);
+}
+
+function getBearerToken(req) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return null;
+    }
+    return authHeader.split('Bearer ')[1];
+}
+
+async function verifyFirebaseIdToken(idToken) {
+    return admin.auth().verifyIdToken(idToken);
+}
+
+async function requireDecodedFirebaseToken(req, res) {
+    const appCheckOk = await requireAppCheck(req, res);
+    if (!appCheckOk) return null;
+
+    const idToken = getBearerToken(req);
+    if (!idToken) {
+        res.status(401).json({ error: 'Authorization header missing' });
+        return null;
+    }
+
+    try {
+        return await verifyFirebaseIdToken(idToken);
+    } catch (error) {
+        console.error('Token verification failed:', error);
+        res.status(401).json({ error: 'Invalid or expired token' });
+        return null;
+    }
+}
+
+async function resolveIdentityFromDecodedToken(decodedToken, deviceDescriptor = null) {
+    const firebaseUid = decodedToken.uid;
+    const anonUserId = generateAnonUserId(firebaseUid);
+    const identityLinks = buildIdentityLinks(decodedToken, deviceDescriptor);
+    const identityRefs = identityLinks.map((link) =>
+        db.collection(ACCOUNT_IDENTITY_COLLECTION).doc(link.identityKey)
+    );
+
+    const resolution = await db.runTransaction(async (tx) => {
+        const identitySnaps = await Promise.all(identityRefs.map((ref) => tx.get(ref)));
+        const firebaseIndex = identityLinks.findIndex((link) => link.providerId === INTERNAL_FIREBASE_PROVIDER);
+        const firebaseMatch = firebaseIndex >= 0
+            ? getIdentityAccountId(identitySnaps[firebaseIndex].data())
+            : null;
+        const matchedAccountIds = identitySnaps
+            .map((snap) => getIdentityAccountId(snap.data()))
+            .filter(Boolean);
+        const uniqueMatchedAccountIds = Array.from(new Set(matchedAccountIds));
+        const canonicalAccountId = firebaseMatch || uniqueMatchedAccountIds[0] || buildCanonicalAccountId(anonUserId);
+        const conflictingAccountIds = uniqueMatchedAccountIds.filter((id) => id !== canonicalAccountId);
+        const accountRef = db.collection(ACCOUNT_COLLECTION).doc(canonicalAccountId);
+        const accountSnap = await tx.get(accountRef);
+        const accountData = accountSnap.exists ? accountSnap.data() : {};
+        const providerIds = getProviderIdsFromLinks(identityLinks, decodedToken);
+        const now = admin.firestore.FieldValue.serverTimestamp();
+
+        const accountPatch = {
+            canonicalAccountId,
+            canonical_account_id: canonicalAccountId,
+            primary_firebase_uid: accountData.primary_firebase_uid || firebaseUid,
+            last_firebase_uid: firebaseUid,
+            firebase_uids: admin.firestore.FieldValue.arrayUnion(firebaseUid),
+            anon_user_ids: admin.firestore.FieldValue.arrayUnion(anonUserId),
+            status: accountData.status || 'active',
+            identity_version: 1,
+            last_sign_in_provider: normalizeProviderId(decodedToken.firebase?.sign_in_provider),
+            last_login_at: now,
+            updated_at: now,
+            linked_provider_ids: providerIds.length
+                ? admin.firestore.FieldValue.arrayUnion(...providerIds)
+                : undefined,
+            identity_conflicts: conflictingAccountIds.length ? conflictingAccountIds : undefined,
+            created_at: accountSnap.exists ? undefined : now,
+        };
+        tx.set(accountRef, stripUndefined(accountPatch), { merge: true });
+
+        identityLinks.forEach((link, index) => {
+            const identitySnap = identitySnaps[index];
+            const identityData = identitySnap.exists ? identitySnap.data() : {};
+            const existingAccountId = getIdentityAccountId(identityData);
+            if (existingAccountId && existingAccountId !== canonicalAccountId) return;
+
+            tx.set(identityRefs[index], stripUndefined({
+                canonicalAccountId,
+                canonical_account_id: canonicalAccountId,
+                provider_id: link.providerId,
+                subject_hash: link.subjectHash,
+                source: link.source,
+                status: identityData.status || 'linked',
+                firebase_uid_last_seen: firebaseUid,
+                anon_user_id_last_seen: anonUserId,
+                created_at: identitySnap.exists ? undefined : now,
+                linked_at: identityData.linked_at || now,
+                last_seen_at: now,
+                updated_at: now,
+            }), { merge: true });
+        });
+
+        const knownFirebaseUids = Array.from(new Set([...asArray(accountData.firebase_uids), firebaseUid]));
+        const knownAnonUserIds = Array.from(new Set([...asArray(accountData.anon_user_ids), anonUserId]));
+        return {
+            canonicalAccountId,
+            providerIds,
+            conflictingAccountIds,
+            accountData: {
+                ...accountData,
+                canonicalAccountId,
+                canonical_account_id: canonicalAccountId,
+                firebase_uids: knownFirebaseUids,
+                anon_user_ids: knownAnonUserIds,
+            },
+        };
+    });
+
+    return {
+        decodedToken,
+        firebaseUid,
+        anonUserId,
+        canonicalAccountId: resolution.canonicalAccountId,
+        providerIds: resolution.providerIds,
+        identityLinks,
+        accountData: resolution.accountData,
+        identityConflicts: resolution.conflictingAccountIds,
+    };
+}
+
+async function resolveIdentityFromIdToken(idToken, deviceDescriptor = null) {
+    const decodedToken = await verifyFirebaseIdToken(idToken);
+    return resolveIdentityFromDecodedToken(decodedToken, deviceDescriptor);
+}
+
+async function requireAccountContext(req, res) {
+    const decodedToken = await requireDecodedFirebaseToken(req, res);
+    if (!decodedToken) return null;
+    return resolveIdentityFromDecodedToken(decodedToken);
 }
 
 async function getAndroidPublisher() {
@@ -176,12 +401,12 @@ function currentWeekUtc() {
     return `${monday.getUTCFullYear()}-W${String(weekNum).padStart(2, '0')}`;
 }
 
-async function consumeRateLimit(firebaseUid, bucket, minuteLimit, dayLimit) {
+async function consumeRateLimit(accountScopeId, bucket, minuteLimit, dayLimit) {
     const now = new Date();
     const minuteId = now.toISOString().slice(0, 16).replace(/[-:T]/g, '');
     const dayId = now.toISOString().slice(0, 10).replace(/-/g, '');
-    const minuteRef = db.collection('rate_limits').doc(`${bucket}_${firebaseUid}_${minuteId}`);
-    const dayRef = db.collection('rate_limits').doc(`${bucket}_${firebaseUid}_${dayId}`);
+    const minuteRef = db.collection('rate_limits').doc(`${bucket}_${accountScopeId}_${minuteId}`);
+    const dayRef = db.collection('rate_limits').doc(`${bucket}_${accountScopeId}_${dayId}`);
 
     return db.runTransaction(async (tx) => {
         const [minuteSnap, daySnap] = await Promise.all([tx.get(minuteRef), tx.get(dayRef)]);
@@ -230,7 +455,18 @@ function incrementsFromDelta(delta) {
 }
 
 // Firestore에서 special 플랜 여부 확인
-async function checkSpecialPlan(firebaseUid) {
+function valueInConfigList(data, keys, value) {
+    if (!value) return false;
+    return keys.some((key) => {
+        const values = data[key];
+        return Array.isArray(values) && values.includes(value);
+    });
+}
+
+async function checkSpecialPlan(identityOrUid) {
+    const firebaseUid = typeof identityOrUid === 'string' ? identityOrUid : identityOrUid?.firebaseUid;
+    const canonicalAccountId = typeof identityOrUid === 'string' ? null : identityOrUid?.canonicalAccountId;
+    const anonUserId = typeof identityOrUid === 'string' ? null : identityOrUid?.anonUserId;
     try {
         const adminDoc = await admin.firestore()
             .collection('admin_config')
@@ -241,8 +477,10 @@ async function checkSpecialPlan(firebaseUid) {
             return false;
         }
 
-        const uids = adminDoc.data().uids || [];
-        return uids.includes(firebaseUid);
+        const data = adminDoc.data() || {};
+        return valueInConfigList(data, ['canonicalAccountIds', 'canonical_account_ids', 'accountIds', 'account_ids'], canonicalAccountId)
+            || valueInConfigList(data, ['anonUserIds', 'anon_user_ids'], anonUserId)
+            || valueInConfigList(data, ['uids'], firebaseUid);
     } catch (error) {
         console.error('❌ Firestore check failed:', error);
         return false;
@@ -252,6 +490,242 @@ async function checkSpecialPlan(firebaseUid) {
 // ============================================================
 // POST /auth/session - 로그인 세션 생성
 // ============================================================
+function addAccountFields(identity, patch) {
+    return {
+        ...patch,
+        canonicalAccountId: identity.canonicalAccountId,
+        canonical_account_id: identity.canonicalAccountId,
+        anonUserId: identity.anonUserId,
+        anon_user_id: identity.anonUserId,
+        firebaseUid: identity.firebaseUid,
+        firebase_uid: identity.firebaseUid,
+    };
+}
+
+function buildDefaultSubscription(identity, plan, now) {
+    return addAccountFields(identity, {
+        store: 'manual',
+        plan,
+        status: 'active',
+        expires_at: null,
+        last_verified_at: now,
+    });
+}
+
+function normalizeSubscriptionForAccount(identity, subscription) {
+    if (!subscription) return null;
+    return addAccountFields(identity, {
+        ...subscription,
+        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+}
+
+async function ensureSessionDocuments(identity) {
+    const now = Date.now();
+    const isSpecialUser = await checkSpecialPlan(identity);
+    const defaultPlan = isSpecialUser ? 'special' : 'free';
+    const canonicalUserRef = db.collection('cf_users').doc(identity.canonicalAccountId);
+    const legacyUserRef = db.collection('cf_users').doc(identity.anonUserId);
+    const canonicalSubRef = db.collection('cf_subscriptions').doc(identity.canonicalAccountId);
+    const legacySubRef = db.collection('cf_subscriptions').doc(identity.anonUserId);
+    const hasSeparateLegacyDocs = identity.canonicalAccountId !== identity.anonUserId;
+
+    return db.runTransaction(async (tx) => {
+        const refsToRead = [canonicalUserRef, canonicalSubRef];
+        if (hasSeparateLegacyDocs) refsToRead.push(legacyUserRef, legacySubRef);
+        const snaps = await Promise.all(refsToRead.map((ref) => tx.get(ref)));
+        const canonicalUserSnap = snaps[0];
+        const canonicalSubSnap = snaps[1];
+        const legacyUserSnap = hasSeparateLegacyDocs ? snaps[2] : canonicalUserSnap;
+        const legacySubSnap = hasSeparateLegacyDocs ? snaps[3] : canonicalSubSnap;
+
+        const userPatch = addAccountFields(identity, {
+            last_login_at: now,
+            updated_at: admin.firestore.FieldValue.serverTimestamp(),
+            created_at: canonicalUserSnap.exists
+                ? undefined
+                : (legacyUserSnap.exists ? legacyUserSnap.data().created_at : now),
+        });
+        tx.set(canonicalUserRef, stripUndefined(userPatch), { merge: true });
+        if (hasSeparateLegacyDocs) {
+            tx.set(legacyUserRef, stripUndefined({
+                ...userPatch,
+                legacy_alias: true,
+            }), { merge: true });
+        }
+
+        const existingSub = canonicalSubSnap.exists
+            ? canonicalSubSnap.data()
+            : (legacySubSnap.exists ? legacySubSnap.data() : null);
+        let subscription = existingSub
+            ? normalizeSubscriptionForAccount(identity, existingSub)
+            : buildDefaultSubscription(identity, defaultPlan, now);
+
+        if (isSpecialUser) {
+            subscription = {
+                ...subscription,
+                store: 'manual',
+                plan: 'special',
+                status: 'active',
+                expires_at: null,
+                last_verified_at: now,
+            };
+        }
+
+        if (!canonicalSubSnap.exists || isSpecialUser) {
+            tx.set(canonicalSubRef, subscription, { merge: true });
+        } else {
+            tx.set(canonicalSubRef, addAccountFields(identity, {
+                updated_at: admin.firestore.FieldValue.serverTimestamp(),
+            }), { merge: true });
+        }
+        if (hasSeparateLegacyDocs) {
+            tx.set(legacySubRef, {
+                ...subscription,
+                legacy_alias: true,
+            }, { merge: true });
+        }
+
+        return {
+            createdUser: !canonicalUserSnap.exists,
+            subscription,
+            isSpecialUser,
+        };
+    });
+}
+
+async function getEffectiveSubscription(identity) {
+    const canonicalSubRef = db.collection('cf_subscriptions').doc(identity.canonicalAccountId);
+    const legacySubRef = db.collection('cf_subscriptions').doc(identity.anonUserId);
+    const hasSeparateLegacyDocs = identity.canonicalAccountId !== identity.anonUserId;
+    const snaps = hasSeparateLegacyDocs
+        ? await Promise.all([canonicalSubRef.get(), legacySubRef.get()])
+        : [await canonicalSubRef.get(), null];
+    const canonicalSnap = snaps[0];
+    const legacySnap = snaps[1];
+    const now = Date.now();
+    let subscription = canonicalSnap.exists
+        ? canonicalSnap.data()
+        : (legacySnap?.exists ? legacySnap.data() : buildDefaultSubscription(identity, 'free', now));
+
+    if (await checkSpecialPlan(identity)) {
+        subscription = {
+            ...subscription,
+            store: subscription.store || 'manual',
+            plan: 'special',
+            status: 'active',
+            expires_at: null,
+        };
+    }
+
+    return addAccountFields(identity, subscription);
+}
+
+function isPurchaseTokenBoundToDifferentAccount(tokenData, identity) {
+    const tokenAccountId = tokenData.canonicalAccountId || tokenData.canonical_account_id;
+    if (tokenAccountId && tokenAccountId !== identity.canonicalAccountId) return true;
+
+    const knownFirebaseUids = new Set([...asArray(identity.accountData?.firebase_uids), identity.firebaseUid]);
+    const knownAnonUserIds = new Set([...asArray(identity.accountData?.anon_user_ids), identity.anonUserId]);
+
+    if (!tokenAccountId && tokenData.firebaseUid && !knownFirebaseUids.has(tokenData.firebaseUid)) {
+        return true;
+    }
+    if (!tokenAccountId && tokenData.anonUserId && !knownAnonUserIds.has(tokenData.anonUserId)) {
+        return true;
+    }
+    return false;
+}
+
+function readDeviceDescriptor(req) {
+    const raw = req.body || {};
+    const deviceId = String(raw.deviceId || raw.device_id || req.header('X-Device-Id') || '').trim();
+    if (!deviceId) return null;
+    const deviceIdHash = hmacIdentifier(`device:${deviceId}`);
+    return {
+        device_id_hash: deviceIdHash,
+        device_id_hash_prefix: deviceIdHash.substring(0, 12),
+        platform: String(raw.platform || raw.devicePlatform || req.header('X-Device-Platform') || '').trim() || null,
+        app_version: String(raw.appVersion || raw.app_version || req.header('X-App-Version') || '').trim() || null,
+    };
+}
+
+function activeDeviceResponse(activeDevice, requestedDevice) {
+    if (!activeDevice?.device_id_hash) {
+        return {
+            status: requestedDevice ? 'unclaimed' : 'not_provided',
+            transferRequired: false,
+            transferred: false,
+            matches: requestedDevice ? false : null,
+        };
+    }
+    const matches = requestedDevice
+        ? activeDevice.device_id_hash === requestedDevice.device_id_hash
+        : null;
+    return {
+        status: matches === false ? 'claimed_by_other_device' : 'active',
+        transferRequired: matches === false,
+        transferred: false,
+        matches,
+        deviceIdHashPrefix: activeDevice.device_id_hash_prefix || activeDevice.device_id_hash.substring(0, 12),
+        platform: activeDevice.platform || null,
+        appVersion: activeDevice.app_version || null,
+    };
+}
+
+async function claimActiveDevice(identity, req, forceDeviceTransfer = false) {
+    const requestedDevice = readDeviceDescriptor(req);
+    if (!requestedDevice) {
+        return {
+            status: 'not_provided',
+            transferRequired: false,
+            transferred: false,
+            matches: null,
+        };
+    }
+
+    const accountRef = db.collection(ACCOUNT_COLLECTION).doc(identity.canonicalAccountId);
+    return db.runTransaction(async (tx) => {
+        const accountSnap = await tx.get(accountRef);
+        const accountData = accountSnap.exists ? accountSnap.data() : {};
+        const currentDevice = accountData.active_device || {};
+        const previousHash = currentDevice.device_id_hash || null;
+        const transferred = !!previousHash && previousHash !== requestedDevice.device_id_hash;
+        if (transferred && !forceDeviceTransfer) {
+            return activeDeviceResponse(currentDevice, requestedDevice);
+        }
+
+        const now = admin.firestore.FieldValue.serverTimestamp();
+        const activeDevice = {
+            ...requestedDevice,
+            firebase_uid_last_seen: identity.firebaseUid,
+            anon_user_id_last_seen: identity.anonUserId,
+            claimed_at: transferred || !previousHash ? now : (currentDevice.claimed_at || now),
+            last_seen_at: now,
+        };
+
+        tx.set(accountRef, {
+            active_device: activeDevice,
+            active_device_updated_at: now,
+            active_device_transfer_count: admin.firestore.FieldValue.increment(transferred ? 1 : 0),
+            updated_at: now,
+        }, { merge: true });
+
+        return {
+            status: transferred ? 'transferred' : 'active',
+            transferRequired: false,
+            transferred,
+            matches: true,
+            deviceIdHashPrefix: requestedDevice.device_id_hash_prefix,
+            previousDeviceIdHashPrefix: transferred ? previousHash.substring(0, 12) : null,
+            previousPlatform: transferred ? currentDevice.platform || null : null,
+            previousAppVersion: transferred ? currentDevice.app_version || null : null,
+            platform: requestedDevice.platform,
+            appVersion: requestedDevice.app_version,
+        };
+    });
+}
+
 exports.createSession = coreFunctions.https.onRequest(async (req, res) => {
     setCors(req, res);
 
@@ -264,49 +738,99 @@ exports.createSession = coreFunctions.https.onRequest(async (req, res) => {
     }
     if (!(await requireAppCheck(req, res))) return;
 
-    const { idToken } = req.body;
+    const { idToken, forceDeviceTransfer } = req.body || {};
 
     if (!idToken) {
         return res.status(400).json({ error: 'idToken is required' });
     }
 
     try {
-        // Firebase ID Token 검증
-        const decodedToken = await admin.auth().verifyIdToken(idToken);
-        const firebaseUid = decodedToken.uid;
+        const requestedDevice = readDeviceDescriptor(req);
+        const identity = await resolveIdentityFromIdToken(idToken, requestedDevice);
+        const session = await ensureSessionDocuments(identity);
+        const activeDevice = await claimActiveDevice(
+            identity,
+            req,
+            forceDeviceTransfer === true || forceDeviceTransfer === 'true',
+        );
 
-        // HMAC 기반 익명 ID 생성
-        const anonUserId = generateAnonUserId(firebaseUid);
-
-        // 사용자 등록 (Firestore 영속 저장)
-        const now = Date.now();
-        const userRef = db.collection('cf_users').doc(anonUserId);
-        const userSnap = await userRef.get();
-
-        if (!userSnap.exists) {
-            await userRef.set({ created_at: now, last_login_at: now });
-
-            // Firestore에서 special 플랜 여부 확인
-            const isSpecialUser = await checkSpecialPlan(firebaseUid);
-            const plan = isSpecialUser ? 'special' : 'free';
-
-            await db.collection('cf_subscriptions').doc(anonUserId).set({
-                store: 'manual',
-                plan: plan,
-                status: 'active',
-                expires_at: null,
-                last_verified_at: now
-            });
-
-            console.log(`👤 신규 사용자 생성: ${plan} 플랜`);
-        } else {
-            await userRef.update({ last_login_at: now });
+        if (session.createdUser) {
+            console.log(`Created canonical user: ${identity.canonicalAccountId} (${session.subscription.plan})`);
         }
 
-        res.json({ success: true, message: 'Session created' });
+        return res.json({
+            success: true,
+            message: 'Session created',
+            canonicalAccountId: identity.canonicalAccountId,
+            anonUserId: identity.anonUserId,
+            activeDevice,
+            deviceTransferRequired: activeDevice.transferRequired === true,
+            identityConflicts: identity.identityConflicts || [],
+        });
     } catch (error) {
         console.error('❌ Token verification failed:', error);
         res.status(401).json({ error: 'Invalid or expired token' });
+    }
+});
+
+exports.signInWithKakao = coreFunctions.https.onRequest(async (req, res) => {
+    setCors(req, res);
+
+    if (req.method === 'OPTIONS') {
+        return res.status(204).send('');
+    }
+
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    if (!(await requireAppCheck(req, res))) return;
+
+    const accessToken = String(req.body?.accessToken || '').trim();
+    if (!accessToken) {
+        return res.status(400).json({ error: 'accessToken is required' });
+    }
+
+    try {
+        const upstream = await fetch('https://kapi.kakao.com/v2/user/me', {
+            method: 'GET',
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                Accept: 'application/json',
+            },
+        });
+
+        const kakaoUser = await upstream.json().catch(() => ({}));
+        if (!upstream.ok || !kakaoUser.id) {
+            console.warn('Kakao user verification failed:', upstream.status, kakaoUser?.code || kakaoUser?.msg || kakaoUser?.error);
+            return res.status(401).json({ error: 'Invalid Kakao access token' });
+        }
+
+        const kakaoId = String(kakaoUser.id);
+        const account = kakaoUser.kakao_account || {};
+        const profile = account.profile || {};
+        const email = typeof account.email === 'string' ? account.email : undefined;
+        const displayName = typeof profile.nickname === 'string' ? profile.nickname : undefined;
+        const uid = `kakao:${kakaoId}`;
+
+        const customToken = await admin.auth().createCustomToken(uid, stripUndefined({
+            provider_id: 'kakao',
+            provider_subject: kakaoId,
+            provider_email: email,
+            provider_display_name: displayName,
+        }));
+
+        return res.json(stripUndefined({
+            success: true,
+            customToken,
+            providerId: 'kakao',
+            providerSubject: kakaoId,
+            email,
+            displayName,
+        }));
+    } catch (error) {
+        console.error('Kakao sign-in failed:', error);
+        return res.status(500).json({ error: 'Kakao sign-in failed' });
     }
 });
 
@@ -323,42 +847,23 @@ exports.getBillingStatus = coreFunctions.https.onRequest(async (req, res) => {
     if (req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
-    if (!(await requireAppCheck(req, res))) return;
-
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ error: 'Authorization header missing' });
-    }
-
-    const idToken = authHeader.split('Bearer ')[1];
 
     try {
-        // Firebase ID Token 검증
-        const decodedToken = await admin.auth().verifyIdToken(idToken);
-        const firebaseUid = decodedToken.uid;
-
-        // HMAC 기반 익명 ID 생성
-        const anonUserId = generateAnonUserId(firebaseUid);
-
-        // 구독 조회 (Firestore)
-        const subSnap = await db.collection('cf_subscriptions').doc(anonUserId).get();
-
-        if (!subSnap.exists) {
-            return res.status(404).json({ error: 'Subscription not found' });
-        }
-
-        const subscription = subSnap.data();
+        const identity = await requireAccountContext(req, res);
+        if (!identity) return;
+        const subscription = await getEffectiveSubscription(identity);
 
         res.json({
             plan: subscription.plan,
             status: subscription.status,
             expires_at: subscription.expires_at,
-            store: subscription.store
+            store: subscription.store,
+            canonicalAccountId: identity.canonicalAccountId,
+            anonUserId: identity.anonUserId,
         });
     } catch (error) {
         console.error('❌ Token verification failed:', error);
-        res.status(401).json({ error: 'Invalid or expired token' });
+        res.status(500).json({ error: 'billing_status_failed' });
     }
 });
 
@@ -374,13 +879,6 @@ exports.verifyPurchase = coreFunctions.https.onRequest(async (req, res) => {
 
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
-    }
-    if (!(await requireAppCheck(req, res))) return;
-
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ error: 'Authorization header missing' });
     }
 
     const {
@@ -400,10 +898,8 @@ exports.verifyPurchase = coreFunctions.https.onRequest(async (req, res) => {
     }
 
     try {
-        const idToken = authHeader.split('Bearer ')[1];
-        const decodedToken = await admin.auth().verifyIdToken(idToken);
-        const firebaseUid = decodedToken.uid;
-        const anonUserId = generateAnonUserId(firebaseUid);
+        const identity = await requireAccountContext(req, res);
+        if (!identity) return;
         const packageName = requestedPackageName || getBillingPackageName();
         if (packageName !== getBillingPackageName()) {
             return res.status(400).json({ error: 'invalid packageName' });
@@ -488,26 +984,30 @@ exports.verifyPurchase = coreFunctions.https.onRequest(async (req, res) => {
             return res.status(400).json({ error: 'invalid purchaseType' });
         }
 
-        if (await checkSpecialPlan(firebaseUid)) {
+        if (await checkSpecialPlan(identity)) {
             plan = 'special';
             status = 'active';
             expiresAt = null;
         }
 
-        const subRef = db.collection('cf_subscriptions').doc(anonUserId);
+        const subRef = db.collection('cf_subscriptions').doc(identity.canonicalAccountId);
+        const legacySubRef = db.collection('cf_subscriptions').doc(identity.anonUserId);
+        const hasSeparateLegacySub = identity.canonicalAccountId !== identity.anonUserId;
         const tokenRef = db.collection('purchase_tokens').doc(tokenHash);
         await db.runTransaction(async (tx) => {
             const tokenSnap = await tx.get(tokenRef);
             if (tokenSnap.exists) {
                 const tokenData = tokenSnap.data() || {};
-                if (tokenData.firebaseUid && tokenData.firebaseUid !== firebaseUid) {
+                if (isPurchaseTokenBoundToDifferentAccount(tokenData, identity)) {
                     throw new Error('purchase_token_already_bound');
                 }
             }
 
             tx.set(tokenRef, {
-                firebaseUid,
-                anonUserId,
+                firebaseUid: identity.firebaseUid,
+                anonUserId: identity.anonUserId,
+                canonicalAccountId: identity.canonicalAccountId,
+                canonical_account_id: identity.canonicalAccountId,
                 tokenHash,
                 store: 'google_play',
                 productId,
@@ -523,7 +1023,7 @@ exports.verifyPurchase = coreFunctions.https.onRequest(async (req, res) => {
                     : admin.firestore.FieldValue.serverTimestamp(),
             }, { merge: true });
 
-            tx.set(subRef, {
+            const subscriptionPatch = addAccountFields(identity, {
                 store: 'google_play',
                 plan,
                 status,
@@ -534,7 +1034,14 @@ exports.verifyPurchase = coreFunctions.https.onRequest(async (req, res) => {
                 last_verified_at: Date.now(),
                 provider_payload: providerPayload,
                 updated_at: admin.firestore.FieldValue.serverTimestamp(),
-            }, { merge: true });
+            });
+            tx.set(subRef, subscriptionPatch, { merge: true });
+            if (hasSeparateLegacySub) {
+                tx.set(legacySubRef, {
+                    ...subscriptionPatch,
+                    legacy_alias: true,
+                }, { merge: true });
+            }
         });
 
         return res.json({
@@ -545,11 +1052,185 @@ exports.verifyPurchase = coreFunctions.https.onRequest(async (req, res) => {
             expires_at: expiresAt,
             productId,
             purchaseType,
+            canonicalAccountId: identity.canonicalAccountId,
+            anonUserId: identity.anonUserId,
         });
     } catch (error) {
         console.error('Purchase verification failed:', error);
         const code = error.message === 'purchase_token_already_bound' ? 409 : 500;
         res.status(code).json({ error: error.message || 'purchase_verification_failed' });
+    }
+});
+
+async function loadLinkedProviders(identity) {
+    const snap = await db.collection(ACCOUNT_IDENTITY_COLLECTION)
+        .where('canonical_account_id', '==', identity.canonicalAccountId)
+        .get();
+    const providers = new Map();
+    snap.forEach((doc) => {
+        const data = doc.data() || {};
+        const providerId = normalizeProviderId(data.provider_id);
+        if (!providerId || [INTERNAL_FIREBASE_PROVIDER, DEVICE_PROVIDER].includes(providerId)) return;
+        const existing = providers.get(providerId) || {
+            providerId,
+            status: data.status || 'linked',
+            linked: data.status !== 'unlink_requested' && data.status !== 'unlinked',
+            linkCount: 0,
+        };
+        existing.linkCount += 1;
+        if (data.status === 'unlink_requested' || data.status === 'unlinked') {
+            existing.status = data.status;
+            existing.linked = false;
+        }
+        providers.set(providerId, existing);
+    });
+
+    (identity.providerIds || []).forEach((providerId) => {
+        if (!providers.has(providerId)) {
+            providers.set(providerId, {
+                providerId,
+                status: 'linked',
+                linked: true,
+                linkCount: 0,
+            });
+        }
+    });
+
+    return Array.from(providers.values()).sort((a, b) => a.providerId.localeCompare(b.providerId));
+}
+
+exports.getAccountLinkedProviders = coreFunctions.https.onRequest(async (req, res) => {
+    setCors(req, res);
+    if (req.method === 'OPTIONS') return res.status(204).send('');
+    if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+    try {
+        const identity = await requireAccountContext(req, res);
+        if (!identity) return;
+        const providers = await loadLinkedProviders(identity);
+        res.json({
+            success: true,
+            canonicalAccountId: identity.canonicalAccountId,
+            anonUserId: identity.anonUserId,
+            providers,
+        });
+    } catch (error) {
+        console.error('getAccountLinkedProviders failed:', error);
+        res.status(500).json({ error: 'linked_providers_failed' });
+    }
+});
+
+exports.unlinkProvider = coreFunctions.https.onRequest(async (req, res) => {
+    setCors(req, res);
+    if (!requirePost(req, res)) return;
+
+    try {
+        const identity = await requireAccountContext(req, res);
+        if (!identity) return;
+
+        const providerId = normalizeProviderId(req.body?.providerId || req.body?.provider_id);
+        if (!providerId || [INTERNAL_FIREBASE_PROVIDER, DEVICE_PROVIDER].includes(providerId)) {
+            return res.status(400).json({ error: 'invalid providerId' });
+        }
+
+        const snap = await db.collection(ACCOUNT_IDENTITY_COLLECTION)
+            .where('canonical_account_id', '==', identity.canonicalAccountId)
+            .get();
+        const batch = db.batch();
+        const now = admin.firestore.FieldValue.serverTimestamp();
+        let affectedLinks = 0;
+        snap.forEach((doc) => {
+            if (normalizeProviderId(doc.data()?.provider_id) !== providerId) return;
+            affectedLinks += 1;
+            batch.set(doc.ref, {
+                status: 'unlink_requested',
+                unlink_requested_at: now,
+                updated_at: now,
+            }, { merge: true });
+        });
+        batch.set(db.collection(ACCOUNT_COLLECTION).doc(identity.canonicalAccountId), {
+            pending_unlink_provider_ids: admin.firestore.FieldValue.arrayUnion(providerId),
+            updated_at: now,
+        }, { merge: true });
+        await batch.commit();
+
+        res.json({
+            success: true,
+            status: 'unlink_requested',
+            providerId,
+            affectedLinks,
+            canonicalAccountId: identity.canonicalAccountId,
+        });
+    } catch (error) {
+        console.error('unlinkProvider failed:', error);
+        res.status(500).json({ error: 'unlink_provider_failed' });
+    }
+});
+
+exports.deleteAccount = coreFunctions.https.onRequest(async (req, res) => {
+    setCors(req, res);
+    if (!requirePost(req, res)) return;
+
+    try {
+        const identity = await requireAccountContext(req, res);
+        if (!identity) return;
+
+        const now = admin.firestore.FieldValue.serverTimestamp();
+        const accountRef = db.collection(ACCOUNT_COLLECTION).doc(identity.canonicalAccountId);
+        await Promise.all([
+            accountRef.set({
+                status: 'delete_requested',
+                delete_requested_at: now,
+                delete_requested_by_firebase_uid: identity.firebaseUid,
+                updated_at: now,
+            }, { merge: true }),
+            db.collection(ACCOUNT_DELETION_REQUEST_COLLECTION).doc(identity.canonicalAccountId).set({
+                canonicalAccountId: identity.canonicalAccountId,
+                canonical_account_id: identity.canonicalAccountId,
+                anonUserId: identity.anonUserId,
+                anon_user_id: identity.anonUserId,
+                firebaseUid: identity.firebaseUid,
+                firebase_uid: identity.firebaseUid,
+                status: 'pending',
+                requested_at: now,
+            }, { merge: true }),
+        ]);
+
+        res.json({
+            success: true,
+            status: 'delete_requested',
+            canonicalAccountId: identity.canonicalAccountId,
+            anonUserId: identity.anonUserId,
+            requiresClientFirebaseDelete: true,
+        });
+    } catch (error) {
+        console.error('deleteAccount failed:', error);
+        res.status(500).json({ error: 'delete_account_failed' });
+    }
+});
+
+exports.getActiveDeviceStatus = coreFunctions.https.onRequest(async (req, res) => {
+    setCors(req, res);
+    if (req.method === 'OPTIONS') return res.status(204).send('');
+    if (!['GET', 'POST'].includes(req.method)) {
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    try {
+        const identity = await requireAccountContext(req, res);
+        if (!identity) return;
+        const accountSnap = await db.collection(ACCOUNT_COLLECTION).doc(identity.canonicalAccountId).get();
+        const accountData = accountSnap.exists ? accountSnap.data() : {};
+        const requestedDevice = readDeviceDescriptor(req);
+        res.json({
+            success: true,
+            canonicalAccountId: identity.canonicalAccountId,
+            anonUserId: identity.anonUserId,
+            activeDevice: activeDeviceResponse(accountData.active_device, requestedDevice),
+        });
+    } catch (error) {
+        console.error('getActiveDeviceStatus failed:', error);
+        res.status(500).json({ error: 'active_device_status_failed' });
     }
 });
 
@@ -664,15 +1345,15 @@ exports.naverGeocode = naverNcpFunctions.https.onRequest(async (req, res) => {
     if (!requirePost(req, res)) return;
 
     try {
-        const firebaseUid = await requireFirebaseUid(req, res);
-        if (!firebaseUid) return;
+        const identity = await requireAccountContext(req, res);
+        if (!identity) return;
 
         const query = String(req.body?.query || '').trim();
         if (query.length < 2 || query.length > 120) {
             return res.status(400).json({ error: 'invalid query' });
         }
 
-        const allowed = await consumeRateLimit(firebaseUid, 'naver_geocode', 30, 500);
+        const allowed = await consumeRateLimit(identity.canonicalAccountId, 'naver_geocode', 30, 500);
         if (!allowed) return res.status(429).json({ error: 'rate_limited' });
 
         const clientId = getRequiredConfigValue('naver', 'ncp_client_id', 'NAVER_NCP_CLIENT_ID');
@@ -712,15 +1393,15 @@ exports.naverLocalSearch = naverNcpFunctions.https.onRequest(async (req, res) =>
     if (!requirePost(req, res)) return;
 
     try {
-        const firebaseUid = await requireFirebaseUid(req, res);
-        if (!firebaseUid) return;
+        const identity = await requireAccountContext(req, res);
+        if (!identity) return;
 
         const query = String(req.body?.query || '').trim();
         if (query.length < 2 || query.length > 120) {
             return res.status(400).json({ error: 'invalid query' });
         }
 
-        const allowed = await consumeRateLimit(firebaseUid, 'naver_geocode_place', 30, 500);
+        const allowed = await consumeRateLimit(identity.canonicalAccountId, 'naver_geocode_place', 30, 500);
         if (!allowed) return res.status(429).json({ error: 'rate_limited' });
 
         const localClientId = getRequiredConfigValue('naver', 'local_client_id', 'NAVER_LOCAL_CLIENT_ID');
@@ -834,8 +1515,8 @@ exports.naverReverseGeocode = naverNcpFunctions.https.onRequest(async (req, res)
     if (!requirePost(req, res)) return;
 
     try {
-        const firebaseUid = await requireFirebaseUid(req, res);
-        if (!firebaseUid) return;
+        const identity = await requireAccountContext(req, res);
+        if (!identity) return;
 
         const lat = Number(req.body?.lat);
         const lng = Number(req.body?.lng);
@@ -843,7 +1524,7 @@ exports.naverReverseGeocode = naverNcpFunctions.https.onRequest(async (req, res)
             return res.status(400).json({ error: 'invalid coordinates' });
         }
 
-        const allowed = await consumeRateLimit(firebaseUid, 'naver_reverse_geocode', 30, 500);
+        const allowed = await consumeRateLimit(identity.canonicalAccountId, 'naver_reverse_geocode', 30, 500);
         if (!allowed) return res.status(429).json({ error: 'rate_limited' });
 
         const clientId = getRequiredConfigValue('naver', 'ncp_client_id', 'NAVER_NCP_CLIENT_ID');
@@ -877,15 +1558,15 @@ exports.googlePlaceSearch = googleMapsFunctions.https.onRequest(async (req, res)
     if (!requirePost(req, res)) return;
 
     try {
-        const firebaseUid = await requireFirebaseUid(req, res);
-        if (!firebaseUid) return;
+        const identity = await requireAccountContext(req, res);
+        if (!identity) return;
 
         const query = String(req.body?.query || '').trim();
         if (query.length < 2 || query.length > 120) {
             return res.status(400).json({ error: 'invalid query' });
         }
 
-        const allowed = await consumeRateLimit(firebaseUid, 'google_place_search', 30, 500);
+        const allowed = await consumeRateLimit(identity.canonicalAccountId, 'google_place_search', 30, 500);
         if (!allowed) return res.status(429).json({ error: 'rate_limited' });
 
         const apiKey = getRequiredConfigValue('google', 'maps_api_key', 'GOOGLE_MAPS_API_KEY');
@@ -940,15 +1621,15 @@ exports.googleGeocode = googleMapsFunctions.https.onRequest(async (req, res) => 
     if (!requirePost(req, res)) return;
 
     try {
-        const firebaseUid = await requireFirebaseUid(req, res);
-        if (!firebaseUid) return;
+        const identity = await requireAccountContext(req, res);
+        if (!identity) return;
 
         const query = String(req.body?.query || '').trim();
         if (query.length < 2 || query.length > 120) {
             return res.status(400).json({ error: 'invalid query' });
         }
 
-        const allowed = await consumeRateLimit(firebaseUid, 'google_geocode', 30, 500);
+        const allowed = await consumeRateLimit(identity.canonicalAccountId, 'google_geocode', 30, 500);
         if (!allowed) return res.status(429).json({ error: 'rate_limited' });
 
         const apiKey = getRequiredConfigValue('google', 'maps_api_key', 'GOOGLE_MAPS_API_KEY');
@@ -982,8 +1663,8 @@ exports.googleReverseGeocode = googleMapsFunctions.https.onRequest(async (req, r
     if (!requirePost(req, res)) return;
 
     try {
-        const firebaseUid = await requireFirebaseUid(req, res);
-        if (!firebaseUid) return;
+        const identity = await requireAccountContext(req, res);
+        if (!identity) return;
 
         const lat = Number(req.body?.lat);
         const lng = Number(req.body?.lng);
@@ -991,7 +1672,7 @@ exports.googleReverseGeocode = googleMapsFunctions.https.onRequest(async (req, r
             return res.status(400).json({ error: 'invalid coordinates' });
         }
 
-        const allowed = await consumeRateLimit(firebaseUid, 'google_reverse_geocode', 30, 500);
+        const allowed = await consumeRateLimit(identity.canonicalAccountId, 'google_reverse_geocode', 30, 500);
         if (!allowed) return res.status(429).json({ error: 'rate_limited' });
 
         const apiKey = getRequiredConfigValue('google', 'maps_api_key', 'GOOGLE_MAPS_API_KEY');
@@ -1030,10 +1711,10 @@ exports.uploadMapUsage = coreFunctions.https.onRequest(async (req, res) => {
     if (!requirePost(req, res)) return;
 
     try {
-        const firebaseUid = await requireFirebaseUid(req, res);
-        if (!firebaseUid) return;
+        const identity = await requireAccountContext(req, res);
+        if (!identity) return;
 
-        const allowed = await consumeRateLimit(firebaseUid, 'map_usage_upload', 10, 100);
+        const allowed = await consumeRateLimit(identity.canonicalAccountId, 'map_usage_upload', 10, 100);
         if (!allowed) return res.status(429).json({ error: 'rate_limited' });
 
         const maxMapLoads = 2000;
@@ -1059,41 +1740,85 @@ exports.uploadMapUsage = coreFunctions.https.onRequest(async (req, res) => {
         const usageKeys = Object.keys(data);
         const patch = {
             ...data,
-            uid: firebaseUid,
+            uid: identity.canonicalAccountId,
+            legacy_uid: identity.firebaseUid,
+            canonicalAccountId: identity.canonicalAccountId,
+            canonical_account_id: identity.canonicalAccountId,
+            anonUserId: identity.anonUserId,
+            anon_user_id: identity.anonUserId,
             suspicious,
             last_updated: admin.firestore.FieldValue.serverTimestamp(),
         };
 
         const monthAggRef = db.collection('map_usage').doc(month);
         const weekAggRef = db.collection('map_usage_weekly').doc(week);
-        const monthRef = db.collection('map_usage').doc(month).collection('devices').doc(firebaseUid);
-        const weekRef = db.collection('map_usage_weekly').doc(week).collection('devices').doc(firebaseUid);
+        const monthRef = db.collection('map_usage').doc(month).collection('devices').doc(identity.canonicalAccountId);
+        const weekRef = db.collection('map_usage_weekly').doc(week).collection('devices').doc(identity.canonicalAccountId);
+        const legacyMonthRef = db.collection('map_usage').doc(month).collection('devices').doc(identity.firebaseUid);
+        const legacyWeekRef = db.collection('map_usage_weekly').doc(week).collection('devices').doc(identity.firebaseUid);
+        const hasSeparateLegacyDocs = identity.canonicalAccountId !== identity.firebaseUid;
         await db.runTransaction(async (tx) => {
-            const [oldMonthSnap, oldWeekSnap] = await Promise.all([
+            const reads = [
                 tx.get(monthRef),
                 tx.get(weekRef),
-            ]);
-            const monthDelta = buildUsageDelta(data, oldMonthSnap.exists ? oldMonthSnap.data() : {}, usageKeys);
-            const weekDelta = buildUsageDelta(data, oldWeekSnap.exists ? oldWeekSnap.data() : {}, usageKeys);
+            ];
+            if (hasSeparateLegacyDocs) {
+                reads.push(tx.get(legacyMonthRef), tx.get(legacyWeekRef));
+            }
+            const snaps = await Promise.all(reads);
+            const oldMonthSnap = snaps[0];
+            const oldWeekSnap = snaps[1];
+            const legacyMonthSnap = hasSeparateLegacyDocs ? snaps[2] : oldMonthSnap;
+            const legacyWeekSnap = hasSeparateLegacyDocs ? snaps[3] : oldWeekSnap;
+            const oldMonthData = oldMonthSnap.exists
+                ? oldMonthSnap.data()
+                : (legacyMonthSnap.exists ? legacyMonthSnap.data() : {});
+            const oldWeekData = oldWeekSnap.exists
+                ? oldWeekSnap.data()
+                : (legacyWeekSnap.exists ? legacyWeekSnap.data() : {});
+            const monthDelta = buildUsageDelta(data, oldMonthData, usageKeys);
+            const weekDelta = buildUsageDelta(data, oldWeekData, usageKeys);
 
             tx.set(monthRef, patch);
             tx.set(weekRef, { ...patch, month });
+            if (hasSeparateLegacyDocs && legacyMonthSnap.exists) {
+                tx.set(legacyMonthRef, {
+                    ...patch,
+                    uid: identity.firebaseUid,
+                    canonical_alias: true,
+                });
+            }
+            if (hasSeparateLegacyDocs && legacyWeekSnap.exists) {
+                tx.set(legacyWeekRef, {
+                    ...patch,
+                    uid: identity.firebaseUid,
+                    month,
+                    canonical_alias: true,
+                });
+            }
             tx.set(monthAggRef, {
                 totals: incrementsFromDelta(monthDelta),
-                device_count: admin.firestore.FieldValue.increment(oldMonthSnap.exists ? 0 : 1),
+                device_count: admin.firestore.FieldValue.increment(oldMonthSnap.exists || legacyMonthSnap.exists ? 0 : 1),
                 suspicious_count: admin.firestore.FieldValue.increment(suspicious ? 1 : 0),
                 last_updated: admin.firestore.FieldValue.serverTimestamp(),
             }, { merge: true });
             tx.set(weekAggRef, {
                 totals: incrementsFromDelta(weekDelta),
-                device_count: admin.firestore.FieldValue.increment(oldWeekSnap.exists ? 0 : 1),
+                device_count: admin.firestore.FieldValue.increment(oldWeekSnap.exists || legacyWeekSnap.exists ? 0 : 1),
                 suspicious_count: admin.firestore.FieldValue.increment(suspicious ? 1 : 0),
                 month,
                 last_updated: admin.firestore.FieldValue.serverTimestamp(),
             }, { merge: true });
         });
 
-        res.json({ success: true, month, week, suspicious });
+        res.json({
+            success: true,
+            month,
+            week,
+            suspicious,
+            canonicalAccountId: identity.canonicalAccountId,
+            anonUserId: identity.anonUserId,
+        });
     } catch (error) {
         console.error('uploadMapUsage failed:', error);
         res.status(500).json({ error: 'Failed to upload map usage' });
@@ -1112,18 +1837,11 @@ exports.incrementQuota = coreFunctions.https.onRequest(async (req, res) => {
 
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-    if (!(await requireAppCheck(req, res))) return;
-
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ error: 'Authorization header missing' });
-    }
 
     try {
-        const idToken = authHeader.split('Bearer ')[1];
-        const decodedToken = await admin.auth().verifyIdToken(idToken);
-        const firebaseUid = decodedToken.uid;
-        const allowed = await consumeRateLimit(firebaseUid, 'quota_increment', 120, 5000);
+        const identity = await requireAccountContext(req, res);
+        if (!identity) return;
+        const allowed = await consumeRateLimit(identity.canonicalAccountId, 'quota_increment', 120, 5000);
         if (!allowed) return res.status(429).json({ error: 'rate_limited' });
 
         const { category, kind } = req.body || {};
@@ -1134,10 +1852,8 @@ exports.incrementQuota = coreFunctions.https.onRequest(async (req, res) => {
             return res.status(400).json({ error: 'invalid kind' });
         }
 
-        // 플랜 조회 (cf_subscriptions는 anonUserId 기반이므로 변환)
-        const anonUserId = generateAnonUserId(firebaseUid);
-        const subSnap = await db.collection('cf_subscriptions').doc(anonUserId).get();
-        const plan = subSnap.exists ? (subSnap.data().plan || 'free') : 'free';
+        const subscription = await getEffectiveSubscription(identity);
+        const plan = subscription.plan || 'free';
 
         // 플랜별 absolute cap (Flutter SubscriptionService와 동기화)
         // 베타 기간에는 무료 플랜 검색/알람 제한을 내부 안전 상한 수준으로 완화한다.
@@ -1149,38 +1865,66 @@ exports.incrementQuota = coreFunctions.https.onRequest(async (req, res) => {
 
         const now = new Date();
         const month = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
-        const userRef = db.collection('quotas').doc(firebaseUid).collection('months').doc(month);
+        const userRef = db.collection('quotas').doc(identity.canonicalAccountId).collection('months').doc(month);
+        const legacyUserRef = db.collection('quotas').doc(identity.firebaseUid).collection('months').doc(month);
+        const hasSeparateLegacyDocs = identity.canonicalAccountId !== identity.firebaseUid;
         const poolRef = db.collection('pools').doc(month);
 
         const usedField = category === 'search' ? 'search_used' : 'alarm_used';
         const rewardField = category === 'search' ? 'search_reward' : 'alarm_reward';
         const totalField = category === 'search' ? 'search_total' : 'alarm_total';
 
+        const quotaFields = ['search_used', 'search_reward', 'alarm_used', 'alarm_reward'];
+
         // 트랜잭션: 현재 used 확인 후 cap 검증 → increment
         const result = await db.runTransaction(async (tx) => {
-            const snap = await tx.get(userRef);
-            const data = snap.exists ? snap.data() : {};
-            const curUsed = (data[usedField] || 0);
-            const curReward = (data[rewardField] || 0);
+            const reads = [tx.get(userRef)];
+            if (hasSeparateLegacyDocs) reads.push(tx.get(legacyUserRef));
+            const snaps = await Promise.all(reads);
+            const snap = snaps[0];
+            const legacySnap = hasSeparateLegacyDocs ? snaps[1] : snap;
+            const data = snap.exists
+                ? snap.data()
+                : (legacySnap.exists ? legacySnap.data() : {});
+            const curUsed = Number(data[usedField] || 0);
+            const curReward = Number(data[rewardField] || 0);
 
             if (kind === 'used' && curUsed >= cap) {
-                return { ok: false, reason: 'capped', used: curUsed, cap };
+                return { ok: false, reason: 'capped', used: curUsed, cap, canonicalAccountId: identity.canonicalAccountId, anonUserId: identity.anonUserId };
             }
             if (kind === 'reward' && curReward >= cap) {
-                return { ok: false, reason: 'reward_capped', reward: curReward, cap };
+                return { ok: false, reason: 'reward_capped', reward: curReward, cap, canonicalAccountId: identity.canonicalAccountId, anonUserId: identity.anonUserId };
+            }
+
+            const nextCounts = {};
+            quotaFields.forEach((field) => {
+                nextCounts[field] = Number(data[field] || 0);
+            });
+            if (kind === 'used') {
+                nextCounts[usedField] = curUsed + 1;
+            } else {
+                nextCounts[rewardField] = curReward + 1;
             }
 
             const patch = {
+                ...nextCounts,
                 plan_snapshot: plan,
-                uid: firebaseUid,
+                uid: identity.canonicalAccountId,
+                legacy_uid: identity.firebaseUid,
+                canonicalAccountId: identity.canonicalAccountId,
+                canonical_account_id: identity.canonicalAccountId,
+                anonUserId: identity.anonUserId,
+                anon_user_id: identity.anonUserId,
                 last_updated: admin.firestore.FieldValue.serverTimestamp(),
             };
-            if (kind === 'used') {
-                patch[usedField] = admin.firestore.FieldValue.increment(1);
-            } else {
-                patch[rewardField] = admin.firestore.FieldValue.increment(1);
-            }
             tx.set(userRef, patch, { merge: true });
+            if (hasSeparateLegacyDocs) {
+                tx.set(legacyUserRef, {
+                    ...patch,
+                    uid: identity.firebaseUid,
+                    canonical_alias: true,
+                }, { merge: true });
+            }
 
             if (kind === 'used') {
                 tx.set(poolRef, {
@@ -1193,6 +1937,8 @@ exports.incrementQuota = coreFunctions.https.onRequest(async (req, res) => {
                 used: kind === 'used' ? curUsed + 1 : curUsed,
                 reward: kind === 'reward' ? curReward + 1 : curReward,
                 cap,
+                canonicalAccountId: identity.canonicalAccountId,
+                anonUserId: identity.anonUserId,
             };
         });
 

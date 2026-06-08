@@ -449,7 +449,10 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                           'lng': _selectedLatLng!.longitude,
                           'radius': _selectedRadius,
                           'wifiNetworks': selectedWifiNetworks,
-                          'bluetoothDevices': selectedBluetoothDevices,
+                          'bluetoothDevices':
+                              AppConfig.enableBluetoothFeatures
+                                  ? selectedBluetoothDevices
+                                  : [],
                         });
 
                         // 🔄 장소 업데이트 → LocationMonitorService에서 자동 반영
@@ -585,67 +588,6 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
               ),
             ),
           // ✅ 지도 + 검색 결과 오버레이 (Stack으로 overflow 방지)
-          Consumer<MapProviderService>(
-            builder: (context, mapService, _) {
-              if (!mapService.isGoogle) return const SizedBox.shrink();
-              final l10n = AppLocalizations.of(context);
-              const languageOptions = [
-                MapEntry('ko', '한국어'),
-                MapEntry('en', 'English'),
-                MapEntry('ja', '日本語'),
-                MapEntry('zh', '中文'),
-                MapEntry('de', 'Deutsch'),
-                MapEntry('fr', 'Français'),
-                MapEntry('es', 'Español'),
-              ];
-              final selectedLanguage =
-                  languageOptions.any(
-                        (entry) => entry.key == mapService.googleLanguage,
-                      )
-                      ? mapService.googleLanguage
-                      : 'en';
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
-                child: Row(
-                  children: [
-                    Text(
-                      l10n.get('google_map_language'),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: selectedLanguage,
-                        isDense: true,
-                        items:
-                            languageOptions
-                                .map(
-                                  (entry) => DropdownMenuItem<String>(
-                                    value: entry.key,
-                                    child: Text(
-                                      entry.value,
-                                      style: const TextStyle(fontSize: 12),
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                        onChanged: (value) {
-                          if (value == null) return;
-                          mapService.setGoogleLanguage(value);
-                          if (_selectedLatLng != null) {
-                            _reverseGeocode(_selectedLatLng!);
-                          }
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
           Expanded(
             child: Stack(
               children: [

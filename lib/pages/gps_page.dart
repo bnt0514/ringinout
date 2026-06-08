@@ -66,7 +66,14 @@ class _GpsPageState extends State<GpsPage> {
               .get();
       if (doc.exists) {
         final uids = List<String>.from(doc.data()?['uids'] ?? []);
-        if (uids.contains(uid) && mounted) {
+        final canonicalIds = List<String>.from(
+          doc.data()?['canonicalAccountIds'] ?? [],
+        );
+        final ownerUid = HiveHelper.storedActiveOwnerUid;
+        final allowed =
+            uids.contains(uid) ||
+            (ownerUid != null && canonicalIds.contains(ownerUid));
+        if (allowed && mounted) {
           setState(() => _isDevUser = true);
         }
       }

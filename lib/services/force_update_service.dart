@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:ringinout/services/hive_helper.dart';
 
 class ForceUpdateService {
   static const _collection = 'admin_config';
@@ -14,6 +15,7 @@ class ForceUpdateService {
   static const _field = 'min_version';
   static const _specialUsersDoc = 'special_users';
   static const _specialUsersField = 'uids';
+  static const _specialCanonicalField = 'canonicalAccountIds';
 
   static Future<bool> needsUpdate() async {
     try {
@@ -48,7 +50,19 @@ class ForceUpdateService {
             .doc(_specialUsersDoc)
             .get();
     final rawUids = snap.data()?[_specialUsersField];
-    return rawUids is List && rawUids.map((e) => e.toString()).contains(uid);
+    final rawCanonical = snap.data()?[_specialCanonicalField];
+    final candidates = {
+      uid,
+      if (HiveHelper.storedActiveOwnerUid != null)
+        HiveHelper.storedActiveOwnerUid!,
+    };
+    final uidMatch =
+        rawUids is List &&
+        rawUids.map((e) => e.toString()).any(candidates.contains);
+    final canonicalMatch =
+        rawCanonical is List &&
+        rawCanonical.map((e) => e.toString()).any(candidates.contains);
+    return uidMatch || canonicalMatch;
   }
 
   static Future<void> setMinVersion(String version) async {

@@ -1,25 +1,116 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:http/http.dart' as http;
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:ringinout/services/secure_http_headers.dart';
 import 'dart:convert';
 
-/// AuthService - 인증 관리 서비스
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart' as http;
+import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart' as kakao;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
+
+import 'package:ringinout/services/secure_http_headers.dart';
+import 'package:ringinout/services/hive_helper.dart';
+
+enum RingAuthProvider { google, kakao, naver, line, facebook, email }
+
+class AuthSessionInfo {
+  const AuthSessionInfo({
+    required this.canonicalAccountId,
+    required this.anonUserId,
+    required this.deviceId,
+    this.deviceTransferRequired = false,
+    this.previousDeviceLabel,
+  });
+
+  final String canonicalAccountId;
+  final String anonUserId;
+  final String deviceId;
+  final bool deviceTransferRequired;
+  final String? previousDeviceLabel;
+
+  factory AuthSessionInfo.fromJson(
+    Map<String, dynamic> json, {
+    required String deviceId,
+    required String fallbackUid,
+  }) {
+    final activeDevice =
+        json['activeDevice'] is Map
+            ? Map<String, dynamic>.from(json['activeDevice'] as Map)
+            : const <String, dynamic>{};
+    final activeDeviceStatus = activeDevice['status']?.toString();
+    final previousDeviceLabel =
+        activeDevice['previousPlatform']?.toString().trim().isNotEmpty == true
+            ? activeDevice['previousPlatform'].toString()
+            : activeDevice['platform']?.toString();
+    final canonical =
+        json['canonicalAccountId']?.toString().trim().isNotEmpty == true
+            ? json['canonicalAccountId'].toString()
+            : fallbackUid;
+    return AuthSessionInfo(
+      canonicalAccountId: canonical,
+      anonUserId:
+          json['anonUserId']?.toString().trim().isNotEmpty == true
+              ? json['anonUserId'].toString()
+              : canonical,
+      deviceId: json['deviceId']?.toString() ?? deviceId,
+      deviceTransferRequired:
+          json['deviceTransferRequired'] == true ||
+          activeDevice['transferRequired'] == true ||
+          activeDeviceStatus == 'claimed_by_other_device',
+      previousDeviceLabel:
+          json['previousDeviceLabel']?.toString() ?? previousDeviceLabel,
+    );
+  }
+}
+
+class LinkedAuthProvider {
+  const LinkedAuthProvider({
+    required this.providerId,
+    this.email,
+    this.displayName,
+  });
+
+  final String providerId;
+  final String? email;
+  final String? displayName;
+}
+
+/// Authentication and canonical account coordination.
 ///
-/// 기능:
-/// - Google Sign-In + Firebase Auth 로그인
-/// - Firebase ID Token 관리
-/// - 서버 세션 연동
-///
-/// 원칙:
-/// - 이메일/이름 등은 UI 표시용으로만 사용
-/// - 서버로 전송하지 않음 (ID Token만 전송)
+/// Firebase UID is treated as a provider-specific login key. The app owner,
+/// billing, quota, and local alarm ownership should use canonicalAccountId.
 class AuthService {
   static const String serverUrl =
       'https://us-central1-ringgo-485705.cloudfunctions.net';
+
+  static const String kakaoProviderId = String.fromEnvironment(
+    'RINGINOUT_KAKAO_PROVIDER_ID',
+    defaultValue: 'oidc.kakao',
+  );
+  static const String naverProviderId = String.fromEnvironment(
+    'RINGINOUT_NAVER_PROVIDER_ID',
+    defaultValue: 'oidc.naver',
+  );
+  static const String lineProviderId = String.fromEnvironment(
+    'RINGINOUT_LINE_PROVIDER_ID',
+    defaultValue: 'oidc.line',
+  );
+  static const String emailLinkUrl = String.fromEnvironment(
+    'RINGINOUT_EMAIL_LINK_URL',
+    defaultValue: 'https://ringgo-485705.web.app/email-sign-in',
+  );
+  static const String emailLinkDomain = String.fromEnvironment(
+    'RINGINOUT_EMAIL_LINK_DOMAIN',
+    defaultValue: '',
+  );
+
+  static const String _deviceIdKey = 'ringinout_device_id_v1';
+  static const String _canonicalAccountIdKey = 'canonical_account_id_v1';
+  static const String _anonUserIdKey = 'canonical_anon_user_id_v1';
+  static const String _emailForLinkKey = 'email_link_pending_email_v1';
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn(
@@ -27,65 +118,253 @@ class AuthService {
         '120131573076-0kutl2mvglpbs4kfbcu39m880phba48v.apps.googleusercontent.com',
   );
 
-  /// 현재 로그인된 사용자
+  AuthSessionInfo? _session;
+
   User? get currentUser => _auth.currentUser;
-
-  /// 인증 상태 스트림
   Stream<User?> get authStateChanges => _auth.authStateChanges();
+  String? get canonicalAccountId => _session?.canonicalAccountId;
 
-  /// Google 로그인
-  Future<User?> signInWithGoogle() async {
+  Future<String?> getStoredCanonicalAccountId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_canonicalAccountIdKey);
+  }
+
+  Future<List<LinkedAuthProvider>> linkedProviders() async {
+    final user = currentUser;
+    if (user == null) return const [];
+    await user.reload();
+    final refreshed = currentUser;
+    if (refreshed == null) return const [];
+    return refreshed.providerData
+        .map(
+          (provider) => LinkedAuthProvider(
+            providerId: provider.providerId,
+            email: provider.email,
+            displayName: provider.displayName,
+          ),
+        )
+        .toList();
+  }
+
+  Future<User?> signInWithGoogle({bool forceDeviceTransfer = false}) async {
     try {
-      // Google 인증
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      final googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
         throw Exception('Google Sign-In canceled');
       }
 
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
+      final googleAuth = await googleUser.authentication;
       if (googleAuth.idToken == null) {
-        throw Exception('Failed to get ID Token');
+        throw Exception('Failed to get Google ID Token');
       }
 
-      // Firebase 인증
       final credential = GoogleAuthProvider.credential(
         idToken: googleAuth.idToken,
         accessToken: googleAuth.accessToken,
       );
       final userCredential = await _auth.signInWithCredential(credential);
-
-      // 서버 세션 생성
-      await _createServerSession(googleAuth.idToken!);
-
+      await ensureServerSession(forceDeviceTransfer: forceDeviceTransfer);
       return userCredential.user;
     } catch (e) {
-      debugPrint('❌ Sign-in failed: $e');
+      debugPrint('Sign-in failed: $e');
       rethrow;
     }
   }
 
-  /// 서버 세션 생성
-  Future<void> _createServerSession(String idToken) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$serverUrl/createSession'),
-        headers: await SecureHttpHeaders.json(),
-        body: jsonEncode({'idToken': idToken}),
+  Future<User?> signInWithFacebook({bool forceDeviceTransfer = false}) =>
+      _signInWithProvider(
+        FacebookAuthProvider()..addScope('email'),
+        forceDeviceTransfer: forceDeviceTransfer,
       );
 
-      if (response.statusCode != 200) {
-        throw Exception('Server session creation failed: ${response.body}');
-      }
-
-      debugPrint('✅ Server session created');
+  Future<User?> signInWithKakao({bool forceDeviceTransfer = false}) async {
+    try {
+      final token = await _signInToKakaoSdk();
+      final customToken = await _exchangeKakaoTokenForFirebase(
+        token.accessToken,
+      );
+      final userCredential = await _auth.signInWithCustomToken(customToken);
+      await ensureServerSession(forceDeviceTransfer: forceDeviceTransfer);
+      return userCredential.user;
     } catch (e) {
-      debugPrint('⚠️ Server session creation failed (continuing): $e');
-      // 서버 연결 실패해도 로그인은 유지 (오프라인 대응)
+      debugPrint('Kakao sign-in failed: $e');
+      rethrow;
     }
   }
 
-  /// 현재 ID Token 가져오기
+  Future<User?> signInWithNaver({bool forceDeviceTransfer = false}) =>
+      throw UnsupportedError('Naver SDK sign-in is not configured yet');
+
+  Future<User?> signInWithLine({bool forceDeviceTransfer = false}) =>
+      throw UnsupportedError('LINE SDK sign-in is not configured yet');
+
+  Future<void> sendEmailSignInLink(String email) async {
+    final trimmed = email.trim();
+    if (trimmed.isEmpty) throw ArgumentError('Email is required');
+
+    final settings = ActionCodeSettings(
+      url: emailLinkUrl,
+      handleCodeInApp: true,
+      androidPackageName: 'com.bnt0514.ringinout',
+      androidInstallApp: true,
+      androidMinimumVersion: '20',
+      linkDomain: emailLinkDomain.isEmpty ? null : emailLinkDomain,
+    );
+
+    await _auth.sendSignInLinkToEmail(
+      email: trimmed,
+      actionCodeSettings: settings,
+    );
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_emailForLinkKey, trimmed);
+  }
+
+  bool isEmailSignInLink(String link) => _auth.isSignInWithEmailLink(link);
+
+  Future<User?> signInWithEmailLink({
+    required String emailLink,
+    String? email,
+    bool forceDeviceTransfer = false,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final resolvedEmail =
+        (email?.trim().isNotEmpty == true)
+            ? email!.trim()
+            : prefs.getString(_emailForLinkKey);
+    if (resolvedEmail == null || resolvedEmail.isEmpty) {
+      throw Exception('Email is required to complete email-link sign-in');
+    }
+
+    final credential = await _auth.signInWithEmailLink(
+      email: resolvedEmail,
+      emailLink: emailLink,
+    );
+    await prefs.remove(_emailForLinkKey);
+    await ensureServerSession(forceDeviceTransfer: forceDeviceTransfer);
+    return credential.user;
+  }
+
+  Future<User?> signInWithProviderName(
+    RingAuthProvider provider, {
+    bool forceDeviceTransfer = false,
+  }) {
+    switch (provider) {
+      case RingAuthProvider.google:
+        return signInWithGoogle(forceDeviceTransfer: forceDeviceTransfer);
+      case RingAuthProvider.kakao:
+        return signInWithKakao(forceDeviceTransfer: forceDeviceTransfer);
+      case RingAuthProvider.naver:
+        return signInWithNaver(forceDeviceTransfer: forceDeviceTransfer);
+      case RingAuthProvider.line:
+        return signInWithLine(forceDeviceTransfer: forceDeviceTransfer);
+      case RingAuthProvider.facebook:
+        return signInWithFacebook(forceDeviceTransfer: forceDeviceTransfer);
+      case RingAuthProvider.email:
+        throw UnsupportedError('Use sendEmailSignInLink first');
+    }
+  }
+
+  Future<void> unlinkProvider(String providerId) async {
+    final user = currentUser;
+    if (user == null) throw Exception('No user signed in');
+    final providers = await linkedProviders();
+    if (providers.length <= 1) {
+      throw Exception('Cannot unlink the last sign-in method');
+    }
+    await user.unlink(providerId);
+    await notifyProviderUnlinked(providerId);
+  }
+
+  Future<void> linkAccountProvider({required String providerId}) async {
+    final user = currentUser;
+    if (user == null) throw Exception('No user signed in');
+    final normalized = providerId.trim();
+    if (normalized.isEmpty || normalized == 'password') {
+      throw UnsupportedError('Email link must be added from the sign-in flow');
+    }
+
+    if ([
+      kakaoProviderId,
+      naverProviderId,
+      lineProviderId,
+      'kakao',
+      'naver',
+      'line',
+    ].contains(normalized)) {
+      throw UnsupportedError(
+        'SDK sign-in providers cannot be linked through Firebase OIDC',
+      );
+    }
+
+    if (normalized == 'google.com') {
+      final googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) throw Exception('Google Sign-In canceled');
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        idToken: googleAuth.idToken,
+        accessToken: googleAuth.accessToken,
+      );
+      await user.linkWithCredential(credential);
+    } else {
+      final provider =
+          normalized == 'facebook.com'
+              ? (FacebookAuthProvider()..addScope('email'))
+              : (OAuthProvider(normalized)
+                ..setScopes(['openid', 'profile', 'email']));
+      await user.linkWithProvider(provider);
+    }
+
+    await ensureServerSession(forceRefresh: true);
+  }
+
+  Future<AuthSessionInfo?> ensureServerSession({
+    bool forceRefresh = false,
+    bool forceDeviceTransfer = false,
+  }) async {
+    final user = currentUser;
+    if (user == null) return null;
+    if (!forceRefresh &&
+        !forceDeviceTransfer &&
+        _session != null &&
+        _session!.canonicalAccountId.isNotEmpty) {
+      return _session;
+    }
+
+    final deviceId = await getOrCreateDeviceId();
+    final idToken = await user.getIdToken(true);
+    if (idToken == null) throw Exception('Failed to get Firebase ID token');
+
+    try {
+      final response = await http.post(
+        Uri.parse('$serverUrl/createSession'),
+        headers: await SecureHttpHeaders.json(idToken: idToken),
+        body: jsonEncode({
+          'idToken': idToken,
+          'deviceId': deviceId,
+          'platform': defaultTargetPlatform.name,
+          'devicePlatform': defaultTargetPlatform.name,
+          'forceDeviceTransfer': forceDeviceTransfer,
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Server session failed: ${response.body}');
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final session = AuthSessionInfo.fromJson(
+        data,
+        deviceId: deviceId,
+        fallbackUid: user.uid,
+      );
+      await _cacheSession(session);
+      return session;
+    } catch (e) {
+      debugPrint('Server session creation failed: $e');
+      rethrow;
+    }
+  }
+
   Future<String?> getIdToken({bool forceRefresh = false}) async {
     final user = currentUser;
     if (user == null) return null;
@@ -93,46 +372,154 @@ class AuthService {
     try {
       return await user.getIdToken(forceRefresh);
     } catch (e) {
-      debugPrint('❌ Failed to get ID Token: $e');
+      debugPrint('Failed to get ID Token: $e');
       return null;
     }
   }
 
-  /// 로그아웃
-  Future<void> signOut() async {
-    await Future.wait([_auth.signOut(), _googleSignIn.signOut()]);
-    debugPrint('✅ Signed out');
+  Future<String> getOrCreateDeviceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final existing = prefs.getString(_deviceIdKey);
+    if (existing != null && existing.isNotEmpty) return existing;
+    final deviceId = const Uuid().v4();
+    await prefs.setString(_deviceIdKey, deviceId);
+    return deviceId;
   }
 
-  /// 계정 삭제
+  Future<void> signOut() async {
+    _session = null;
+    await Future.wait([
+      _auth.signOut(),
+      _googleSignIn.signOut(),
+      _signOutKakao(),
+    ]);
+    debugPrint('Signed out');
+  }
+
   Future<void> deleteAccount() async {
     final user = currentUser;
     if (user == null) throw Exception('No user signed in');
 
-    final uid = user.uid;
-
-    // 1. Firestore 사용자 데이터 삭제
-    try {
-      final firestore = FirebaseFirestore.instance;
-      await firestore.collection('users').doc(uid).delete();
-      await firestore.collection('subscriptions').doc(uid).delete();
-      final mapUsageDoc = firestore.collection('map_usage').doc(uid);
-      if ((await mapUsageDoc.get()).exists) await mapUsageDoc.delete();
-    } catch (e) {
-      debugPrint('⚠️ Firestore data deletion (continuing): $e');
+    final idToken = await user.getIdToken(true);
+    if (idToken != null) {
+      await http.post(
+        Uri.parse('$serverUrl/deleteAccount'),
+        headers: await SecureHttpHeaders.json(idToken: idToken),
+      );
     }
 
-    // 2. 로컬 SharedPreferences 초기화
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .delete();
     } catch (e) {
-      debugPrint('⚠️ SharedPreferences clear failed (continuing): $e');
+      debugPrint('Legacy Firestore data deletion failed: $e');
     }
 
-    // 3. Firebase Auth 계정 삭제
     await user.delete();
-    await _googleSignIn.signOut();
-    debugPrint('✅ Account deleted completely');
+    await HiveHelper.clearAllAccountScopedLocalData();
+    _session = null;
+    await Future.wait([_googleSignIn.signOut(), _signOutKakao()]);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_canonicalAccountIdKey);
+    await prefs.remove(_anonUserIdKey);
+    debugPrint('Account deleted');
+  }
+
+  Future<kakao.OAuthToken> _signInToKakaoSdk() async {
+    if (await kakao.isKakaoTalkInstalled()) {
+      try {
+        return await kakao.UserApi.instance.loginWithKakaoTalk();
+      } on PlatformException catch (e) {
+        if (e.code == 'CANCELED') {
+          throw Exception('Kakao Sign-In canceled');
+        }
+        debugPrint('KakaoTalk sign-in failed, falling back to account: $e');
+      } catch (e) {
+        debugPrint('KakaoTalk sign-in failed, falling back to account: $e');
+      }
+    }
+    return kakao.UserApi.instance.loginWithKakaoAccount();
+  }
+
+  Future<String> _exchangeKakaoTokenForFirebase(String accessToken) async {
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    try {
+      final appCheckToken = await FirebaseAppCheck.instance.getToken(false);
+      if (appCheckToken != null && appCheckToken.isNotEmpty) {
+        headers['X-Firebase-AppCheck'] = appCheckToken;
+      }
+    } catch (e) {
+      debugPrint('App Check token unavailable for Kakao sign-in: $e');
+    }
+
+    final response = await http.post(
+      Uri.parse('$serverUrl/signInWithKakao'),
+      headers: headers,
+      body: jsonEncode({'accessToken': accessToken}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Kakao token exchange failed: ${response.body}');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final customToken = data['customToken']?.toString();
+    if (customToken == null || customToken.isEmpty) {
+      throw Exception('Kakao token exchange returned no custom token');
+    }
+    return customToken;
+  }
+
+  Future<void> _signOutKakao() async {
+    try {
+      await kakao.UserApi.instance.logout();
+    } catch (e) {
+      debugPrint('Kakao logout skipped: $e');
+    }
+  }
+
+  Future<User?> _signInWithOidcProvider(
+    String providerId, {
+    required bool forceDeviceTransfer,
+  }) {
+    final provider = OAuthProvider(providerId)
+      ..setScopes(['openid', 'profile', 'email']);
+    return _signInWithProvider(
+      provider,
+      forceDeviceTransfer: forceDeviceTransfer,
+    );
+  }
+
+  Future<User?> _signInWithProvider(
+    AuthProvider provider, {
+    required bool forceDeviceTransfer,
+  }) async {
+    final credential = await _auth.signInWithProvider(provider);
+    await ensureServerSession(forceDeviceTransfer: forceDeviceTransfer);
+    return credential.user;
+  }
+
+  Future<void> notifyProviderUnlinked(String providerId) async {
+    final idToken = await getIdToken(forceRefresh: true);
+    if (idToken == null) return;
+    try {
+      await http.post(
+        Uri.parse('$serverUrl/unlinkProvider'),
+        headers: await SecureHttpHeaders.json(idToken: idToken),
+        body: jsonEncode({'providerId': providerId}),
+      );
+    } catch (e) {
+      debugPrint('Provider unlink server sync failed: $e');
+    }
+  }
+
+  Future<void> _cacheSession(AuthSessionInfo session) async {
+    _session = session;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_canonicalAccountIdKey, session.canonicalAccountId);
+    await prefs.setString(_anonUserIdKey, session.anonUserId);
   }
 }

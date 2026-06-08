@@ -38,6 +38,7 @@ class MainActivity : FlutterActivity() {
         var navigateToFullscreen: Boolean = false
         var startWithVoice: Boolean = false // 🎤 음성 알람 모드
         var recoveryReason: String? = null  // 🔄 앱 복구 사유 (Flutter에서 조회)
+        private const val ENABLE_BLUETOOTH_FEATURES = false
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -273,6 +274,7 @@ class MainActivity : FlutterActivity() {
 
     /** ✅ Flutter 데이터 맵에서 bluetoothDevices 파싱 */
     private fun parseBluetoothDevices(data: Map<String, Any>): List<BluetoothDeviceInfo> {
+        if (!ENABLE_BLUETOOTH_FEATURES) return emptyList()
         return try {
             @Suppress("UNCHECKED_CAST")
             val btList = data["bluetoothDevices"] as? List<Map<String, Any>> ?: return emptyList()
@@ -510,6 +512,10 @@ class MainActivity : FlutterActivity() {
                 .setMethodCallHandler { call, result ->
                     when (call.method) {
                         "getBondedBluetoothDevices" -> {
+                            if (!ENABLE_BLUETOOTH_FEATURES) {
+                                result.success(emptyList<Map<String, Any>>())
+                                return@setMethodCallHandler
+                            }
                             try {
                                 val devices = getBondedBluetoothDevices()
                                 result.success(devices)
@@ -573,9 +579,11 @@ class MainActivity : FlutterActivity() {
                                 }
                         @Suppress("UNCHECKED_CAST")
                         val deviceAlarmMacs =
-                                (call.argument<List<String>>("deviceAlarmMacs") ?: emptyList())
-                                        .map { it.uppercase() }
-                                        .toSet()
+                                if (ENABLE_BLUETOOTH_FEATURES)
+                                        (call.argument<List<String>>("deviceAlarmMacs") ?: emptyList())
+                                                .map { it.uppercase() }
+                                                .toSet()
+                                else emptySet()
                         val ownerUid = call.argument<String>("ownerUid") ?: ""
                         smartManager.startMonitoring(places, deviceAlarmMacs, ownerUid)
                         Log.d("MainActivity", "🎯 SmartLocationManager 시작: ${places.size}개 장소, 독립 기기: ${deviceAlarmMacs.size}개")
@@ -624,9 +632,11 @@ class MainActivity : FlutterActivity() {
                                 }
                         @Suppress("UNCHECKED_CAST")
                         val deviceAlarmMacs =
-                                (call.argument<List<String>>("deviceAlarmMacs") ?: emptyList())
-                                        .map { it.uppercase() }
-                                        .toSet()
+                                if (ENABLE_BLUETOOTH_FEATURES)
+                                        (call.argument<List<String>>("deviceAlarmMacs") ?: emptyList())
+                                                .map { it.uppercase() }
+                                                .toSet()
+                                else emptySet()
                         val ownerUid = call.argument<String>("ownerUid") ?: ""
                         smartManager.updateAlarmPlaces(places, deviceAlarmMacs, ownerUid)
                         result.success(true)
@@ -932,6 +942,7 @@ class MainActivity : FlutterActivity() {
     /** ✅ 페어링된(본딩된) 블루투스 기기 목록 반환 */
     @Suppress("MissingPermission")
     private fun getBondedBluetoothDevices(): List<Map<String, Any>> {
+        if (!ENABLE_BLUETOOTH_FEATURES) return emptyList()
         // Android 12+ 에서는 BLUETOOTH_CONNECT 권한 필요
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT)

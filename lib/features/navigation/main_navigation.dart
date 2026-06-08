@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -13,6 +13,7 @@ import 'package:ringinout/pages/location_alarm_list.dart';
 import 'package:ringinout/services/app_localizations.dart';
 import 'package:ringinout/services/location_monitor_service.dart';
 import 'package:ringinout/services/active_alarm_state.dart';
+import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/map_usage_service.dart';
 
 class MainNavigationPage extends StatefulWidget {
@@ -126,12 +127,22 @@ class _MainNavigationPageState extends State<MainNavigationPage>
         final title = prefs.getString('native_alarm_title') ?? 'Ringinout';
         final placeId = prefs.getString('native_alarm_place_id');
         final alarmId = prefs.getString('native_alarm_id');
+        final ownerUid = prefs.getString('native_alarm_owner_uid');
+        final activeOwnerUid = HiveHelper.storedActiveOwnerUid;
 
         // 즉시 플래그 제거
         await prefs.remove('native_alarm_active');
         await prefs.remove('native_alarm_title');
         await prefs.remove('native_alarm_place_id');
         await prefs.remove('native_alarm_id');
+        await prefs.remove('native_alarm_owner_uid');
+
+        if (ownerUid != null &&
+            activeOwnerUid != null &&
+            ownerUid != activeOwnerUid) {
+          debugPrint('🔔 네이티브 알람 owner 불일치로 복원 취소');
+          return;
+        }
 
         debugPrint(
           '🔔 네이티브 알람 정보: title=$title, placeId=$placeId, alarmId=$alarmId',

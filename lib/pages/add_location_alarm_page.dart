@@ -15,7 +15,6 @@ import 'package:ringinout/services/smart_location_monitor.dart';
 import 'package:ringinout/widgets/false_trigger_info_tile.dart';
 import 'package:ringinout/services/smart_location_service.dart';
 import 'package:ringinout/services/subscription_service.dart';
-import 'package:ringinout/widgets/subscription_limit_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:ringinout/services/locale_provider.dart';
 import 'package:ringinout/utils/phonetic_matcher.dart';
@@ -84,6 +83,7 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
   Map<String, dynamic>? selectedPlace;
   int? _placeLimit; // null = unlimited
   bool _lockSelectedPlaceFromAutoMatch = false;
+  bool _isSaving = false; // ✅ 중복 저장 방지 가드
 
   @override
   void initState() {
@@ -1191,116 +1191,146 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
             const SizedBox(height: 14),
             ElevatedButton(
               onPressed:
-                  (alarmName.trim().isEmpty ||
+                  (_isSaving ||
+                          alarmName.trim().isEmpty ||
                           (!triggerOnEntry && !triggerOnExit) ||
                           (!alarmSoundEnabled && !vibrationEnabled))
                       ? null
                       : () async {
-                        // ✅ context에서 필요한 값을 pop 전에 미리 추출
-                        final l10n = AppLocalizations.of(context);
-                        final sortedWeekdays =
-                            _getWeekdays(l10n)
-                                .where((d) => selectedWeekdays.contains(d))
-                                .toList();
+                        // ✅ 중복 저장 방지 — 즉시 버튼 비활성화(재진입 차단)
+                        if (_isSaving) return;
+                        setState(() => _isSaving = true);
 
-                        // ✅ 구독 한도 체크 (pop 전에)
-                        final plan = await SubscriptionService.getCurrentPlan();
-                        final limit = SubscriptionService.alarmLimit(plan);
-                        if (limit != null) {
-                          final totalCount =
-                              HiveHelper.getLocationAlarms().length;
-                          if (totalCount >= limit && mounted) {
-                            await SubscriptionLimitDialog.showAlarmLimit(
-                              context,
-                              plan: plan,
-                              limit: limit,
+                        try {
+                          final l10n = AppLocalizations.of(context);
+                          final sortedWeekdays =
+                              _getWeekdays(l10n)
+                                  .where((d) => selectedWeekdays.contains(d))
+                                  .toList();
+
+                          // ✅ startTimeMs 계산 (시간 조건이 있고 날짜/요일 없을 때)
+                          int startTimeMs = 0;
+                          if (conditionTime != null &&
+                              selectedDate == null &&
+                              sortedWeekdays.isEmpty) {
+                            final now = DateTime.now();
+                            final scheduledTime = DateTime(
+                              now.year,
+                              now.month,
+                              now.day,
+                              conditionTime!.hour,
+                              conditionTime!.minute,
                             );
-                            return;
+                            startTimeMs = scheduledTime.millisecondsSinceEpoch;
+                          }
+
+                          final id = const Uuid().v4();
+                          final alarm = {
+                            'id': id,
+                            'name': alarmName,
+                            'place': selectedPlace?['name'] ?? '',
+                            'placeId': selectedPlace?['id']?.toString(),
+                            'trigger': triggerOnEntry ? 'entry' : 'exit',
+                            'detectionMode': AlarmDetectionMode.forSave(
+                              detectionMode,
+                              selectedPlace,
+                            ),
+                            'repeat':
+                                selectedDate != null
+                                    ? selectedDate!.toIso8601String()
+                                    : (sortedWeekdays.isNotEmpty
+                                        ? sortedWeekdays
+                                        : null),
+                            'enabled': true,
+                            'triggerCount': 0,
+                            'excludeHolidays': excludeHolidays,
+                            'holidayBehavior': holidayBehavior,
+                            'startTimeMs': startTimeMs,
+                            // ✅ 날짜/요일 + 시간 조건
+                            if (conditionTime != null &&
+                                (selectedDate != null ||
+                                    sortedWeekdays.isNotEmpty)) ...{
+                              'hour': conditionTime!.hour,
+                              'minute': conditionTime!.minute,
+                            },
+                            'soundEnabled': alarmSoundEnabled,
+                            'vibrationEnabled': vibrationEnabled,
+                          };
+
+                          // ✅ 1) 로컬 저장 먼저 — 가장 빠르고 핵심
+                          await HiveHelper.saveLocationAlarm(alarm);
+
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setString(
+                            'alarm_name_$id',
+                            alarm['name'] as String,
+                          );
+
+                          // ✅ 2) 활성화 안내 (필요 시)
+                          if (!context.mounted) return;
+                          await AlarmActivationNotice.showIfNeeded(
+                            context,
+                            alarm,
+                            selectedPlace,
+                          );
+
+                          // ✅ 3) 즉시 화면 이탈
+                          if (!context.mounted) return;
+                          Navigator.pop(context);
+
+                          // ✅ 4) 백그라운드 작업 (pop 후, UI 비차단)
+                          //    광고/하트비트/모니터링은 저장 응답을 막지 않도록 분리
+                          SubscriptionService.getCurrentPlan()
+                              .then(
+                                (plan) =>
+                                    SubscriptionService.requestAdIfNeeded(plan),
+                              )
+                              .catchError((e) => print('⚠️ 광고 요청 실패: $e'));
+                          LocationMonitorService.sendWatchdogHeartbeat()
+                              .catchError(
+                                (e) => print('⚠️ Heartbeat 전송 실패: $e'),
+                              );
+                          SmartLocationService.updatePlaces()
+                              .then(
+                                (_) =>
+                                    SmartLocationMonitor.startSmartMonitoring(),
+                              )
+                              .catchError((e) => print('⚠️ 모니터링 갱신 실패: $e'));
+                        } catch (e) {
+                          print('❌ 알람 저장 실패: $e');
+                          if (mounted) {
+                            setState(() => _isSaving = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  AppLocalizations.of(context).getWithArgs(
+                                    'alarm_save_failed',
+                                    {'error': '$e'},
+                                  ),
+                                ),
+                                backgroundColor: AppColors.danger,
+                              ),
+                            );
                           }
                         }
-
-                        await SubscriptionService.requestAdIfNeeded(plan);
-
-                        // ✅ startTimeMs 계산 (시간 조건이 있고 날짜/요일 없을 때)
-                        int startTimeMs = 0;
-                        if (conditionTime != null &&
-                            selectedDate == null &&
-                            sortedWeekdays.isEmpty) {
-                          final now = DateTime.now();
-                          final scheduledTime = DateTime(
-                            now.year,
-                            now.month,
-                            now.day,
-                            conditionTime!.hour,
-                            conditionTime!.minute,
-                          );
-                          startTimeMs = scheduledTime.millisecondsSinceEpoch;
-                        }
-
-                        final id = const Uuid().v4();
-                        final alarm = {
-                          'id': id,
-                          'name': alarmName,
-                          'place': selectedPlace?['name'] ?? '',
-                          'placeId': selectedPlace?['id']?.toString(),
-                          'trigger': triggerOnEntry ? 'entry' : 'exit',
-                          'detectionMode': AlarmDetectionMode.forSave(
-                            detectionMode,
-                            selectedPlace,
-                          ),
-                          'repeat':
-                              selectedDate != null
-                                  ? selectedDate!.toIso8601String()
-                                  : (sortedWeekdays.isNotEmpty
-                                      ? sortedWeekdays
-                                      : null),
-                          'enabled': true,
-                          'triggerCount': 0,
-                          'excludeHolidays': excludeHolidays,
-                          'holidayBehavior': holidayBehavior,
-                          'startTimeMs': startTimeMs,
-                          // ✅ 날짜/요일 + 시간 조건
-                          if (conditionTime != null &&
-                              (selectedDate != null ||
-                                  sortedWeekdays.isNotEmpty)) ...{
-                            'hour': conditionTime!.hour,
-                            'minute': conditionTime!.minute,
-                          },
-                          'soundEnabled': alarmSoundEnabled,
-                          'vibrationEnabled': vibrationEnabled,
-                        };
-
-                        // ✅ 저장 완료 후 pop
-                        await HiveHelper.saveLocationAlarm(alarm);
-
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.setString(
-                          'alarm_name_$id',
-                          alarm['name'] as String,
-                        );
-
-                        if (!context.mounted) return;
-                        await AlarmActivationNotice.showIfNeeded(
-                          context,
-                          alarm,
-                          selectedPlace,
-                        );
-
-                        if (!context.mounted) return;
-                        Navigator.pop(context);
-
-                        // ✅ 백그라운드 작업 (pop 후)
-                        await LocationMonitorService.sendWatchdogHeartbeat();
-                        print('🔔 알람 추가 후 Heartbeat 전송');
-
-                        await SmartLocationService.updatePlaces();
-                        print('🎯 SmartLocationService 장소 업데이트 완료');
-
-                        await SmartLocationMonitor.startSmartMonitoring();
                       },
-              child: Center(
-                child: Text(AppLocalizations.of(context).get('save_btn')),
-              ),
+              child:
+                  _isSaving
+                      ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                      : Center(
+                        child: Text(
+                          AppLocalizations.of(context).get('save_btn'),
+                        ),
+                      ),
             ),
           ],
         ),
