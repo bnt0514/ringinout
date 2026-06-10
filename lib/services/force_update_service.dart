@@ -5,7 +5,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:ringinout/services/hive_helper.dart';
 
@@ -19,6 +19,11 @@ class ForceUpdateService {
 
   static Future<bool> needsUpdate() async {
     try {
+      if (kDebugMode) {
+        debugPrint('[ForceUpdate] debug build, bypassing force update');
+        return false;
+      }
+
       if (await _isForceUpdateExemptUser()) {
         debugPrint('[ForceUpdate] exempt user, bypassing force update');
         return false;
@@ -39,6 +44,9 @@ class ForceUpdateService {
       return false;
     }
   }
+
+  static Future<bool> isCurrentUserSpecialOrDeveloper() =>
+      _isForceUpdateExemptUser();
 
   static Future<bool> _isForceUpdateExemptUser() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;

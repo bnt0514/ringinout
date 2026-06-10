@@ -27,9 +27,13 @@ class WifiScanHelper(private val context: Context) {
         fun extractSsidPrefix(ssid: String): String {
             val suffixes = listOf(
                     "_5G", "_2G", "_5g", "_2g",
+                    "_6G", "_6g",
                     "-5G", "-2G", "-5g", "-2g",
+                    "-6G", "-6g",
                     "_5GHz", "_2.4GHz", "_5ghz", "_2.4ghz",
+                    "_6GHz", "_6ghz",
                     "-5GHz", "-2.4GHz", "-5ghz", "-2.4ghz",
+                    "-6GHz", "-6ghz",
                     "_A", "_a", "-A", "-a",
                     "_guest", "_Guest", "-guest", "-Guest",
                     "_GUEST", "-GUEST",
@@ -45,6 +49,26 @@ class WifiScanHelper(private val context: Context) {
                 }
             }
             return prefix
+        }
+
+        fun normalizeSsidBase(ssid: String): String {
+            val trimmed = ssid.trim()
+            if (trimmed.isEmpty()) return ""
+            val suffixRegexes = listOf(
+                    Regex("""[\s_-]*(2g|5g|6g)$""", RegexOption.IGNORE_CASE),
+                    Regex("""[\s_-]*(2\.4g|2\.4ghz|5ghz|6ghz)$""", RegexOption.IGNORE_CASE),
+                    Regex("""[\s_-]*(24g|24ghz)$""", RegexOption.IGNORE_CASE),
+            )
+            for (regex in suffixRegexes) {
+                val next = trimmed.replace(regex, "").trim()
+                if (next.isNotEmpty() && next != trimmed) return next
+            }
+            return trimmed
+        }
+
+        fun isGuestLikeSsid(ssid: String): Boolean {
+            return Regex("""(^|[\s_-])(guest|iot|ext|extend|repeater)($|[\s_-])""", RegexOption.IGNORE_CASE)
+                    .containsMatchIn(ssid.trim())
         }
     }
 
@@ -140,6 +164,9 @@ class WifiScanHelper(private val context: Context) {
                     "ssid" to connected["ssid"]!!,
                     "bssid" to connected["bssid"]!!,
                     "isConnected" to true,
+                    "isSuggestedSibling" to false,
+                    "matchReason" to "connected",
+                    "baseSsid" to normalizeSsidBase(extractSsidPrefix(connected["ssid"]!!)),
                     "signalLevel" to 4,
             ))
             seen.add(connected["bssid"]!!)
@@ -147,7 +174,7 @@ class WifiScanHelper(private val context: Context) {
 
         // 2. Wi-Fi 스캔 결과에서 프리픽스 매칭
         if (connected != null) {
-            val prefix = extractSsidPrefix(connected["ssid"]!!)
+            val prefix = normalizeSsidBase(extractSsidPrefix(connected["ssid"]!!))
 
             if (hasWifiScanPermission()) {
                 try {
@@ -165,13 +192,16 @@ class WifiScanHelper(private val context: Context) {
 
                         if (ssid.isEmpty() || seen.contains(bssid)) continue
 
-                        val scanPrefix = extractSsidPrefix(ssid)
+                        val scanPrefix = normalizeSsidBase(extractSsidPrefix(ssid))
                         if (scanPrefix.equals(prefix, ignoreCase = true)) {
                             val level = WifiManager.calculateSignalLevel(scanResult.level, 5)
                             result.add(mapOf(
                                     "ssid" to ssid,
                                     "bssid" to bssid,
                                     "isConnected" to false,
+                                    "isSuggestedSibling" to !isGuestLikeSsid(ssid),
+                                    "matchReason" to if (isGuestLikeSsid(ssid)) "guest_like" else "same_router_candidate",
+                                    "baseSsid" to scanPrefix,
                                     "signalLevel" to level,
                             ))
                             seen.add(bssid)

@@ -20,6 +20,8 @@ class HiveHelper {
   static String? _activeOwnerUid;
   static const String _activeOwnerKey = 'active_owner_uid';
   static const String _canonicalOwnerResetKey = 'canonical_owner_reset_v1';
+  static const String _lastFirebaseUidKey = 'last_firebase_uid_v1';
+  static const String _developerLoginOptionsKey = 'developer_login_options_v1';
 
   static bool get _bluetoothFeaturesEnabled =>
       AppConfig.enableBluetoothFeatures;
@@ -234,16 +236,50 @@ class HiveHelper {
     return doneFor != canonicalOwnerUid;
   }
 
+  static String? get lastFirebaseUid {
+    if (!_isInitialized) return null;
+    final uid = _settingsBox.get(_lastFirebaseUidKey)?.toString().trim();
+    return uid == null || uid.isEmpty ? null : uid;
+  }
+
+  static Future<void> setLastFirebaseUid(String? uid) async {
+    if (!_isInitialized) return;
+    if (uid == null || uid.isEmpty) {
+      await _settingsBox.delete(_lastFirebaseUidKey);
+    } else {
+      await _settingsBox.put(_lastFirebaseUidKey, uid);
+    }
+  }
+
+  static bool get showDeveloperLoginOptions {
+    if (!_isInitialized) return false;
+    return _settingsBox.get(_developerLoginOptionsKey) == true;
+  }
+
+  static Future<void> setDeveloperLoginOptions(bool enabled) async {
+    if (!_isInitialized) return;
+    if (enabled) {
+      await _settingsBox.put(_developerLoginOptionsKey, true);
+    } else {
+      await _settingsBox.delete(_developerLoginOptionsKey);
+    }
+  }
+
+  static bool hasAnyAccountScopedLocalData() {
+    if (!_isInitialized) return false;
+    return _placeBox.isNotEmpty ||
+        _alarmBox.isNotEmpty ||
+        _deviceAlarmBox.isNotEmpty;
+  }
+
   static Future<void> resetAccountScopedLocalDataForCanonicalOwner(
     String canonicalOwnerUid,
   ) async {
     if (!_isInitialized || canonicalOwnerUid.isEmpty) return;
     if (!needsCanonicalOwnerReset(canonicalOwnerUid)) return;
 
-    await _placeBox.clear();
-    await _alarmBox.clear();
-    await _deviceAlarmBox.clear();
-    await _myDevicesBox.clear();
+    await setActiveOwnerUid(canonicalOwnerUid);
+    await reassignAllLocalDataToCurrentOwner();
 
     try {
       final triggerBox = await Hive.openBox('trigger_counts_v2');
@@ -274,9 +310,8 @@ class HiveHelper {
       }
     }
 
-    await setActiveOwnerUid(canonicalOwnerUid);
     await _settingsBox.put(_canonicalOwnerResetKey, canonicalOwnerUid);
-    debugPrint('Account-scoped local data reset for canonical owner');
+    debugPrint('Account-scoped runtime data reset for canonical owner');
   }
 
   static Future<void> clearAllAccountScopedLocalData() async {
@@ -317,6 +352,7 @@ class HiveHelper {
 
     await setActiveOwnerUid(null);
     await _settingsBox.delete(_canonicalOwnerResetKey);
+    await _settingsBox.delete(_lastFirebaseUidKey);
   }
 
   static Future<void> setActiveOwnerUid(String? uid) async {

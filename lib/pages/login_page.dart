@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -13,7 +14,7 @@ import 'package:ringinout/services/smart_location_service.dart';
 
 enum _MagicLinkFormState { idle, sending, sent, error }
 
-enum _SignInProvider { google, kakao, naver, line, facebook, email }
+enum _SignInProvider { google, kakao, naver, line, yahoo, facebook, email }
 
 class _SignInMethod {
   const _SignInMethod({
@@ -51,6 +52,56 @@ class _LoginPageState extends State<LoginPage> {
   String? _magicLinkError;
 
   List<_SignInMethod> _methodsForLocale(Locale locale) {
+    if (_showDeveloperLoginOptions()) {
+      return const [
+        _SignInMethod(
+          provider: _SignInProvider.google,
+          labelKey: 'login_continue_with_google',
+          icon: Icons.g_mobiledata,
+        ),
+        _SignInMethod(
+          provider: _SignInProvider.kakao,
+          labelKey: 'login_continue_with_kakao',
+          icon: Icons.chat_bubble_outline,
+          badgeText: 'K',
+          badgeColor: Color(0xFFFEE500),
+        ),
+        _SignInMethod(
+          provider: _SignInProvider.naver,
+          labelKey: 'login_continue_with_naver',
+          icon: Icons.account_circle_outlined,
+          badgeText: 'N',
+          badgeColor: Color(0xFF03C75A),
+        ),
+        _SignInMethod(
+          provider: _SignInProvider.line,
+          labelKey: 'login_continue_with_line',
+          icon: Icons.chat_outlined,
+          badgeText: 'L',
+          badgeColor: Color(0xFF06C755),
+        ),
+        _SignInMethod(
+          provider: _SignInProvider.yahoo,
+          labelKey: 'login_continue_with_yahoo',
+          icon: Icons.travel_explore_outlined,
+          badgeText: 'Y!',
+          badgeColor: Color(0xFFFF0033),
+        ),
+        _SignInMethod(
+          provider: _SignInProvider.facebook,
+          labelKey: 'login_continue_with_facebook',
+          icon: Icons.facebook,
+          badgeText: 'f',
+          badgeColor: Color(0xFF1877F2),
+        ),
+        _SignInMethod(
+          provider: _SignInProvider.email,
+          labelKey: 'login_continue_with_email',
+          icon: Icons.email_outlined,
+        ),
+      ];
+    }
+
     final country = _countryCodeForSignInOptions(locale);
 
     if (country == 'KR') {
@@ -75,13 +126,6 @@ class _LoginPageState extends State<LoginPage> {
           badgeColor: Color(0xFF03C75A),
         ),
         _SignInMethod(
-          provider: _SignInProvider.facebook,
-          labelKey: 'login_continue_with_facebook',
-          icon: Icons.facebook,
-          badgeText: 'f',
-          badgeColor: Color(0xFF1877F2),
-        ),
-        _SignInMethod(
           provider: _SignInProvider.email,
           labelKey: 'login_continue_with_email',
           icon: Icons.email_outlined,
@@ -104,11 +148,11 @@ class _LoginPageState extends State<LoginPage> {
           badgeColor: Color(0xFF06C755),
         ),
         _SignInMethod(
-          provider: _SignInProvider.facebook,
-          labelKey: 'login_continue_with_facebook',
-          icon: Icons.facebook,
-          badgeText: 'f',
-          badgeColor: Color(0xFF1877F2),
+          provider: _SignInProvider.yahoo,
+          labelKey: 'login_continue_with_yahoo',
+          icon: Icons.travel_explore_outlined,
+          badgeText: 'Y!',
+          badgeColor: Color(0xFFFF0033),
         ),
         _SignInMethod(
           provider: _SignInProvider.email,
@@ -118,8 +162,27 @@ class _LoginPageState extends State<LoginPage> {
       ];
     }
 
-    if (country == 'CN') {
+    if (_linePreferredCountries.contains(country)) {
       return const [
+        _SignInMethod(
+          provider: _SignInProvider.google,
+          labelKey: 'login_continue_with_google',
+          icon: Icons.g_mobiledata,
+        ),
+        _SignInMethod(
+          provider: _SignInProvider.line,
+          labelKey: 'login_continue_with_line',
+          icon: Icons.chat_outlined,
+          badgeText: 'L',
+          badgeColor: Color(0xFF06C755),
+        ),
+        _SignInMethod(
+          provider: _SignInProvider.facebook,
+          labelKey: 'login_continue_with_facebook',
+          icon: Icons.facebook,
+          badgeText: 'f',
+          badgeColor: Color(0xFF1877F2),
+        ),
         _SignInMethod(
           provider: _SignInProvider.email,
           labelKey: 'login_continue_with_email',
@@ -149,6 +212,11 @@ class _LoginPageState extends State<LoginPage> {
     ];
   }
 
+  static const Set<String> _linePreferredCountries = {'TW', 'TH', 'ID'};
+
+  bool _showDeveloperLoginOptions() =>
+      kDebugMode || HiveHelper.showDeveloperLoginOptions;
+
   String? _countryCodeForSignInOptions(Locale appLocale) {
     final systemCountry =
         WidgetsBinding.instance.platformDispatcher.locale.countryCode;
@@ -171,6 +239,8 @@ class _LoginPageState extends State<LoginPage> {
         return authService.signInWithNaver();
       case _SignInProvider.line:
         return authService.signInWithLine();
+      case _SignInProvider.yahoo:
+        return authService.signInWithYahoo();
       case _SignInProvider.facebook:
         return authService.signInWithFacebook();
       case _SignInProvider.email:
@@ -190,7 +260,6 @@ class _LoginPageState extends State<LoginPage> {
     try {
       final user = await _runProviderSignIn(authService, provider);
       if (!mounted || user == null) return;
-      await _finishAuthenticatedFlow();
     } catch (e) {
       if (!mounted) return;
       _showError(l10n.get('login_failed'));
@@ -252,8 +321,9 @@ class _LoginPageState extends State<LoginPage> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('no-user');
       final authService = Provider.of<AuthService>(context, listen: false);
-      final session = await authService.ensureServerSession(forceRefresh: true);
-      final accountId = session?.canonicalAccountId ?? user.uid;
+      final session = await _ensureServerSessionWithConsent(authService);
+      if (session == null) return;
+      final accountId = session.canonicalAccountId;
 
       // Step 1: terms check. If the network check fails, keep sign-in moving.
       try {
@@ -309,7 +379,11 @@ class _LoginPageState extends State<LoginPage> {
         return;
       }
 
-      // Step 3: move to the app.
+      if (session.deviceTransferRequired) return;
+      await HiveHelper.setActiveOwnerUid(accountId);
+      await HiveHelper.reassignAllLocalDataToCurrentOwner();
+      await SmartLocationService.updatePlaces();
+      await SmartLocationService.startMonitoring();
       if (!mounted) return;
       Navigator.of(context).pushReplacementNamed('/home');
     } catch (e) {
@@ -326,11 +400,100 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
+  Future<AuthSessionInfo?> _ensureServerSessionWithConsent(
+    AuthService authService,
+  ) async {
+    try {
+      return await authService.ensureServerSession(forceRefresh: true);
+    } on DeviceAccountLinkRequiredException {
+      if (!mounted) return null;
+      final confirmed = await _confirmAccountLink();
+      if (confirmed != true) {
+        await SmartLocationService.cancelAllSnoozes();
+        await SmartLocationService.stopMonitoring();
+        await HiveHelper.setActiveOwnerUid(null);
+        await authService.signOut();
+        return null;
+      }
+      return authService.ensureServerSession(
+        forceRefresh: true,
+        allowDeviceAccountLink: true,
+      );
+    } on ProviderAccountConflictException {
+      if (mounted) _showError(AppLocalizations.of(context).get('login_failed'));
+      await authService.signOut();
+      rethrow;
+    } on SignInProviderRequiredException {
+      await SmartLocationService.cancelAllSnoozes();
+      await SmartLocationService.stopMonitoring();
+      await HiveHelper.setActiveOwnerUid(null);
+      await authService.signOut();
+      if (mounted) _showError(AppLocalizations.of(context).get('login_failed'));
+      return null;
+    }
+  }
+
+  Future<bool?> _confirmAccountLink() {
+    final l10n = AppLocalizations.of(context);
+    final isKorean = Localizations.localeOf(context).languageCode == 'ko';
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => AlertDialog(
+            title: Text(
+              isKorean
+                  ? '기존 계정 데이터와 연동할까요?'
+                  : l10n.get('account_link_existing_title'),
+            ),
+            content: Text(
+              isKorean
+                  ? '이 기기에는 이미 사용 중인 앱 계정이 있습니다. 계속하려면 현재 로그인 방법을 기존 앱 계정에 연동해야 합니다. 연동하면 장소, 알람, 플랜, 사용 한도가 하나의 계정으로 공유됩니다.'
+                  : l10n.get('account_link_existing_body'),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(
+                  isKorean
+                      ? '로그인 취소'
+                      : l10n.get('account_link_existing_cancel'),
+                ),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(
+                  isKorean
+                      ? '연동하고 계속'
+                      : l10n.get('account_link_existing_confirm'),
+                ),
+              ),
+            ],
+          ),
+    );
+  }
+
   Future<void> _moveAppToBackground() async {
     try {
       await _appLifecycleChannel.invokeMethod('moveTaskToBack');
     } catch (e) {
       debugPrint('Failed to move app to background: $e');
+    }
+  }
+
+  Future<void> _signOutAndReturnToLogin() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      await SmartLocationService.cancelAllSnoozes();
+      await SmartLocationService.stopMonitoring();
+      await HiveHelper.setActiveOwnerUid(null);
+      await authService.signOut();
+    } catch (e) {
+      debugPrint('Switch account sign-out failed: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -405,7 +568,14 @@ class _LoginPageState extends State<LoginPage> {
                   if (user == null)
                     _buildSignInMethods(context, authService, l10n)
                   else
-                    _buildStartButton(l10n),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildStartButton(l10n),
+                        const SizedBox(height: 10),
+                        _buildSwitchAccountButton(),
+                      ],
+                    ),
                   const SizedBox(height: 32),
                   TextButton(
                     onPressed: () {
@@ -647,7 +817,8 @@ class _LoginPageState extends State<LoginPage> {
             color:
                 method.provider == _SignInProvider.naver ||
                         method.provider == _SignInProvider.facebook ||
-                        method.provider == _SignInProvider.line
+                        method.provider == _SignInProvider.line ||
+                        method.provider == _SignInProvider.yahoo
                     ? Colors.white
                     : Colors.black,
             fontSize: 13,
@@ -783,6 +954,30 @@ class _LoginPageState extends State<LoginPage> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+      ),
+    );
+  }
+
+  Widget _buildSwitchAccountButton() {
+    final isKorean = Localizations.localeOf(context).languageCode == 'ko';
+    return SizedBox(
+      width: double.infinity,
+      height: 48,
+      child: OutlinedButton.icon(
+        onPressed: _isLoading ? null : _signOutAndReturnToLogin,
+        icon: const Icon(Icons.switch_account_outlined, size: 20),
+        label: Text(
+          isKorean ? '다른 아이디로 로그인하기' : 'Sign in with another account',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.textSecondary,
+          side: BorderSide(color: AppColors.border),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+        ),
       ),
     );
   }

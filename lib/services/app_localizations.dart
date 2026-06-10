@@ -115,6 +115,15 @@ class AppLocalizations {
       'detection_mode_wifi': 'Wi-Fi Alarm',
       'detection_mode_wifi_desc': 'Uses registered Wi-Fi.',
       'detection_mode_wifi_disabled': 'Register Wi-Fi for this place first.',
+      'wifi_wait_title': 'Wi-Fi wait time',
+      'wifi_wait_subtitle': '{minutes} min',
+      'wifi_wait_dialog_title': 'Wi-Fi wait time',
+      'wifi_wait_dialog_message':
+          'When GPS judges that you entered the place radius, the app waits for Wi-Fi connection. If a registered Wi-Fi connects within this time, the alarm rings. If Wi-Fi is not detected, the app rechecks GPS after the time passes and may try a backup alarm.',
+      'wifi_wait_custom': 'Custom',
+      'wifi_wait_custom_title': 'Custom wait time',
+      'wifi_wait_custom_hint': '5-60 minutes',
+      'wifi_wait_invalid': 'Enter 5-60 minutes.',
       'alarm_saved': '✅ Alarm saved',
       'alarm_deleted': '🗑 Alarm deleted',
 
@@ -174,6 +183,11 @@ class AppLocalizations {
           'Places and alarms stored on this device will be assigned to the current account. This can change which account sees them on this device.',
       'account_transfer_success':
           'Transferred {places} places and {alarms} alarms.',
+      'account_link_existing_title': 'Link existing account data?',
+      'account_link_existing_body':
+          'This device already has places or alarms from another signed-in account. To continue, link this sign-in method to the existing app account. Your places, alarms, plan, and usage limits will be shared under one account.',
+      'account_link_existing_cancel': 'Cancel login',
+      'account_link_existing_confirm': 'Link and continue',
       'account_delete_device_warning':
           'Deleting the account removes synced account data and stops alarms on this active device. Local app data may remain on the device until the app data is cleared or the app is uninstalled.',
       'provider_google': 'Google',
@@ -181,6 +195,7 @@ class AppLocalizations {
       'provider_kakao': 'Kakao',
       'provider_naver': 'Naver',
       'provider_line': 'LINE',
+      'provider_yahoo': 'Yahoo Japan',
       'provider_facebook': 'Facebook',
       'provider_email': 'Email',
 
@@ -197,6 +212,7 @@ class AppLocalizations {
       'login_continue_with_kakao': 'Continue with Kakao',
       'login_continue_with_naver': 'Continue with Naver',
       'login_continue_with_line': 'Continue with LINE',
+      'login_continue_with_yahoo': 'Continue with Yahoo Japan',
       'login_continue_with_facebook': 'Continue with Facebook',
       'login_continue_with_email': 'Continue with email',
       'login_sign_in_methods_title': 'Choose a sign-in method',
@@ -227,6 +243,7 @@ class AppLocalizations {
       'privacy_section_1_content':
           'Ringinout processes information only as needed to provide app features and does not use it for advertising tracking or unrelated purposes.\n\n'
           '• Location data: Processed primarily on your device. Coordinates or search terms may be sent temporarily to map/geocoding providers when you use map, address search, or reverse-geocoding features. Ringinout does not store location history on its servers.\n\n'
+          '• Wi-Fi data: SSID/BSSID is used on-device to provide Wi-Fi location alarms. Wi-Fi candidate recommendation compares the currently connected Wi-Fi with nearby detected Wi-Fi networks on-device. It is not used for advertising, tracking, or third-party sharing, and is not sent to Ringinout servers.\n\n'
           '• Account, subscription, usage, and user-submitted diagnostic data: Used only for login, paid-plan features, quota management, service stability, and bug fixing.',
       'privacy_section_2_title': '2. Purpose of Anonymized ID',
       'privacy_section_2_content':
@@ -857,6 +874,10 @@ class AppLocalizations {
       'wifi_hidden_network': '(Hidden network)',
       'wifi_currently_connected': 'Currently connected',
       'wifi_previously_saved': 'Previously saved (not detected now)',
+      'wifi_candidate_notice':
+          'These Wi-Fi networks may belong to the same router. Select only Wi-Fi networks you own or are allowed to use. A wrong selection may cause missed or unexpected alarms.',
+      'wifi_suggested_sibling': 'Same router candidate',
+      'wifi_guest_like_candidate': 'Guest/extended network candidate',
 
       // Quota / Reward system
       'quota_search_label': 'Search',
@@ -984,6 +1005,15 @@ class AppLocalizations {
       'detection_mode_wifi': 'Wi-Fi 알람',
       'detection_mode_wifi_desc': '등록된 Wi-Fi 기준으로 울립니다.',
       'detection_mode_wifi_disabled': '이 장소에 Wi-Fi를 먼저 등록해야 합니다.',
+      'wifi_wait_title': 'Wi-Fi 대기 시간',
+      'wifi_wait_subtitle': '{minutes}분',
+      'wifi_wait_dialog_title': 'Wi-Fi 대기 시간',
+      'wifi_wait_dialog_message':
+          'GPS가 장소 반경에 들어왔다고 판단되면 Wi-Fi 연결을 기다립니다. 설정한 시간 안에 등록한 Wi-Fi가 연결되면 알람이 울리고, 연결 감지가 되지 않으면 시간이 지난 뒤 GPS 위치를 다시 확인해 보조 알람을 시도합니다.',
+      'wifi_wait_custom': '사용자 설정',
+      'wifi_wait_custom_title': '대기 시간 직접 입력',
+      'wifi_wait_custom_hint': '5~60분',
+      'wifi_wait_invalid': '5~60분 사이로 입력하세요.',
       'alarm_saved': '✅ 알람이 저장되었습니다',
       'alarm_deleted': '🗑 알람이 삭제되었습니다',
 
@@ -1083,6 +1113,7 @@ class AppLocalizations {
       'privacy_section_1_content':
           'Ringinout은 앱 기능 제공에 필요한 범위에서만 정보를 처리하며, 광고 목적의 추적이나 다른 용도로 사용하지 않습니다.\n\n'
           '• 위치 정보: 위치 알람을 위해 주로 기기 내에서 처리됩니다. 지도 표시, 주소 검색, 역지오코딩 기능을 사용할 때 좌표나 검색어가 외부 지도/지오코딩 제공자에게 일시적으로 전달될 수 있으나, Ringinout 서버에는 위치 이력으로 저장하지 않습니다.\n\n'
+          '• Wi-Fi 정보: SSID/BSSID는 Wi-Fi 위치 알람 기능 제공을 위해 기기 내에서 사용됩니다. Wi-Fi 후보 추천은 현재 연결 중인 Wi-Fi와 주변 감지 Wi-Fi를 기기 내에서 비교해 처리하며, 광고·추적·제3자 제공 목적으로 사용하지 않고 Ringinout 서버로 전송하지 않습니다.\n\n'
           '• 계정, 구독, 사용량, 사용자가 제출한 진단 정보: 로그인, 유료 기능, 쿼터 관리, 서비스 안정성, 버그 수정을 위해서만 사용됩니다.',
       'privacy_section_2_title': '2. 익명화된 ID 사용 목적',
       'privacy_section_2_content':
@@ -1687,6 +1718,10 @@ class AppLocalizations {
       'wifi_hidden_network': '(숨겨진 네트워크)',
       'wifi_currently_connected': '현재 연결됨',
       'wifi_previously_saved': '이전에 저장됨 (현재 감지 안 됨)',
+      'wifi_candidate_notice':
+          '같은 공유기일 가능성이 높은 Wi-Fi 후보입니다. 본인 또는 사용 권한이 있는 Wi-Fi만 선택하세요. 잘못 선택하면 알람이 울리지 않거나 의도치 않게 동작할 수 있습니다.',
+      'wifi_suggested_sibling': '같은 공유기 후보',
+      'wifi_guest_like_candidate': '게스트/확장망 후보',
 
       // Quota / Reward system
       'quota_search_label': '검색',

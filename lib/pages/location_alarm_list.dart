@@ -48,6 +48,12 @@ class AlarmListController {
     }
   }
 
+  void clearSelection() {
+    if (!isSelectionMode.value && selectedIndexes.value.isEmpty) return;
+    selectedIndexes.value = {};
+    isSelectionMode.value = false;
+  }
+
   Future<void> deleteSelected() async {
     final box = HiveHelper.alarmBox;
 
@@ -747,8 +753,7 @@ class _LocationAlarmListState extends State<LocationAlarmList> {
               canPop: !isSelectionMode,
               onPopInvoked: (didPop) {
                 if (!didPop && isSelectionMode) {
-                  _controller.isSelectionMode.value = false;
-                  _controller.selectedIndexes.value = {};
+                  _controller.clearSelection();
                 }
               },
               child: Column(

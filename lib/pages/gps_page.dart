@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
@@ -8,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ringinout/pages/admin_dashboard_page.dart';
 import 'package:ringinout/services/app_log_buffer.dart';
+import 'package:ringinout/services/force_update_service.dart';
 import 'package:ringinout/services/hive_helper.dart';
 import 'package:ringinout/services/location_monitor_service.dart';
 import 'package:ringinout/services/secure_http_headers.dart';
@@ -57,6 +59,17 @@ class _GpsPageState extends State<GpsPage> {
   /// Firestore admin_config/special_users 기반 개발자 여부 체크
   Future<void> _checkDevUser() async {
     try {
+      if (kDebugMode || HiveHelper.showDeveloperLoginOptions) {
+        if (mounted) setState(() => _isDevUser = true);
+        return;
+      }
+
+      if (await ForceUpdateService.isCurrentUserSpecialOrDeveloper()) {
+        await HiveHelper.setDeveloperLoginOptions(true);
+        if (mounted) setState(() => _isDevUser = true);
+        return;
+      }
+
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;
       final doc =

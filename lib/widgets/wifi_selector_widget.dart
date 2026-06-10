@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../services/wifi_service.dart';
 import '../services/app_localizations.dart';
+import '../utils/wifi_alarm_settings.dart';
 
 class WifiSelectorWidget extends StatefulWidget {
   /// 기존 선택된 Wi-Fi 네트워크 목록 (편집 시)
@@ -33,6 +34,7 @@ class _WifiSelectorWidgetState extends State<WifiSelectorWidget> {
   bool _isLoading = false;
   bool _wifiEnabled = true;
   String? _errorMessage;
+  bool _didApplyDefaultSelection = false;
 
   @override
   void initState() {
@@ -45,6 +47,7 @@ class _WifiSelectorWidgetState extends State<WifiSelectorWidget> {
         _selectedBssids.add(bssid);
       }
     }
+    _didApplyDefaultSelection = widget.initialNetworks.isNotEmpty;
 
     _scanNetworks();
   }
@@ -87,10 +90,32 @@ class _WifiSelectorWidgetState extends State<WifiSelectorWidget> {
         return;
       }
 
-      final networks = await WifiService.getSimilarNetworks();
+      final rawNetworks = await WifiService.getSimilarNetworks();
+      Map<String, dynamic>? connectedNetwork;
+      for (final network in rawNetworks) {
+        if (network['isConnected'] == true) {
+          connectedNetwork = network;
+          break;
+        }
+      }
+      final connectedSsid = connectedNetwork?['ssid']?.toString() ?? '';
+      final networks =
+          rawNetworks.map((network) {
+            final normalized = Map<String, dynamic>.from(network);
+            final ssid = normalized['ssid']?.toString() ?? '';
+            final matchReason = normalized['matchReason']?.toString() ?? '';
+            normalized['isGuestLike'] =
+                matchReason == 'guest_like' ||
+                WifiAlarmSettings.isGuestLikeSsid(ssid);
+            normalized['isSuggestedSibling'] =
+                normalized['isSuggestedSibling'] == true ||
+                WifiAlarmSettings.isSuggestedSibling(connectedSsid, ssid);
+            return normalized;
+          }).toList();
 
       // 기존 선택된 네트워크 중 스캔에 없는 것도 목록에 포함
-      final scannedBssids = networks.map((n) => n['bssid'] as String).toSet();
+      final scannedBssids =
+          networks.map((n) => n['bssid']?.toString() ?? '').toSet();
       final retained = <Map<String, dynamic>>[];
       for (final existing in widget.initialNetworks) {
         final bssid = existing['bssid'] as String? ?? '';
@@ -100,21 +125,64 @@ class _WifiSelectorWidgetState extends State<WifiSelectorWidget> {
             'bssid': bssid,
             'isConnected': false,
             'signalLevel': 0,
+            'isSuggestedSibling': false,
+            'isGuestLike': false,
             'isRetained': true, // 이전에 저장된 네트워크 (현재 미감지)
           });
         }
       }
 
+      final merged = [...networks, ...retained]..sort(_sortNetworks);
+      if (!_didApplyDefaultSelection) {
+        for (final network in merged) {
+          final bssid = network['bssid']?.toString() ?? '';
+          if (bssid.isNotEmpty && network['isConnected'] == true) {
+            _selectedBssids.add(bssid);
+          }
+        }
+        _didApplyDefaultSelection = true;
+      }
+
       setState(() {
-        _availableNetworks = [...networks, ...retained];
+        _availableNetworks = merged;
         _isLoading = false;
       });
+      _emitSelectedNetworks();
     } catch (e) {
       setState(() {
         _isLoading = false;
         _errorMessage = 'wifi_scan_failed';
       });
     }
+  }
+
+  int _sortNetworks(Map<String, dynamic> a, Map<String, dynamic> b) {
+    final aConnected = a['isConnected'] == true;
+    final bConnected = b['isConnected'] == true;
+    if (aConnected != bConnected) return aConnected ? -1 : 1;
+
+    final aRetained = a['isRetained'] == true;
+    final bRetained = b['isRetained'] == true;
+    if (aRetained != bRetained) return aRetained ? 1 : -1;
+
+    final aSuggested = a['isSuggestedSibling'] == true;
+    final bSuggested = b['isSuggestedSibling'] == true;
+    if (aSuggested != bSuggested) return aSuggested ? -1 : 1;
+
+    final aSignal = a['signalLevel'] as int? ?? 0;
+    final bSignal = b['signalLevel'] as int? ?? 0;
+    return bSignal.compareTo(aSignal);
+  }
+
+  void _emitSelectedNetworks() {
+    final selected = <Map<String, dynamic>>[];
+    for (final network in _availableNetworks) {
+      final nb = network['bssid']?.toString() ?? '';
+      if (_selectedBssids.contains(nb)) {
+        selected.add({'ssid': network['ssid'] ?? '', 'bssid': nb});
+      }
+    }
+    widget.onChanged(selected);
   }
 
   void _toggleNetwork(String bssid, String ssid) {
@@ -125,16 +193,7 @@ class _WifiSelectorWidgetState extends State<WifiSelectorWidget> {
         _selectedBssids.add(bssid);
       }
     });
-
-    // 선택된 네트워크 목록 구성
-    final selected = <Map<String, dynamic>>[];
-    for (final network in _availableNetworks) {
-      final nb = network['bssid'] as String? ?? '';
-      if (_selectedBssids.contains(nb)) {
-        selected.add({'ssid': network['ssid'] ?? '', 'bssid': nb});
-      }
-    }
-    widget.onChanged(selected);
+    _emitSelectedNetworks();
   }
 
   @override
@@ -194,8 +253,11 @@ class _WifiSelectorWidgetState extends State<WifiSelectorWidget> {
           _buildWarningCard(l10n.get(_errorMessage!))
         else if (_availableNetworks.isEmpty)
           _buildWarningCard(l10n.get('wifi_no_networks'))
-        else
+        else ...[
+          _buildInfoCard(l10n.get('wifi_candidate_notice')),
+          const SizedBox(height: 8),
           _buildNetworkList(),
+        ],
 
         // 선택 요약
         if (_selectedBssids.isNotEmpty) ...[
@@ -254,6 +316,36 @@ class _WifiSelectorWidgetState extends State<WifiSelectorWidget> {
     );
   }
 
+  Widget _buildInfoCard(String message) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, size: 18, color: theme.colorScheme.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildNetworkList() {
     return Container(
       decoration: BoxDecoration(
@@ -279,11 +371,13 @@ class _WifiSelectorWidgetState extends State<WifiSelectorWidget> {
   }
 
   Widget _buildNetworkTile(Map<String, dynamic> network) {
-    final ssid = network['ssid'] as String? ?? '';
-    final bssid = network['bssid'] as String? ?? '';
+    final ssid = network['ssid']?.toString() ?? '';
+    final bssid = network['bssid']?.toString() ?? '';
     final isConnected = network['isConnected'] as bool? ?? false;
     final signalLevel = network['signalLevel'] as int? ?? 0;
     final isRetained = network['isRetained'] as bool? ?? false;
+    final isSuggestedSibling = network['isSuggestedSibling'] as bool? ?? false;
+    final isGuestLike = network['isGuestLike'] as bool? ?? false;
     final isSelected = _selectedBssids.contains(bssid);
 
     return InkWell(
@@ -333,6 +427,20 @@ class _WifiSelectorWidgetState extends State<WifiSelectorWidget> {
                         color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
+                  if (!isConnected && isSuggestedSibling)
+                    _buildStatusBadge(
+                      AppLocalizations.of(
+                        context,
+                      ).get('wifi_suggested_sibling'),
+                      Theme.of(context).colorScheme.primary,
+                    ),
+                  if (!isConnected && isGuestLike)
+                    _buildStatusBadge(
+                      AppLocalizations.of(
+                        context,
+                      ).get('wifi_guest_like_candidate'),
+                      Colors.orange,
+                    ),
                   if (isRetained)
                     Text(
                       AppLocalizations.of(context).get('wifi_previously_saved'),
@@ -349,6 +457,20 @@ class _WifiSelectorWidgetState extends State<WifiSelectorWidget> {
               visualDensity: VisualDensity.compact,
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(String label, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 3),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          color: color,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );

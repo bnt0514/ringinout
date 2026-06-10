@@ -10,6 +10,7 @@ import 'package:ringinout/services/smart_location_monitor.dart'; // ✅ Flutter 
 import 'package:ringinout/widgets/false_trigger_info_tile.dart';
 import 'package:ringinout/utils/alarm_activation_notice.dart';
 import 'package:ringinout/utils/alarm_detection_mode.dart';
+import 'package:ringinout/utils/wifi_alarm_settings.dart';
 
 class EditLocationAlarmPage extends StatefulWidget {
   final int? alarmIndex;
@@ -39,6 +40,7 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
   bool alarmSoundEnabled = true;
   bool vibrationEnabled = true;
   String detectionMode = AlarmDetectionMode.gps;
+  int wifiWaitTimeoutMinutes = WifiAlarmSettings.defaultWaitMinutes;
   bool _isSaving = false; // ✅ 중복 저장/삭제 방지 가드
 
   List<String> _getWeekdays(AppLocalizations l10n) => [
@@ -107,6 +109,9 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
     holidayBehavior = alarmData['holidayBehavior'] ?? 'on';
     alarmSoundEnabled = alarmData['soundEnabled'] ?? true;
     vibrationEnabled = alarmData['vibrationEnabled'] ?? true;
+    wifiWaitTimeoutMinutes = WifiAlarmSettings.normalizeWaitMinutes(
+      alarmData['wifiWaitTimeoutMinutes'],
+    );
 
     // ✅ 시간 조건 로드
     final h = alarmData['hour'];
@@ -184,6 +189,167 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
   void _selectDetectionMode(String mode) {
     if (mode == AlarmDetectionMode.wifi && !_selectedPlaceHasWifi) return;
     setState(() => detectionMode = mode);
+    if (mode == AlarmDetectionMode.wifi) {
+      _showWifiWaitTimeoutDialog();
+    }
+  }
+
+  Future<void> _showWifiWaitTimeoutDialog() async {
+    final l10n = AppLocalizations.of(context);
+    final selected = await showDialog<int>(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            title: Text(l10n.get('wifi_wait_dialog_title')),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.get('wifi_wait_dialog_message'),
+                  style: const TextStyle(fontSize: 13, height: 1.35),
+                ),
+                const SizedBox(height: 12),
+                for (final minutes in const [5, 15, 30])
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('$minutes${l10n.get('min_suffix')}'),
+                    trailing:
+                        wifiWaitTimeoutMinutes == minutes
+                            ? const Icon(Icons.check, color: AppColors.primary)
+                            : null,
+                    onTap: () => Navigator.pop(dialogContext, minutes),
+                  ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(l10n.get('wifi_wait_custom')),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.pop(dialogContext, -1),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: Text(l10n.get('cancel')),
+              ),
+            ],
+          ),
+    );
+
+    if (!mounted || selected == null) return;
+    if (selected == -1) {
+      final custom = await _showCustomWifiWaitDialog();
+      if (!mounted || custom == null) return;
+      setState(() => wifiWaitTimeoutMinutes = custom);
+      return;
+    }
+    setState(() {
+      wifiWaitTimeoutMinutes = WifiAlarmSettings.normalizeWaitMinutes(selected);
+    });
+  }
+
+  Future<int?> _showCustomWifiWaitDialog() async {
+    final l10n = AppLocalizations.of(context);
+    final controller = TextEditingController(
+      text: wifiWaitTimeoutMinutes.toString(),
+    );
+    String? errorText;
+    final result = await showDialog<int>(
+      context: context,
+      builder:
+          (dialogContext) => StatefulBuilder(
+            builder:
+                (context, setDialogState) => AlertDialog(
+                  title: Text(l10n.get('wifi_wait_custom_title')),
+                  content: TextField(
+                    controller: controller,
+                    autofocus: true,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      hintText: l10n.get('wifi_wait_custom_hint'),
+                      errorText: errorText,
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: Text(l10n.get('cancel')),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        final value = int.tryParse(controller.text.trim());
+                        if (value == null ||
+                            value < WifiAlarmSettings.minWaitMinutes ||
+                            value > WifiAlarmSettings.maxWaitMinutes) {
+                          setDialogState(() {
+                            errorText = l10n.get('wifi_wait_invalid');
+                          });
+                          return;
+                        }
+                        Navigator.pop(dialogContext, value);
+                      },
+                      child: Text(l10n.get('confirm')),
+                    ),
+                  ],
+                ),
+          ),
+    );
+    controller.dispose();
+    return result;
+  }
+
+  Widget _buildWifiWaitTimeoutTile() {
+    final l10n = AppLocalizations.of(context);
+    if (detectionMode != AlarmDetectionMode.wifi || !_selectedPlaceHasWifi) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: InkWell(
+        onTap: _showWifiWaitTimeoutDialog,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.timer_outlined, color: AppColors.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.get('wifi_wait_title'),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      l10n.getWithArgs('wifi_wait_subtitle', {
+                        'minutes': wifiWaitTimeoutMinutes.toString(),
+                      }),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildDetectionModeSelector() {
@@ -554,6 +720,7 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
             ),
             const SizedBox(height: 20),
             _buildDetectionModeSelector(),
+            _buildWifiWaitTimeoutTile(),
             const SizedBox(height: 20),
             _buildToggleRow(
               AppLocalizations.of(context).get('alarm_on_entry_label'),
@@ -964,6 +1131,15 @@ class _EditLocationAlarmPageState extends State<EditLocationAlarmPage> {
                                     detectionMode,
                                     selectedPlace,
                                   ),
+                                  if (AlarmDetectionMode.forSave(
+                                        detectionMode,
+                                        selectedPlace,
+                                      ) ==
+                                      AlarmDetectionMode.wifi)
+                                    'wifiWaitTimeoutMinutes':
+                                        WifiAlarmSettings.normalizeWaitMinutes(
+                                          wifiWaitTimeoutMinutes,
+                                        ),
                                   'repeat':
                                       selectedDate != null
                                           ? selectedDate!.toIso8601String()

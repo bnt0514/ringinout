@@ -1,5 +1,6 @@
 // add_myplaces_page.dart
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:ringinout/config/app_config.dart';
 import 'package:ringinout/config/app_theme.dart';
@@ -52,12 +53,13 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
   bool _userInteracted = false;
 
   /// 현재 위치 확정 여부 — false이면 맵/검색 잠금
-  bool _locationReady = false;
+  bool _locationReady = true;
 
   /// 지오코딩(검색 + 역지오코딩) 허용 여부
   /// false이면 검색바 숨김 + 맵 탭 시 주소 조회 안 함 (좌표만 표시)
   bool _geocodingAllowed = true;
   bool _addressOnlySearchMode = false;
+  bool _isLocatingCurrentPosition = true;
 
   @override
   void initState() {
@@ -71,10 +73,33 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
     if (permission == geo.LocationPermission.denied) {
       permission = await geo.Geolocator.requestPermission();
     }
-    if (permission == geo.LocationPermission.deniedForever) {
+    if (permission == geo.LocationPermission.denied ||
+        permission == geo.LocationPermission.deniedForever) {
+      if (mounted) {
+        setState(() {
+          _locationReady = true;
+          _isLocatingCurrentPosition = false;
+        });
+      }
       return;
     }
-    geo.Position position = await geo.Geolocator.getCurrentPosition();
+    geo.Position? position = await geo.Geolocator.getLastKnownPosition();
+    try {
+      position ??= await geo.Geolocator.getCurrentPosition(
+        locationSettings: const geo.LocationSettings(
+          timeLimit: Duration(seconds: 6),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Current location bootstrap failed: $e');
+      if (mounted) {
+        setState(() {
+          _locationReady = true;
+          _isLocatingCurrentPosition = false;
+        });
+      }
+      return;
+    }
     _currentLat = position.latitude;
     _currentLng = position.longitude;
     if (mounted) {
@@ -89,6 +114,7 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
     }
     setState(() {
       _locationReady = true;
+      _isLocatingCurrentPosition = false;
     });
   }
 
@@ -99,7 +125,17 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
       permission = await geo.Geolocator.requestPermission();
     }
     if (permission == geo.LocationPermission.deniedForever) return;
-    geo.Position position = await geo.Geolocator.getCurrentPosition();
+    late final geo.Position position;
+    try {
+      position = await geo.Geolocator.getCurrentPosition(
+        locationSettings: const geo.LocationSettings(
+          timeLimit: Duration(seconds: 8),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Move to current location failed: $e');
+      return;
+    }
     _currentLat = position.latitude;
     _currentLng = position.longitude;
     if (!mounted) return;
@@ -348,7 +384,7 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
       return;
     }
 
-    final plan = await SubscriptionService.getCurrentPlan();
+    final plan = SubscriptionPlan.special;
     final limit = SubscriptionService.placeLimit(plan);
     final currentCount = HiveHelper.getSavedLocations().length;
     debugPrint(
@@ -456,7 +492,13 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                         });
 
                         // 🔄 장소 업데이트 → LocationMonitorService에서 자동 반영
-                        await SmartLocationService.updatePlaces();
+                        unawaited(
+                          SmartLocationService.updatePlaces().catchError(
+                            (e) => debugPrint(
+                              'SmartLocationService update failed: $e',
+                            ),
+                          ),
+                        );
 
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -620,6 +662,13 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                   },
                 ),
                 // ✅ 검색 결과 오버레이 (지도 위에 표시)
+                if (_isLocatingCurrentPosition)
+                  const Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: LinearProgressIndicator(minHeight: 2),
+                  ),
                 if (_isSearching)
                   const Positioned(
                     top: 0,
@@ -762,7 +811,7 @@ class _AddMyPlacesPageState extends State<AddMyPlacesPage> {
                   ),
                 ),
                 // ✅ 현재 위치 확정 전 맵 잠금 오버레이
-                if (!_locationReady)
+                if (!_locationReady && _selectedLatLng == null)
                   Positioned.fill(
                     child: Container(
                       color: Colors.black.withValues(alpha: 0.45),

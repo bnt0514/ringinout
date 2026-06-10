@@ -15,10 +15,10 @@ class MyPlacesTabPage extends StatefulWidget {
   const MyPlacesTabPage({super.key});
 
   @override
-  State<MyPlacesTabPage> createState() => _MyPlacesTabPageState();
+  State<MyPlacesTabPage> createState() => MyPlacesTabPageState();
 }
 
-class _MyPlacesTabPageState extends State<MyPlacesTabPage> {
+class MyPlacesTabPageState extends State<MyPlacesTabPage> {
   @override
   void initState() {
     super.initState();
@@ -27,6 +27,10 @@ class _MyPlacesTabPageState extends State<MyPlacesTabPage> {
   @override
   void dispose() {
     super.dispose();
+  }
+
+  bool clearSelectionMode() {
+    return _myPlacesKey.currentState?.clearSelectionMode() ?? false;
   }
 
   @override
@@ -52,6 +56,7 @@ class _MyPlacesTabPageState extends State<MyPlacesTabPage> {
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
+              clearSelectionMode();
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const SettingsPage()),

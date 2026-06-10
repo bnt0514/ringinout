@@ -38,6 +38,7 @@ import 'package:ringinout/services/holiday_service.dart';
 import 'package:ringinout/services/quota_service.dart';
 import 'package:ringinout/services/wifi_service.dart';
 import 'package:ringinout/utils/alarm_detection_mode.dart';
+import 'package:ringinout/utils/wifi_alarm_settings.dart';
 
 // ═══════════════════════════════════════════════════════════
 //  v3 상태 열거형
@@ -86,6 +87,7 @@ class LocationMonitorService {
   /// Wi-Fi 연결 대기 타이머: GPS ENTER 후 15분 내 Wi-Fi 미연결 → GPS 보조 알람
   final Map<String, Timer> _wifiWaitTimers = {};
   final Set<String> _wifiWaitTimersUsingConnectedWifi = {};
+  final Map<String, DateTime> _wifiWaitStartedAt = {};
 
   /// ★ 현재 Wi-Fi 연결 중인 장소 ID 집합
   /// Wi-Fi ENTER 시 add, Wi-Fi EXIT 시 remove
@@ -273,6 +275,7 @@ class LocationMonitorService {
     }
     _wifiWaitTimers.clear();
     _wifiWaitTimersUsingConnectedWifi.clear();
+    _wifiWaitStartedAt.clear();
     _pendingGpsEntryPlaces.clear();
     _wifiConnectedPlaceIds.clear();
     _alarmPlaceCache.clear();
@@ -1150,6 +1153,8 @@ class LocationMonitorService {
   Future<void> _processEntryAlarm(
     String placeId, {
     String? detectionMode,
+    Set<String>? allowedAlarmIds,
+    bool keepWifiPendingAfterTrigger = false,
   }) async {
     final activeAlarms = await _getActiveAlarms();
     final placeInfo = await _getPlaceInfo(placeId);
@@ -1174,6 +1179,11 @@ class LocationMonitorService {
           final alarmPlace = alarm['place'] ?? alarm['locationName'];
           final trigger = alarm['trigger'] ?? 'entry';
           if (trigger != 'entry') return false;
+          final alarmId = alarm['id']?.toString();
+          if (allowedAlarmIds != null &&
+              (alarmId == null || !allowedAlarmIds.contains(alarmId))) {
+            return false;
+          }
           if (detectionMode != null &&
               AlarmDetectionMode.resolve(alarm, place: placeInfo) !=
                   detectionMode) {
@@ -1209,6 +1219,9 @@ class LocationMonitorService {
           Map<String, dynamic>.from(alarm)
             ..['_resolvedDetectionMode'] = resolvedMode
             ..['_resolvedPlaceId'] = resolvedPlaceId;
+      if (keepWifiPendingAfterTrigger) {
+        triggerAlarmData['_keepWifiPendingAfterTrigger'] = true;
+      }
       await _triggerAlarm(
         triggerAlarmData,
         'entry',
@@ -1789,9 +1802,13 @@ class LocationMonitorService {
                     : await _getPlaceInfo(triggerPlaceId),
           );
       if (triggerPlaceId != null && resolvedMode == AlarmDetectionMode.wifi) {
-        _pendingGpsEntryPlaces.remove(triggerPlaceId);
-        _cancelWifiWaitTimer(triggerPlaceId);
-        _log('📶 [$triggerPlaceId] Wi-Fi 알람 발동 → pending/timer 정리');
+        if (alarmData['_keepWifiPendingAfterTrigger'] == true) {
+          _log('📶 [$triggerPlaceId] Wi-Fi 알람 발동 → 남은 대기 알람 확인을 위해 pending 유지');
+        } else {
+          _pendingGpsEntryPlaces.remove(triggerPlaceId);
+          _cancelWifiWaitTimer(triggerPlaceId);
+          _log('📶 [$triggerPlaceId] Wi-Fi 알람 발동 → pending/timer 정리');
+        }
       }
     }
 
@@ -2253,39 +2270,71 @@ class LocationMonitorService {
   }
 
   // ═══════════════════════════════════════════════════════════
-  //  Wi-Fi 연결 대기 GPS 보조 타이머 (15분)
+  //  Wi-Fi 연결 대기 GPS 보조 타이머
   // ═══════════════════════════════════════════════════════════
 
-  /// GPS ENTER 후 Wi-Fi 연결을 15분 대기. 미연결 시 GPS 위치 재확인하여 보조 알람.
+  /// GPS ENTER 후 Wi-Fi 연결을 알람별 설정 시간만큼 대기한다.
   void _startWifiWaitTimer(String placeId, {bool forceLongWait = false}) {
-    _cancelWifiWaitTimer(placeId); // 기존 타이머 취소
+    unawaited(_startWifiWaitTimerAsync(placeId, forceLongWait: forceLongWait));
+  }
+
+  Future<void> _startWifiWaitTimerAsync(
+    String placeId, {
+    bool forceLongWait = false,
+  }) async {
+    _cancelWifiWaitTimer(placeId, clearStartedAt: false);
     final wifiAlreadyConnected =
         !forceLongWait && _wifiConnectedPlaceIds.contains(placeId);
-    final waitDuration =
-        wifiAlreadyConnected
-            ? const Duration(seconds: 15)
-            : const Duration(minutes: 15);
+
+    if (!forceLongWait || !_wifiWaitStartedAt.containsKey(placeId)) {
+      _wifiWaitStartedAt[placeId] = DateTime.now();
+    }
+
+    if (wifiAlreadyConnected) {
+      const waitDuration = Duration(seconds: 15);
+      _wifiWaitTimersUsingConnectedWifi.add(placeId);
+      _log(
+        '⏱️ [$placeId] Wi-Fi 대기 타이머 시작 (15초/이미 연결) '
+        'pending=${_pendingGpsEntryPlaces.contains(placeId)}, '
+        'trackedConnected=${_wifiConnectedPlaceIds.contains(placeId)}',
+      );
+      _wifiWaitTimers[placeId] = Timer(
+        waitDuration,
+        () => _onWifiWaitTimeout(placeId),
+      );
+      return;
+    }
+
+    if (!forceLongWait) {
+      unawaited(_promoteWifiWaitIfCurrentlyConnected(placeId));
+    }
+
+    final nextWait = await _nextWifiWaitDuration(placeId);
+    if (nextWait == null) {
+      _log('⏱️ [$placeId] 대기할 Wi-Fi 진입 알람 없음 → pending 정리');
+      _pendingGpsEntryPlaces.remove(placeId);
+      _wifiWaitStartedAt.remove(placeId);
+      return;
+    }
 
     _log(
       '⏱️ [$placeId] Wi-Fi 대기 타이머 시작 '
-      '(${wifiAlreadyConnected ? "15초/이미 연결" : "15분"}) '
+      '(${nextWait.inSeconds < 60 ? "${nextWait.inSeconds}초" : "${nextWait.inMinutes}분"}) '
       'pending=${_pendingGpsEntryPlaces.contains(placeId)}, '
       'trackedConnected=${_wifiConnectedPlaceIds.contains(placeId)}',
     );
-    if (wifiAlreadyConnected) {
-      _wifiWaitTimersUsingConnectedWifi.add(placeId);
-    } else if (!forceLongWait) {
-      unawaited(_promoteWifiWaitIfCurrentlyConnected(placeId));
-    }
     _wifiWaitTimers[placeId] = Timer(
-      waitDuration,
+      nextWait,
       () => _onWifiWaitTimeout(placeId),
     );
   }
 
-  void _cancelWifiWaitTimer(String placeId) {
+  void _cancelWifiWaitTimer(String placeId, {bool clearStartedAt = true}) {
     final timer = _wifiWaitTimers.remove(placeId);
     _wifiWaitTimersUsingConnectedWifi.remove(placeId);
+    if (clearStartedAt) {
+      _wifiWaitStartedAt.remove(placeId);
+    }
     if (timer != null) {
       timer.cancel();
       _log('⏱️ [$placeId] Wi-Fi 대기 타이머 취소');
@@ -2350,17 +2399,24 @@ class LocationMonitorService {
           detectionMode: AlarmDetectionMode.wifi,
         );
         if (_pendingGpsEntryPlaces.contains(placeId)) {
-          _log('⏱️ [$placeId] Wi-Fi 진입 처리 후 pending 유지 → 15분 GPS 보조로 전환');
+          _log('⏱️ [$placeId] Wi-Fi 진입 처리 후 pending 유지 → GPS 보조 대기로 전환');
           _startWifiWaitTimer(placeId, forceLongWait: true);
         }
       } else {
-        _log('⏱️ [$placeId] 이미 연결 Wi-Fi 안정 확인 실패 → 15분 GPS 보조로 전환');
+        _log('⏱️ [$placeId] 이미 연결 Wi-Fi 안정 확인 실패 → GPS 보조 대기로 전환');
         _startWifiWaitTimer(placeId, forceLongWait: true);
       }
       return;
     }
 
-    _log('⏱️ [$placeId] Wi-Fi 대기 15분 만료 — GPS 위치 재확인');
+    final dueAlarmIds = await _dueWifiWaitAlarmIds(placeId);
+    if (dueAlarmIds.isEmpty) {
+      _log('⏱️ [$placeId] 만료 대상 Wi-Fi 알람 없음 → 다음 대기 시간 재계산');
+      await _finishOrRescheduleWifiWait(placeId);
+      return;
+    }
+
+    _log('⏱️ [$placeId] Wi-Fi 대기 만료 (${dueAlarmIds.length}개 알람) — GPS 위치 재확인');
     await _logWifiTimeoutDiagnostic(placeId);
 
     try {
@@ -2370,7 +2426,7 @@ class LocationMonitorService {
         _log(
           '⏱️ [$placeId] GPS 정확도 부족 (${position.accuracy.toInt()}m) — 보조 알람 스킵',
         );
-        _pendingGpsEntryPlaces.remove(placeId);
+        await _finishOrRescheduleWifiWait(placeId);
         return;
       }
 
@@ -2379,6 +2435,7 @@ class LocationMonitorService {
       if (placeInfo == null) {
         _log('⏱️ [$placeId] 장소 정보 없음 — 보조 알람 스킵');
         _pendingGpsEntryPlaces.remove(placeId);
+        _wifiWaitStartedAt.remove(placeId);
         return;
       }
 
@@ -2395,24 +2452,124 @@ class LocationMonitorService {
         lng,
       );
 
-      _pendingGpsEntryPlaces.remove(placeId);
-
       if (distance <= radius + position.accuracy) {
         _log(
           '⏱️ [$placeId] GPS 확인: 반경 내 (${distance.toInt()}m ≤ ${(radius + position.accuracy).toInt()}m) '
           '→ GPS 보조 진입 알람 발동!',
         );
-        _processEntryAlarm(placeId);
+        await _processEntryAlarm(
+          placeId,
+          detectionMode: AlarmDetectionMode.wifi,
+          allowedAlarmIds: dueAlarmIds,
+          keepWifiPendingAfterTrigger: true,
+        );
+        await _finishOrRescheduleWifiWait(placeId);
       } else {
         _log(
           '⏱️ [$placeId] GPS 확인: 반경 밖 (${distance.toInt()}m > ${(radius + position.accuracy).toInt()}m) '
           '→ 보조 알람 없음',
         );
+        await _finishOrRescheduleWifiWait(placeId);
       }
     } catch (e) {
       _log('⏱️ [$placeId] Wi-Fi 대기 GPS 확인 실패: $e');
-      _pendingGpsEntryPlaces.remove(placeId);
+      await _finishOrRescheduleWifiWait(placeId);
     }
+  }
+
+  Future<List<Map<String, dynamic>>> _getWifiEntryAlarmsForPlace(
+    String placeId,
+  ) async {
+    final activeAlarms = await _getActiveAlarms();
+    final placeInfo = await _getPlaceInfo(placeId);
+    if (placeInfo == null) return const [];
+
+    final placeName = placeInfo['name'] as String?;
+    final resolvedPlaceId = placeInfo['id']?.toString() ?? placeId;
+    return activeAlarms.where((alarm) {
+      final alarmPlaceId = alarm['placeId']?.toString();
+      final alarmPlace = alarm['place'] ?? alarm['locationName'];
+      final trigger = alarm['trigger'] ?? 'entry';
+      if (trigger != 'entry') return false;
+      if (AlarmDetectionMode.resolve(alarm, place: placeInfo) !=
+          AlarmDetectionMode.wifi) {
+        return false;
+      }
+      return alarmPlaceId == placeId ||
+          alarmPlaceId == resolvedPlaceId ||
+          alarmPlace == placeName;
+    }).toList();
+  }
+
+  Future<Duration?> _nextWifiWaitDuration(
+    String placeId, {
+    bool futureOnly = false,
+  }) async {
+    final startedAt = _wifiWaitStartedAt[placeId];
+    if (startedAt == null) return null;
+
+    final now = DateTime.now();
+    final alarms = await _getWifiEntryAlarmsForPlace(placeId);
+    Duration? next;
+
+    for (final alarm in alarms) {
+      final minutes = WifiAlarmSettings.normalizeWaitMinutes(
+        alarm['wifiWaitTimeoutMinutes'],
+      );
+      final elapsed = now.difference(startedAt);
+      var remaining = Duration(minutes: minutes) - elapsed;
+      if (remaining.isNegative) remaining = Duration.zero;
+      if (futureOnly && remaining == Duration.zero) continue;
+      if (next == null || remaining < next) {
+        next = remaining;
+      }
+    }
+
+    return next;
+  }
+
+  Future<Set<String>> _dueWifiWaitAlarmIds(String placeId) async {
+    final startedAt = _wifiWaitStartedAt[placeId];
+    if (startedAt == null) return const {};
+
+    final now = DateTime.now();
+    final alarms = await _getWifiEntryAlarmsForPlace(placeId);
+    final dueIds = <String>{};
+
+    for (final alarm in alarms) {
+      final alarmId = alarm['id']?.toString();
+      if (alarmId == null || alarmId.isEmpty) continue;
+      final minutes = WifiAlarmSettings.normalizeWaitMinutes(
+        alarm['wifiWaitTimeoutMinutes'],
+      );
+      if (now.difference(startedAt) >= Duration(minutes: minutes)) {
+        dueIds.add(alarmId);
+      }
+    }
+
+    return dueIds;
+  }
+
+  Future<void> _finishOrRescheduleWifiWait(String placeId) async {
+    if (!_isRunning || !_pendingGpsEntryPlaces.contains(placeId)) {
+      _wifiWaitStartedAt.remove(placeId);
+      return;
+    }
+
+    final next = await _nextWifiWaitDuration(placeId, futureOnly: true);
+    if (next == null) {
+      _pendingGpsEntryPlaces.remove(placeId);
+      _wifiWaitStartedAt.remove(placeId);
+      _cancelWifiWaitTimer(placeId);
+      _log('⏱️ [$placeId] 남은 Wi-Fi 대기 알람 없음 → pending 정리');
+      return;
+    }
+
+    _log(
+      '⏱️ [$placeId] 남은 Wi-Fi 대기 알람 있음 → 다음 만료까지 '
+      '${next.inSeconds < 60 ? "${next.inSeconds}초" : "${next.inMinutes}분"} 재예약',
+    );
+    _startWifiWaitTimer(placeId, forceLongWait: true);
   }
 
   /// Wi-Fi 대기 타임아웃 시점에 현재 연결 Wi-Fi와 등록 Wi-Fi의 일치 여부만 기록한다.

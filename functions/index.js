@@ -148,7 +148,7 @@ function normalizeProviderId(providerId) {
 
 function shouldUseProviderSubject(providerId) {
     const normalized = normalizeProviderId(providerId);
-    return normalized !== 'email';
+    return !!normalized;
 }
 
 function buildIdentityKey(providerId, subject) {
@@ -163,7 +163,8 @@ function buildIdentityKey(providerId, subject) {
     };
 }
 
-function buildIdentityLinks(decodedToken, deviceDescriptor = null) {
+function buildIdentityLinks(decodedToken, deviceDescriptor = null, options = {}) {
+    const includeDeviceIdentity = options.includeDeviceIdentity !== false;
     const links = [];
     const pushLink = (providerId, subject, source) => {
         const normalizedProviderId = normalizeProviderId(providerId);
@@ -182,7 +183,7 @@ function buildIdentityLinks(decodedToken, deviceDescriptor = null) {
         pushLink(decodedToken.provider_id, decodedToken.provider_subject, 'custom_provider_claim');
     }
 
-    if (deviceDescriptor?.device_id_hash) {
+    if (includeDeviceIdentity && deviceDescriptor?.device_id_hash) {
         pushLink(DEVICE_PROVIDER, deviceDescriptor.device_id_hash, 'device_id');
     }
 
@@ -202,7 +203,27 @@ function buildIdentityLinks(decodedToken, deviceDescriptor = null) {
     }).slice(0, 10);
 }
 
+async function getAccountIdsForIdentityLinks(identityLinks) {
+    if (!identityLinks.length) return [];
+    const refs = identityLinks.map((link) =>
+        db.collection(ACCOUNT_IDENTITY_COLLECTION).doc(link.identityKey)
+    );
+    const snaps = await Promise.all(refs.map((ref) => ref.get()));
+    return Array.from(new Set(
+        snaps.map((snap) => getIdentityAccountId(snap.data())).filter(Boolean)
+    ));
+}
+
+async function getDeviceLinkedAccountId(deviceDescriptor) {
+    if (!deviceDescriptor?.device_id_hash) return null;
+    const identity = buildIdentityKey(DEVICE_PROVIDER, deviceDescriptor.device_id_hash);
+    if (!identity) return null;
+    const snap = await db.collection(ACCOUNT_IDENTITY_COLLECTION).doc(identity.identityKey).get();
+    return getIdentityAccountId(snap.data());
+}
+
 function getIdentityAccountId(identityData) {
+    if (['unlinked', 'unlink_requested'].includes(identityData?.status)) return null;
     return identityData?.canonicalAccountId || identityData?.canonical_account_id || null;
 }
 
@@ -214,8 +235,8 @@ function getProviderIdsFromLinks(identityLinks, decodedToken) {
                 && ![INTERNAL_FIREBASE_PROVIDER, DEVICE_PROVIDER].includes(providerId))
     );
     const signInProvider = normalizeProviderId(decodedToken.firebase?.sign_in_provider);
-    if (signInProvider && !['anonymous', 'password', INTERNAL_FIREBASE_PROVIDER].includes(signInProvider)) {
-        providerIds.add(signInProvider);
+    if (signInProvider && !['anonymous', INTERNAL_FIREBASE_PROVIDER].includes(signInProvider)) {
+        providerIds.add(signInProvider === 'password' ? 'email' : signInProvider);
     }
     return Array.from(providerIds);
 }
@@ -251,10 +272,14 @@ async function requireDecodedFirebaseToken(req, res) {
     }
 }
 
-async function resolveIdentityFromDecodedToken(decodedToken, deviceDescriptor = null) {
+async function resolveIdentityFromDecodedToken(decodedToken, deviceDescriptor = null, options = {}) {
     const firebaseUid = decodedToken.uid;
     const anonUserId = generateAnonUserId(firebaseUid);
-    const identityLinks = buildIdentityLinks(decodedToken, deviceDescriptor);
+    const preferredCanonicalAccountId = options.preferredCanonicalAccountId || null;
+    const allowIdentityReassignment = options.allowIdentityReassignment === true;
+    const identityLinks = buildIdentityLinks(decodedToken, deviceDescriptor, {
+        includeDeviceIdentity: options.includeDeviceIdentity !== false,
+    });
     const identityRefs = identityLinks.map((link) =>
         db.collection(ACCOUNT_IDENTITY_COLLECTION).doc(link.identityKey)
     );
@@ -269,7 +294,7 @@ async function resolveIdentityFromDecodedToken(decodedToken, deviceDescriptor = 
             .map((snap) => getIdentityAccountId(snap.data()))
             .filter(Boolean);
         const uniqueMatchedAccountIds = Array.from(new Set(matchedAccountIds));
-        const canonicalAccountId = firebaseMatch || uniqueMatchedAccountIds[0] || buildCanonicalAccountId(anonUserId);
+        const canonicalAccountId = preferredCanonicalAccountId || firebaseMatch || uniqueMatchedAccountIds[0] || buildCanonicalAccountId(anonUserId);
         const conflictingAccountIds = uniqueMatchedAccountIds.filter((id) => id !== canonicalAccountId);
         const accountRef = db.collection(ACCOUNT_COLLECTION).doc(canonicalAccountId);
         const accountSnap = await tx.get(accountRef);
@@ -301,7 +326,7 @@ async function resolveIdentityFromDecodedToken(decodedToken, deviceDescriptor = 
             const identitySnap = identitySnaps[index];
             const identityData = identitySnap.exists ? identitySnap.data() : {};
             const existingAccountId = getIdentityAccountId(identityData);
-            if (existingAccountId && existingAccountId !== canonicalAccountId) return;
+            if (existingAccountId && existingAccountId !== canonicalAccountId && !allowIdentityReassignment) return;
 
             tx.set(identityRefs[index], stripUndefined({
                 canonicalAccountId,
@@ -314,6 +339,12 @@ async function resolveIdentityFromDecodedToken(decodedToken, deviceDescriptor = 
                 anon_user_id_last_seen: anonUserId,
                 created_at: identitySnap.exists ? undefined : now,
                 linked_at: identityData.linked_at || now,
+                reassigned_from: existingAccountId && existingAccountId !== canonicalAccountId
+                    ? existingAccountId
+                    : undefined,
+                reassigned_at: existingAccountId && existingAccountId !== canonicalAccountId
+                    ? now
+                    : undefined,
                 last_seen_at: now,
                 updated_at: now,
             }), { merge: true });
@@ -347,9 +378,9 @@ async function resolveIdentityFromDecodedToken(decodedToken, deviceDescriptor = 
     };
 }
 
-async function resolveIdentityFromIdToken(idToken, deviceDescriptor = null) {
+async function resolveIdentityFromIdToken(idToken, deviceDescriptor = null, options = {}) {
     const decodedToken = await verifyFirebaseIdToken(idToken);
-    return resolveIdentityFromDecodedToken(decodedToken, deviceDescriptor);
+    return resolveIdentityFromDecodedToken(decodedToken, deviceDescriptor, options);
 }
 
 async function requireAccountContext(req, res) {
@@ -738,7 +769,7 @@ exports.createSession = coreFunctions.https.onRequest(async (req, res) => {
     }
     if (!(await requireAppCheck(req, res))) return;
 
-    const { idToken, forceDeviceTransfer } = req.body || {};
+    const { idToken, forceDeviceTransfer, allowDeviceAccountLink } = req.body || {};
 
     if (!idToken) {
         return res.status(400).json({ error: 'idToken is required' });
@@ -746,7 +777,50 @@ exports.createSession = coreFunctions.https.onRequest(async (req, res) => {
 
     try {
         const requestedDevice = readDeviceDescriptor(req);
-        const identity = await resolveIdentityFromIdToken(idToken, requestedDevice);
+        const decodedToken = await verifyFirebaseIdToken(idToken);
+        const deviceAccountId = await getDeviceLinkedAccountId(requestedDevice);
+        const nonDeviceLinks = buildIdentityLinks(decodedToken, null, {
+            includeDeviceIdentity: false,
+        });
+        const providerIds = getProviderIdsFromLinks(nonDeviceLinks, decodedToken);
+        if (!providerIds.length) {
+            return res.status(401).json({
+                error: 'sign_in_provider_required',
+                message: 'A linked sign-in provider is required.',
+            });
+        }
+        const nonDeviceAccountIds = await getAccountIdsForIdentityLinks(nonDeviceLinks);
+        const alreadyLinkedToDeviceAccount =
+            deviceAccountId && nonDeviceAccountIds.includes(deviceAccountId);
+        const providerLinkedToDifferentAccount =
+            deviceAccountId &&
+            nonDeviceAccountIds.length > 0 &&
+            !alreadyLinkedToDeviceAccount;
+
+        if (deviceAccountId &&
+            !alreadyLinkedToDeviceAccount &&
+            allowDeviceAccountLink !== true &&
+            allowDeviceAccountLink !== 'true') {
+            return res.status(409).json({
+                error: 'device_account_link_required',
+                message: 'This device already has an app account. Confirm before linking this sign-in method.',
+                canonicalAccountId: deviceAccountId,
+                matchedAccountIds: nonDeviceAccountIds,
+                providerLinkedToDifferentAccount,
+            });
+        }
+
+        const confirmedDeviceAccountLink =
+            allowDeviceAccountLink === true || allowDeviceAccountLink === 'true';
+        const identity = await resolveIdentityFromDecodedToken(decodedToken, requestedDevice, {
+            includeDeviceIdentity: confirmedDeviceAccountLink ||
+                alreadyLinkedToDeviceAccount ||
+                !deviceAccountId,
+            preferredCanonicalAccountId: confirmedDeviceAccountLink && deviceAccountId
+                ? deviceAccountId
+                : null,
+            allowIdentityReassignment: confirmedDeviceAccountLink && !!deviceAccountId,
+        });
         const session = await ensureSessionDocuments(identity);
         const activeDevice = await claimActiveDevice(
             identity,

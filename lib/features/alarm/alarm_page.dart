@@ -51,12 +51,14 @@ class _AlarmPageState extends State<AlarmPage> {
           IconButton(
             icon: const Icon(Icons.sort),
             onPressed: () {
+              AlarmListController.instance?.clearSelection();
               LocationAlarmList.showSortDialog();
             },
           ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
+              AlarmListController.instance?.clearSelection();
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const SettingsPage()),

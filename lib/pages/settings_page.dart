@@ -12,22 +12,6 @@ import 'package:ringinout/services/locale_provider.dart';
 import 'package:ringinout/services/smart_location_service.dart';
 import 'package:ringinout/utils/report_rate_limiter.dart';
 
-class _AccountProviderOption {
-  const _AccountProviderOption({
-    required this.providerId,
-    required this.labelKey,
-    required this.icon,
-    this.badgeText,
-    this.badgeColor,
-  });
-
-  final String providerId;
-  final String labelKey;
-  final IconData icon;
-  final String? badgeText;
-  final Color? badgeColor;
-}
-
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
@@ -36,120 +20,9 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  List<_AccountProviderOption> _accountProvidersForLocale(Locale locale) {
-    final country = _countryCodeForSignInOptions(locale);
-
-    if (country == 'KR') {
-      return const [
-        _AccountProviderOption(
-          providerId: 'google.com',
-          labelKey: 'provider_google',
-          icon: Icons.g_mobiledata,
-        ),
-        _AccountProviderOption(
-          providerId: 'oidc.kakao',
-          labelKey: 'provider_kakao',
-          icon: Icons.chat_bubble_outline,
-          badgeText: 'K',
-          badgeColor: Color(0xFFFEE500),
-        ),
-        _AccountProviderOption(
-          providerId: 'oidc.naver',
-          labelKey: 'provider_naver',
-          icon: Icons.account_circle_outlined,
-          badgeText: 'N',
-          badgeColor: Color(0xFF03C75A),
-        ),
-        _AccountProviderOption(
-          providerId: 'facebook.com',
-          labelKey: 'provider_facebook',
-          icon: Icons.facebook,
-          badgeText: 'f',
-          badgeColor: Color(0xFF1877F2),
-        ),
-        _AccountProviderOption(
-          providerId: 'password',
-          labelKey: 'provider_email',
-          icon: Icons.email_outlined,
-        ),
-      ];
-    }
-
-    if (country == 'JP') {
-      return const [
-        _AccountProviderOption(
-          providerId: 'google.com',
-          labelKey: 'provider_google',
-          icon: Icons.g_mobiledata,
-        ),
-        _AccountProviderOption(
-          providerId: 'oidc.line',
-          labelKey: 'provider_line',
-          icon: Icons.chat_outlined,
-          badgeText: 'L',
-          badgeColor: Color(0xFF06C755),
-        ),
-        _AccountProviderOption(
-          providerId: 'facebook.com',
-          labelKey: 'provider_facebook',
-          icon: Icons.facebook,
-          badgeText: 'f',
-          badgeColor: Color(0xFF1877F2),
-        ),
-        _AccountProviderOption(
-          providerId: 'password',
-          labelKey: 'provider_email',
-          icon: Icons.email_outlined,
-        ),
-      ];
-    }
-
-    if (country == 'CN') {
-      return const [
-        _AccountProviderOption(
-          providerId: 'password',
-          labelKey: 'provider_email',
-          icon: Icons.email_outlined,
-        ),
-      ];
-    }
-
-    return const [
-      _AccountProviderOption(
-        providerId: 'google.com',
-        labelKey: 'provider_google',
-        icon: Icons.g_mobiledata,
-      ),
-      _AccountProviderOption(
-        providerId: 'facebook.com',
-        labelKey: 'provider_facebook',
-        icon: Icons.facebook,
-        badgeText: 'f',
-        badgeColor: Color(0xFF1877F2),
-      ),
-      _AccountProviderOption(
-        providerId: 'password',
-        labelKey: 'provider_email',
-        icon: Icons.email_outlined,
-      ),
-    ];
-  }
-
-  String? _countryCodeForSignInOptions(Locale appLocale) {
-    final systemCountry =
-        WidgetsBinding.instance.platformDispatcher.locale.countryCode;
-    if (systemCountry != null && systemCountry.isNotEmpty) {
-      return systemCountry.toUpperCase();
-    }
-    return appLocale.countryCode?.toUpperCase();
-  }
-
   void _showAccountOptions() {
     final l10n = AppLocalizations.of(context);
     final authService = Provider.of<AuthService>(context, listen: false);
-    final providers = _accountProvidersForLocale(
-      Localizations.localeOf(context),
-    );
 
     showModalBottomSheet(
       context: context,
@@ -170,14 +43,6 @@ class _SettingsPageState extends State<SettingsPage> {
                       _buildSheetHandle(),
                       const SizedBox(height: 12),
                       _buildAccountHeader(l10n, authService.currentUser),
-                      const SizedBox(height: 16),
-                      _buildProviderManagement(
-                        l10n,
-                        authService.currentUser,
-                        providers,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildActiveDevicePanel(l10n),
                       const SizedBox(height: 8),
                       const Divider(height: 24),
                       ListTile(
@@ -230,384 +95,154 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildAccountHeader(AppLocalizations l10n, User? user) {
-    final displayName =
-        user?.email ?? user?.displayName ?? l10n.get('account_not_logged_in');
-
-    return Row(
-      children: [
-        CircleAvatar(
-          backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-          foregroundColor: AppColors.primary,
-          child: const Icon(Icons.account_circle),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l10n.get('account_signed_in_as'),
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                displayName,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProviderManagement(
-    AppLocalizations l10n,
-    User? user,
-    List<_AccountProviderOption> providers,
-  ) {
-    final linkedCount = _linkedProviderCount(user, providers);
-
-    return _SettingsPanel(
-      title: l10n.get('account_sign_in_methods'),
-      icon: Icons.link,
-      child: Column(
-        children: [
-          for (final provider in providers)
-            _buildProviderRow(l10n, user, provider, linkedCount),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProviderRow(
-    AppLocalizations l10n,
-    User? user,
-    _AccountProviderOption provider,
-    int linkedCount,
-  ) {
-    final isLinked = _isProviderLinked(user, provider.providerId);
-    final canUnlink = isLinked && linkedCount > 1;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          _buildProviderMark(provider),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.get(provider.labelKey),
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  isLinked
-                      ? l10n.get('account_provider_linked')
-                      : l10n.get('account_provider_not_linked'),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color:
-                        isLinked ? AppColors.success : AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          if (isLinked && !canUnlink)
-            TextButton(
-              onPressed: null,
-              child: Text(l10n.get('account_provider_primary')),
-            )
-          else if (isLinked)
-            OutlinedButton(
-              onPressed: () => _handleUnlinkProvider(provider),
-              child: Text(l10n.get('account_unlink_provider')),
-            )
-          else
-            ElevatedButton(
-              onPressed: () => _handleLinkProvider(provider),
-              child: Text(l10n.get('account_link_provider')),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProviderMark(_AccountProviderOption provider) {
-    if (provider.providerId == 'google.com') {
-      return Image.network(
-        'https://www.google.com/favicon.ico',
-        width: 24,
-        height: 24,
-        errorBuilder: (_, __, ___) => Icon(provider.icon, size: 24),
-      );
-    }
-
-    if (provider.badgeText != null) {
-      return Container(
-        width: 24,
-        height: 24,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: provider.badgeColor,
-          shape: BoxShape.circle,
-        ),
-        child: Text(
-          provider.badgeText!,
-          style: TextStyle(
-            color:
-                provider.providerId == 'oidc.naver' ||
-                        provider.providerId == 'oidc.line' ||
-                        provider.providerId == 'facebook.com'
-                    ? Colors.white
-                    : Colors.black,
-            fontSize: 13,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      );
-    }
-
-    return Icon(provider.icon, size: 24);
-  }
-
-  bool _isProviderLinked(User? user, String providerId) {
-    if (user == null) return false;
-    final linkedIds = user.providerData.map((info) => info.providerId).toSet();
-    if (providerId == 'password') {
-      return linkedIds.contains('password') ||
-          (user.email?.isNotEmpty ?? false);
-    }
-    return linkedIds.contains(providerId);
-  }
-
-  int _linkedProviderCount(User? user, List<_AccountProviderOption> providers) {
-    if (user == null) return 0;
-    return providers
-        .where((provider) => _isProviderLinked(user, provider.providerId))
-        .length;
-  }
-
-  Future<void> _handleLinkProvider(_AccountProviderOption provider) async {
-    final l10n = AppLocalizations.of(context);
     final authService = Provider.of<AuthService>(context, listen: false);
+    return FutureBuilder<CurrentAuthIdentity>(
+      future: authService.currentAuthIdentity(),
+      builder: (context, snapshot) {
+        final displayName = _accountDisplayName(
+          l10n,
+          user,
+          identity: snapshot.data,
+        );
 
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text(l10n.get('account_link_provider')),
-            content: Text(
-              l10n.getWithArgs('account_link_provider_confirm', {
-                'provider': l10n.get(provider.labelKey),
-              }),
+        return Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+              foregroundColor: AppColors.primary,
+              child: const Icon(Icons.account_circle),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text(l10n.get('cancel')),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: Text(l10n.get('account_link_provider')),
-              ),
-            ],
-          ),
-    );
-    if (confirm != true) return;
-
-    try {
-      await authService.linkAccountProvider(providerId: provider.providerId);
-      if (!mounted) return;
-      setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.get('account_provider_linked'))),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.get('account_provider_action_failed'))),
-      );
-    }
-  }
-
-  Future<void> _handleUnlinkProvider(_AccountProviderOption provider) async {
-    final l10n = AppLocalizations.of(context);
-    final authService = Provider.of<AuthService>(context, listen: false);
-
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text(l10n.get('account_unlink_provider')),
-            content: Text(
-              l10n.getWithArgs('account_unlink_provider_confirm', {
-                'provider': l10n.get(provider.labelKey),
-              }),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text(l10n.get('cancel')),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: Text(l10n.get('account_unlink_provider')),
-              ),
-            ],
-          ),
-    );
-    if (confirm != true) return;
-
-    try {
-      await authService.unlinkProvider(provider.providerId);
-      if (!mounted) return;
-      setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.get('account_provider_not_linked'))),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.get('account_provider_action_failed'))),
-      );
-    }
-  }
-
-  Widget _buildActiveDevicePanel(AppLocalizations l10n) {
-    final ownerUid = HiveHelper.activeOwnerUid;
-    final counts = _localCountsForOwner(ownerUid);
-    final hasOtherOwners = _hasOtherLocalOwners(ownerUid);
-
-    return _SettingsPanel(
-      title: l10n.get('account_active_device_title'),
-      icon: Icons.devices_other,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            l10n.get('account_active_device_subtitle'),
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.textSecondary,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 10),
-          _InfoRow(
-            label: l10n.get('account_active_device_current'),
-            value: ownerUid ?? l10n.get('account_local_data_unassigned'),
-          ),
-          const SizedBox(height: 6),
-          _InfoRow(
-            label: l10n.get('account_active_device_summary'),
-            value: l10n.getWithArgs('account_local_data_counts', {
-              'places': '${counts['places'] ?? 0}',
-              'alarms': '${counts['alarms'] ?? 0}',
-              'devices': '${counts['devices'] ?? 0}',
-            }),
-          ),
-          if (hasOtherOwners) ...[
-            const SizedBox(height: 12),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: AppColors.warning.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: AppColors.warning.withValues(alpha: 0.35),
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Text(
-                  l10n.get('account_active_device_other_data_warning'),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                    height: 1.35,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.get('account_signed_in_as'),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 2),
+                  Text(
+                    displayName,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: ownerUid == null ? null : _confirmTransferLocalData,
-            icon: const Icon(Icons.drive_file_move_outline),
-            label: Text(l10n.get('account_transfer_local_data')),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Map<String, int> _localCountsForOwner(String? ownerUid) {
-    try {
-      final summary = HiveHelper.getLocalOwnerSummary();
-      final key = ownerUid ?? '(none)';
-      return summary[key] ?? {'places': 0, 'alarms': 0, 'devices': 0};
-    } catch (_) {
-      return {'places': 0, 'alarms': 0, 'devices': 0};
-    }
-  }
-
-  bool _hasOtherLocalOwners(String? ownerUid) {
-    try {
-      return HiveHelper.getLocalOwnerSummary().keys.any((key) {
-        if (key == '(invalid)') return false;
-        return key != ownerUid && key != '(none)';
-      });
-    } catch (_) {
-      return false;
-    }
-  }
-
-  Future<void> _confirmTransferLocalData() async {
-    final l10n = AppLocalizations.of(context);
-    final confirm = await showDialog<bool>(
-      context: context,
+  Widget _buildAccountSubtitle(AppLocalizations l10n, AuthService authService) {
+    return FutureBuilder<CurrentAuthIdentity>(
+      future: authService.currentAuthIdentity(),
       builder:
-          (context) => AlertDialog(
-            title: Text(l10n.get('account_transfer_warning_title')),
-            content: Text(l10n.get('account_transfer_warning_body')),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text(l10n.get('cancel')),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: Text(l10n.get('account_transfer_local_data')),
-              ),
-            ],
+          (context, snapshot) => Text(
+            _accountDisplayName(
+              l10n,
+              authService.currentUser,
+              identity: snapshot.data,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
     );
-    if (confirm != true) return;
-
-    final result = await HiveHelper.reassignAllLocalDataToCurrentOwner();
-    if (!mounted) return;
-    setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          l10n.getWithArgs('account_transfer_success', {
-            'places': '${result['places'] ?? 0}',
-            'alarms': '${result['alarms'] ?? 0}',
-            'devices': '${result['devices'] ?? 0}',
-          }),
-        ),
-      ),
-    );
   }
+
+  String _accountDisplayName(
+    AppLocalizations l10n,
+    User? user, {
+    CurrentAuthIdentity? identity,
+  }) {
+    if (user == null) return l10n.get('account_not_logged_in');
+    final providerId = identity?.providerId;
+    final label =
+        providerId != null && providerId.trim().isNotEmpty
+            ? _providerDisplayLabel(providerId)
+            : null;
+    final email =
+        identity?.email?.trim().isNotEmpty == true
+            ? identity!.email!.trim()
+            : user.email?.trim();
+    if (email != null && email.isNotEmpty) {
+      return label == null ? email : '$label - $email';
+    }
+    final displayName =
+        identity?.displayName?.trim().isNotEmpty == true
+            ? identity!.displayName!.trim()
+            : user.displayName?.trim();
+    if (displayName != null && displayName.isNotEmpty) {
+      return label == null ? displayName : '$label - $displayName';
+    }
+    if (providerId != null && providerId.trim().isNotEmpty) {
+      return _signedInProviderText(l10n, providerId);
+    }
+    final isKorean = Localizations.localeOf(context).languageCode == 'ko';
+    return isKorean ? '로그인됨' : 'Signed in';
+  }
+
+  String _signedInProviderText(AppLocalizations l10n, String providerId) {
+    final label = _providerDisplayLabel(providerId);
+    final isKorean = Localizations.localeOf(context).languageCode == 'ko';
+    return isKorean ? '$label 계정으로 로그인됨' : 'Signed in with $label';
+  }
+
+  String _providerDisplayLabel(String providerId) {
+    final normalized = providerId.trim();
+    final isKorean = Localizations.localeOf(context).languageCode == 'ko';
+    if (_providerAliases(AuthService.kakaoProviderId).contains(normalized)) {
+      return isKorean ? '카카오톡' : 'KakaoTalk';
+    }
+    if (_providerAliases(AuthService.naverProviderId).contains(normalized)) {
+      return 'Naver';
+    }
+    if (_providerAliases(AuthService.lineProviderId).contains(normalized)) {
+      return 'LINE';
+    }
+    if (_providerAliases(AuthService.yahooProviderId).contains(normalized)) {
+      return 'Yahoo Japan';
+    }
+    switch (normalized) {
+      case 'google.com':
+        return 'Google';
+      case 'facebook.com':
+        return 'Facebook';
+      case 'password':
+      case 'email':
+        return isKorean ? '이메일' : 'Email';
+      case 'custom':
+        return isKorean ? '외부 로그인' : 'External provider';
+      default:
+        return normalized;
+    }
+  }
+
+  Set<String> _providerAliases(String providerId) {
+    switch (providerId) {
+      case AuthService.kakaoProviderId:
+        return _aliasSet([AuthService.kakaoProviderId, 'kakao', 'oidc.kakao']);
+      case AuthService.naverProviderId:
+        return _aliasSet([AuthService.naverProviderId, 'naver', 'oidc.naver']);
+      case AuthService.lineProviderId:
+        return _aliasSet([AuthService.lineProviderId, 'line', 'oidc.line']);
+      case AuthService.yahooProviderId:
+        return _aliasSet([AuthService.yahooProviderId, 'yahoo', 'oidc.yahoo']);
+      case 'password':
+        return {'password', 'email'};
+      default:
+        return {providerId};
+    }
+  }
+
+  Set<String> _aliasSet(List<String> values) => values.toSet();
 
   Future<void> _handleGoogleSignOut() async {
     final l10n = AppLocalizations.of(context);
@@ -1125,11 +760,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ListTile(
             leading: const Icon(Icons.account_circle),
             title: Text(l10n.get('account')),
-            subtitle: Text(
-              authService.currentUser?.email ??
-                  authService.currentUser?.displayName ??
-                  l10n.get('account_not_logged_in'),
-            ),
+            subtitle: _buildAccountSubtitle(l10n, authService),
             trailing: const Icon(Icons.chevron_right),
             onTap: _showAccountOptions,
           ),
@@ -1153,82 +784,6 @@ class _SettingsPageState extends State<SettingsPage> {
           const Divider(),
         ],
       ),
-    );
-  }
-}
-
-class _SettingsPanel extends StatelessWidget {
-  const _SettingsPanel({
-    required this.title,
-    required this.icon,
-    required this.child,
-  });
-
-  final String title;
-  final IconData icon;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 20, color: AppColors.primary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 104,
-          child: Text(
-            label,
-            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-          ),
-        ),
-      ],
     );
   }
 }

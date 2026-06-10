@@ -106,8 +106,20 @@ String _getSubscriptionPolicyKo({required bool isBeta}) {
   buffer.writeln(
     '- Wi-Fi SSID/BSSID 정보는 기기 내에서만 장소 인식에 사용되며, 외부 서버로 전송되지 않습니다.',
   );
+  buffer.writeln(
+    '- 앱은 사용자가 현재 연결한 Wi-Fi와 주변 감지 Wi-Fi를 기기 내에서 비교하여 같은 공유기일 가능성이 높은 Wi-Fi 후보를 표시할 수 있습니다.',
+  );
+  buffer.writeln('- 사용자는 본인 소유 또는 사용 권한이 있는 Wi-Fi만 직접 선택하여 등록해야 합니다.');
+  buffer.writeln('- Wi-Fi 후보 추천은 정확성을 보장하지 않으며, 최종 선택과 등록 책임은 사용자에게 있습니다.');
   buffer.writeln('- Wi-Fi 신호 환경(공유기 이전·변경·채널 충돌 등)에 따라 감지 오작동이 발생할 수 있으며,');
   buffer.writeln('  이로 인한 알람 오발동·미작동에 대한 책임은 제한됩니다.');
+  buffer.writeln(
+    '- 잘못된 Wi-Fi 선택, 타인 Wi-Fi 선택, 공유기 설정 변경, SSID/BSSID 변경, Wi-Fi 연결 불안정, 기기 절전 정책 등으로 인한 알람 미발동·오발동에 대해 앱 제공자의 책임은 제한됩니다.',
+  );
+  buffer.writeln(
+    '- Wi-Fi 대기 시간은 GPS 진입 판단 후 Wi-Fi 연결 감지를 기다리는 보조 설정이며, 알람 발동을 보장하지 않습니다.',
+  );
+  buffer.writeln('- Wi-Fi 정보는 광고, 추적, 제3자 제공 목적으로 사용하지 않습니다.');
   buffer.writeln('- 본 약관에 동의하시면 위 사항에 동의한 것으로 간주합니다.');
   buffer.writeln();
   buffer.writeln('4-1. 앱 실행 상태 및 복구 안내 (중요)');
@@ -338,10 +350,28 @@ String _getSubscriptionPolicyEn({required bool isBeta}) {
     '- Wi-Fi SSID/BSSID data is used solely on-device for place recognition and is never transmitted to external servers.',
   );
   b.writeln(
+    '- The app may compare the currently connected Wi-Fi with nearby detected Wi-Fi networks on-device and show candidates that may belong to the same router.',
+  );
+  b.writeln(
+    '- You must select only Wi-Fi networks that you own or are authorized to use.',
+  );
+  b.writeln(
+    '- Candidate recommendation is not guaranteed to be accurate. Final selection and registration responsibility belongs to the user.',
+  );
+  b.writeln(
     '- Detection errors may occur due to Wi-Fi environment changes (router relocation, replacement, channel conflicts, etc.).',
   );
   b.writeln(
     '  The developer is not liable for false or missed alarms caused by such conditions.',
+  );
+  b.writeln(
+    '- The developer is not liable for false or missed alarms caused by wrong Wi-Fi selection, unauthorized third-party Wi-Fi selection, router setting changes, SSID/BSSID changes, unstable Wi-Fi connection, or device battery-saving policies.',
+  );
+  b.writeln(
+    '- Wi-Fi wait time is a supplementary setting that waits for Wi-Fi detection after GPS entry judgment. It does not guarantee alarm delivery.',
+  );
+  b.writeln(
+    '- Wi-Fi data is not used for advertising, tracking, or third-party sharing.',
   );
   b.writeln(
     '- By agreeing to these terms, you acknowledge and accept the above.',

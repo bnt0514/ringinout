@@ -88,11 +88,25 @@ class RinginoutApp extends StatelessWidget {
                       HiveHelper.hasStoredActiveOwnerUid) {
                     _lastAppliedOwnerUid = null;
                     Future<void>(() async {
+                      if (FirebaseAuth.instance.currentUser != null) return;
                       await SmartLocationService.cancelAllSnoozes();
                       await SmartLocationService.stopMonitoring();
+                      if (FirebaseAuth.instance.currentUser != null) return;
                       await HiveHelper.setActiveOwnerUid(null);
                     });
                   }
+                });
+                return const LoginPage();
+              }
+
+              if (user.isAnonymous) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  Future<void>(() async {
+                    await SmartLocationService.cancelAllSnoozes();
+                    await SmartLocationService.stopMonitoring();
+                    await HiveHelper.setActiveOwnerUid(null);
+                    await FirebaseAuth.instance.signOut();
+                  });
                 });
                 return const LoginPage();
               }
@@ -242,20 +256,136 @@ class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
     bool forceDeviceTransfer = false,
   }) async {
     final authService = context.read<AuthService>();
-    final session = await authService.ensureServerSession(
-      forceRefresh: true,
+    final firebaseUid = authService.currentUser?.uid ?? widget.userUid;
+    var confirmedServerAccountLink = false;
+    final session = await _ensureServerSessionWithConsent(
+      authService,
       forceDeviceTransfer: forceDeviceTransfer,
+      onDeviceAccountLinkConfirmed: () => confirmedServerAccountLink = true,
     );
     if (session == null) return null;
     if (session.deviceTransferRequired && !forceDeviceTransfer) {
       return session;
     }
 
-    await _applyCanonicalOwner(session.canonicalAccountId);
+    if (!mounted) return null;
+    if (!confirmedServerAccountLink &&
+        _requiresAccountLinkConsent(session.canonicalAccountId)) {
+      final confirmed = await _confirmAccountLink();
+      if (confirmed != true) {
+        await SmartLocationService.cancelAllSnoozes();
+        await SmartLocationService.stopMonitoring();
+        await HiveHelper.setActiveOwnerUid(null);
+        await authService.signOut();
+        return null;
+      }
+    }
+
+    await _applyCanonicalOwner(session.canonicalAccountId, firebaseUid);
     return session;
   }
 
-  Future<void> _applyCanonicalOwner(String canonicalOwnerUid) async {
+  Future<AuthSessionInfo?> _ensureServerSessionWithConsent(
+    AuthService authService, {
+    required bool forceDeviceTransfer,
+    required VoidCallback onDeviceAccountLinkConfirmed,
+  }) async {
+    try {
+      return await authService.ensureServerSession(
+        forceRefresh: true,
+        forceDeviceTransfer: forceDeviceTransfer,
+      );
+    } on DeviceAccountLinkRequiredException {
+      if (!mounted) return null;
+      final confirmed = await _confirmAccountLink();
+      if (confirmed != true) {
+        await _cancelLogin(authService);
+        return null;
+      }
+      onDeviceAccountLinkConfirmed();
+      return authService.ensureServerSession(
+        forceRefresh: true,
+        forceDeviceTransfer: forceDeviceTransfer,
+        allowDeviceAccountLink: true,
+      );
+    } on ProviderAccountConflictException {
+      await _cancelLogin(authService);
+      rethrow;
+    } on SignInProviderRequiredException {
+      await _cancelLogin(authService);
+      return null;
+    }
+  }
+
+  Future<void> _cancelLogin(AuthService authService) async {
+    await SmartLocationService.cancelAllSnoozes();
+    await SmartLocationService.stopMonitoring();
+    await HiveHelper.setActiveOwnerUid(null);
+    await authService.signOut();
+  }
+
+  bool _requiresAccountLinkConsent(String canonicalOwnerUid) {
+    if (!HiveHelper.hasAnyAccountScopedLocalData()) return false;
+
+    final summary = HiveHelper.getLocalOwnerSummary();
+    return summary.entries.any((entry) {
+      final ownerUid = entry.key;
+      if (ownerUid == canonicalOwnerUid ||
+          ownerUid == '(none)' ||
+          ownerUid == '(invalid)') {
+        return false;
+      }
+      final counts = entry.value;
+      return (counts['places'] ?? 0) > 0 ||
+          (counts['alarms'] ?? 0) > 0 ||
+          (counts['devices'] ?? 0) > 0;
+    });
+  }
+
+  Future<bool?> _confirmAccountLink() {
+    final l10n = AppLocalizations.of(context);
+    final isKorean = Localizations.localeOf(context).languageCode == 'ko';
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => AlertDialog(
+            title: Text(
+              isKorean
+                  ? '기존 계정 데이터와 연동할까요?'
+                  : l10n.get('account_link_existing_title'),
+            ),
+            content: Text(
+              isKorean
+                  ? '이 기기에는 이미 다른 로그인 계정에서 사용하던 장소와 알람이 있습니다. 계속하려면 현재 로그인 방법을 기존 앱 계정에 연동해야 합니다. 연동하면 장소, 알람, 플랜, 사용 한도가 하나의 계정으로 공유됩니다.'
+                  : l10n.get('account_link_existing_body'),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(
+                  isKorean
+                      ? '로그인 취소'
+                      : l10n.get('account_link_existing_cancel'),
+                ),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(
+                  isKorean
+                      ? '연동하고 계속'
+                      : l10n.get('account_link_existing_confirm'),
+                ),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Future<void> _applyCanonicalOwner(
+    String canonicalOwnerUid,
+    String firebaseUid,
+  ) async {
     final previousOwnerUid =
         RinginoutApp._lastAppliedOwnerUid ?? HiveHelper.storedActiveOwnerUid;
     final needsReset = HiveHelper.needsCanonicalOwnerReset(canonicalOwnerUid);
@@ -268,10 +398,15 @@ class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
 
     RinginoutApp._lastAppliedOwnerUid = canonicalOwnerUid;
     await HiveHelper.setActiveOwnerUid(canonicalOwnerUid);
+    await HiveHelper.reassignAllLocalDataToCurrentOwner();
     if (needsReset) {
       await HiveHelper.resetAccountScopedLocalDataForCanonicalOwner(
         canonicalOwnerUid,
       );
+    }
+    await HiveHelper.setLastFirebaseUid(firebaseUid);
+    if (await ForceUpdateService.isCurrentUserSpecialOrDeveloper()) {
+      await HiveHelper.setDeveloperLoginOptions(true);
     }
     await SmartLocationService.updatePlaces();
     await SmartLocationService.startMonitoring();
@@ -318,16 +453,29 @@ class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
         }
 
         final session = snapshot.data;
-        if (session != null && session.deviceTransferRequired) {
+        if (session == null) {
+          return _AccountSessionErrorGate(
+            onRetry: () {
+              setState(() {
+                _ownerFuture = _ensureOwnerApplied();
+                _notifiedReadyOwner = null;
+              });
+            },
+            onSignOut: () async {
+              await context.read<AuthService>().signOut();
+            },
+          );
+        }
+
+        if (session.deviceTransferRequired) {
           return _DeviceTransferGate(
             previousDeviceLabel: session.previousDeviceLabel,
             onConfirm: _acceptDeviceTransfer,
           );
         }
 
-        final ownerUid =
-            session?.canonicalAccountId ?? HiveHelper.storedActiveOwnerUid;
-        if (ownerUid != null && ownerUid.isNotEmpty) {
+        final ownerUid = session.canonicalAccountId;
+        if (ownerUid.isNotEmpty) {
           _notifyReadyOnce(ownerUid);
         }
         return const PermissionGate(

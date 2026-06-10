@@ -27,6 +27,9 @@ class _MainNavigationPageState extends State<MainNavigationPage>
     with WidgetsBindingObserver {
   int _selectedIndex = 0;
   bool isSelectionMode = false;
+  final GlobalKey<MyPlacesTabPageState> _myPlacesTabKey =
+      GlobalKey<MyPlacesTabPageState>();
+  late final List<Widget> _pages;
   bool _isRestoringAlarm = false; // 알람 화면 복원 중복 방지
 
   // 🎤 음성 알람 채널
@@ -39,16 +42,15 @@ class _MainNavigationPageState extends State<MainNavigationPage>
     'com.bnt0514.ringinout/app_lifecycle',
   );
 
-  final List<Widget> _pages = [
-    const KeepAliveWidget(child: AlarmPage()),
-    const KeepAliveWidget(child: MyPlacesTabPage()),
-    const KeepAliveWidget(child: TestPage()),
-    const KeepAliveWidget(child: ServerSubscriptionPage()),
-  ];
-
   @override
   void initState() {
     super.initState();
+    _pages = [
+      const KeepAliveWidget(child: AlarmPage()),
+      KeepAliveWidget(child: MyPlacesTabPage(key: _myPlacesTabKey)),
+      const KeepAliveWidget(child: TestPage()),
+      const KeepAliveWidget(child: ServerSubscriptionPage()),
+    ];
     WidgetsBinding.instance.addObserver(this);
     // 앱 시작 시 음성 알람 모드 체크 + 복구 사유 확인
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -224,6 +226,26 @@ class _MainNavigationPageState extends State<MainNavigationPage>
     }
   }
 
+  bool _clearSelectionForCurrentTab() {
+    if (_selectedIndex == 0) {
+      final controller = AlarmListController.instance;
+      if (controller != null && controller.isSelectionMode.value) {
+        controller.clearSelection();
+        return true;
+      }
+    }
+    if (_selectedIndex == 1) {
+      return _myPlacesTabKey.currentState?.clearSelectionMode() ?? false;
+    }
+    return false;
+  }
+
+  void _selectTab(int index) {
+    if (index == _selectedIndex) return;
+    _clearSelectionForCurrentTab();
+    setState(() => _selectedIndex = index);
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -232,18 +254,10 @@ class _MainNavigationPageState extends State<MainNavigationPage>
         if (didPop) return;
 
         // ★ 알람 탭에서 선택 모드 활성 시: 선택 모드 해제
-        if (_selectedIndex == 0) {
-          final controller = AlarmListController.instance;
-          if (controller != null && controller.isSelectionMode.value) {
-            controller.isSelectionMode.value = false;
-            controller.selectedIndexes.value = {};
-            return;
-          }
-        }
-
+        if (_clearSelectionForCurrentTab()) return;
         // 기본 페이지(알람)가 아니면 기본 페이지로 이동
         if (_selectedIndex != 0) {
-          setState(() => _selectedIndex = 0);
+          _selectTab(0);
         } else {
           // ✅ 앱을 백그라운드로 보냄 (SystemNavigator.pop()은 앱을 종료시키므로 사용 금지)
           _appLifecycleChannel.invokeMethod('moveTaskToBack');
@@ -270,7 +284,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
     return BottomNavigationBar(
       key: const ValueKey('default_nav'),
       currentIndex: _selectedIndex,
-      onTap: (index) => setState(() => _selectedIndex = index),
+      onTap: _selectTab,
       type: BottomNavigationBarType.fixed,
       selectedItemColor: theme.colorScheme.primary,
       unselectedItemColor: theme.bottomNavigationBarTheme.unselectedItemColor,

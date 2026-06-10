@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:ringinout/config/app_theme.dart';
 import 'package:ringinout/services/app_localizations.dart';
@@ -472,12 +474,16 @@ class _AddAlarmPageState extends State<AddAlarmPage> {
                 }
 
                 // ✅ 네이티브 SmartLocationService 즉시 업데이트
-                await SmartLocationService.updatePlaces();
-                print('🎯 SmartLocationService 장소 업데이트 완료');
-
-                await SmartLocationMonitor.startSmartMonitoring();
-
                 Navigator.pop(context);
+                unawaited(
+                  SmartLocationService.updatePlaces()
+                      .then((_) => SmartLocationMonitor.startSmartMonitoring())
+                      .catchError(
+                        (e) => debugPrint(
+                          'SmartLocationService refresh failed: $e',
+                        ),
+                      ),
+                );
               },
               child: Center(child: Text(l10n.get('save_btn'))),
             ),

@@ -14,7 +14,35 @@ import 'package:uuid/uuid.dart';
 import 'package:ringinout/services/secure_http_headers.dart';
 import 'package:ringinout/services/hive_helper.dart';
 
-enum RingAuthProvider { google, kakao, naver, line, facebook, email }
+enum RingAuthProvider { google, kakao, naver, line, yahoo, facebook, email }
+
+class DeviceAccountLinkRequiredException implements Exception {
+  const DeviceAccountLinkRequiredException({
+    this.canonicalAccountId,
+    this.providerLinkedToDifferentAccount = false,
+  });
+
+  final String? canonicalAccountId;
+  final bool providerLinkedToDifferentAccount;
+
+  @override
+  String toString() =>
+      'DeviceAccountLinkRequiredException(canonicalAccountId: $canonicalAccountId)';
+}
+
+class ProviderAccountConflictException implements Exception {
+  const ProviderAccountConflictException();
+
+  @override
+  String toString() => 'ProviderAccountConflictException';
+}
+
+class SignInProviderRequiredException implements Exception {
+  const SignInProviderRequiredException();
+
+  @override
+  String toString() => 'SignInProviderRequiredException';
+}
 
 class AuthSessionInfo {
   const AuthSessionInfo({
@@ -78,6 +106,14 @@ class LinkedAuthProvider {
   final String? displayName;
 }
 
+class CurrentAuthIdentity {
+  const CurrentAuthIdentity({this.providerId, this.email, this.displayName});
+
+  final String? providerId;
+  final String? email;
+  final String? displayName;
+}
+
 /// Authentication and canonical account coordination.
 ///
 /// Firebase UID is treated as a provider-specific login key. The app owner,
@@ -97,6 +133,10 @@ class AuthService {
   static const String lineProviderId = String.fromEnvironment(
     'RINGINOUT_LINE_PROVIDER_ID',
     defaultValue: 'oidc.line',
+  );
+  static const String yahooProviderId = String.fromEnvironment(
+    'RINGINOUT_YAHOO_PROVIDER_ID',
+    defaultValue: 'oidc.yahoo',
   );
   static const String emailLinkUrl = String.fromEnvironment(
     'RINGINOUT_EMAIL_LINK_URL',
@@ -124,12 +164,73 @@ class AuthService {
   Stream<User?> get authStateChanges => _auth.authStateChanges();
   String? get canonicalAccountId => _session?.canonicalAccountId;
 
+  Future<String?> currentSignInProviderId() async =>
+      (await currentAuthIdentity()).providerId;
+
+  Future<CurrentAuthIdentity> currentAuthIdentity() async {
+    final user = currentUser;
+    if (user == null) return const CurrentAuthIdentity();
+
+    String? providerId;
+    String? email = user.email?.trim();
+    String? displayName = user.displayName?.trim();
+
+    try {
+      final token = await user.getIdTokenResult(false);
+      final claimProvider = token.claims?['provider_id']?.toString().trim();
+      if (claimProvider != null && claimProvider.isNotEmpty) {
+        providerId = claimProvider;
+      }
+      if (providerId == null || providerId.isEmpty) {
+        final signInProvider = token.signInProvider?.trim();
+        if (signInProvider != null && signInProvider.isNotEmpty) {
+          providerId = signInProvider == 'password' ? 'email' : signInProvider;
+        }
+      }
+      final claimEmail = token.claims?['provider_email']?.toString().trim();
+      if ((email == null || email.isEmpty) &&
+          claimEmail != null &&
+          claimEmail.isNotEmpty) {
+        email = claimEmail;
+      }
+      final claimDisplayName =
+          token.claims?['provider_display_name']?.toString().trim();
+      if ((displayName == null || displayName.isEmpty) &&
+          claimDisplayName != null &&
+          claimDisplayName.isNotEmpty) {
+        displayName = claimDisplayName;
+      }
+    } catch (e) {
+      debugPrint('Current auth identity unavailable: $e');
+    }
+
+    if ((providerId == null || providerId.isEmpty) &&
+        user.providerData.isNotEmpty) {
+      providerId = user.providerData.first.providerId;
+    }
+    if ((providerId == null || providerId.isEmpty) &&
+        (email?.isNotEmpty == true)) {
+      providerId = 'email';
+    }
+    return CurrentAuthIdentity(
+      providerId: providerId,
+      email: email?.isEmpty == true ? null : email,
+      displayName: displayName?.isEmpty == true ? null : displayName,
+    );
+  }
+
   Future<String?> getStoredCanonicalAccountId() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_canonicalAccountIdKey);
   }
 
   Future<List<LinkedAuthProvider>> linkedProviders() async {
+    final serverProviders = await _serverLinkedProviders();
+    if (serverProviders.isNotEmpty) return serverProviders;
+    return _firebaseLinkedProviders();
+  }
+
+  Future<List<LinkedAuthProvider>> _firebaseLinkedProviders() async {
     final user = currentUser;
     if (user == null) return const [];
     await user.reload();
@@ -144,6 +245,36 @@ class AuthService {
           ),
         )
         .toList();
+  }
+
+  Future<List<LinkedAuthProvider>> _serverLinkedProviders() async {
+    final idToken = await getIdToken(forceRefresh: true);
+    if (idToken == null) return const [];
+    try {
+      final response = await http.get(
+        Uri.parse('$serverUrl/getAccountLinkedProviders'),
+        headers: await SecureHttpHeaders.json(idToken: idToken),
+      );
+      if (response.statusCode != 200) return const [];
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final rawProviders = data['providers'];
+      if (rawProviders is! List) return const [];
+      return rawProviders
+          .whereType<Map>()
+          .where((raw) => raw['linked'] != false)
+          .map(
+            (raw) => LinkedAuthProvider(
+              providerId: raw['providerId']?.toString() ?? '',
+              email: raw['email']?.toString(),
+              displayName: raw['displayName']?.toString(),
+            ),
+          )
+          .where((provider) => provider.providerId.isNotEmpty)
+          .toList();
+    } catch (e) {
+      debugPrint('Server linked providers unavailable: $e');
+      return const [];
+    }
   }
 
   Future<User?> signInWithGoogle({bool forceDeviceTransfer = false}) async {
@@ -163,7 +294,6 @@ class AuthService {
         accessToken: googleAuth.accessToken,
       );
       final userCredential = await _auth.signInWithCredential(credential);
-      await ensureServerSession(forceDeviceTransfer: forceDeviceTransfer);
       return userCredential.user;
     } catch (e) {
       debugPrint('Sign-in failed: $e');
@@ -184,7 +314,6 @@ class AuthService {
         token.accessToken,
       );
       final userCredential = await _auth.signInWithCustomToken(customToken);
-      await ensureServerSession(forceDeviceTransfer: forceDeviceTransfer);
       return userCredential.user;
     } catch (e) {
       debugPrint('Kakao sign-in failed: $e');
@@ -197,6 +326,9 @@ class AuthService {
 
   Future<User?> signInWithLine({bool forceDeviceTransfer = false}) =>
       throw UnsupportedError('LINE SDK sign-in is not configured yet');
+
+  Future<User?> signInWithYahoo({bool forceDeviceTransfer = false}) =>
+      throw UnsupportedError('Yahoo Japan sign-in is not configured yet');
 
   Future<void> sendEmailSignInLink(String email) async {
     final trimmed = email.trim();
@@ -240,7 +372,6 @@ class AuthService {
       emailLink: emailLink,
     );
     await prefs.remove(_emailForLinkKey);
-    await ensureServerSession(forceDeviceTransfer: forceDeviceTransfer);
     return credential.user;
   }
 
@@ -257,6 +388,8 @@ class AuthService {
         return signInWithNaver(forceDeviceTransfer: forceDeviceTransfer);
       case RingAuthProvider.line:
         return signInWithLine(forceDeviceTransfer: forceDeviceTransfer);
+      case RingAuthProvider.yahoo:
+        return signInWithYahoo(forceDeviceTransfer: forceDeviceTransfer);
       case RingAuthProvider.facebook:
         return signInWithFacebook(forceDeviceTransfer: forceDeviceTransfer);
       case RingAuthProvider.email:
@@ -287,9 +420,11 @@ class AuthService {
       kakaoProviderId,
       naverProviderId,
       lineProviderId,
+      yahooProviderId,
       'kakao',
       'naver',
       'line',
+      'yahoo',
     ].contains(normalized)) {
       throw UnsupportedError(
         'SDK sign-in providers cannot be linked through Firebase OIDC',
@@ -320,9 +455,13 @@ class AuthService {
   Future<AuthSessionInfo?> ensureServerSession({
     bool forceRefresh = false,
     bool forceDeviceTransfer = false,
+    bool allowDeviceAccountLink = false,
   }) async {
     final user = currentUser;
     if (user == null) return null;
+    if (user.isAnonymous) {
+      throw StateError('Anonymous sign-in is not allowed.');
+    }
     if (!forceRefresh &&
         !forceDeviceTransfer &&
         _session != null &&
@@ -344,10 +483,36 @@ class AuthService {
           'platform': defaultTargetPlatform.name,
           'devicePlatform': defaultTargetPlatform.name,
           'forceDeviceTransfer': forceDeviceTransfer,
+          'allowDeviceAccountLink': allowDeviceAccountLink,
         }),
       );
 
+      if (response.statusCode == 409) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final error = data['error']?.toString();
+        if (error == 'device_account_link_required') {
+          throw DeviceAccountLinkRequiredException(
+            canonicalAccountId: data['canonicalAccountId']?.toString(),
+            providerLinkedToDifferentAccount:
+                data['providerLinkedToDifferentAccount'] == true,
+          );
+        }
+        if (error == 'provider_account_conflict') {
+          throw const ProviderAccountConflictException();
+        }
+      }
+
       if (response.statusCode != 200) {
+        try {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          if (data['error']?.toString() == 'sign_in_provider_required') {
+            throw const SignInProviderRequiredException();
+          }
+        } on SignInProviderRequiredException {
+          rethrow;
+        } catch (_) {
+          // Fall through to the generic server-session error below.
+        }
         throw Exception('Server session failed: ${response.body}');
       }
 
@@ -498,7 +663,6 @@ class AuthService {
     required bool forceDeviceTransfer,
   }) async {
     final credential = await _auth.signInWithProvider(provider);
-    await ensureServerSession(forceDeviceTransfer: forceDeviceTransfer);
     return credential.user;
   }
 
