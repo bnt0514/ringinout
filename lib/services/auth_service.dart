@@ -5,6 +5,7 @@ import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart' as kakao;
@@ -146,6 +147,21 @@ class AuthService {
     'RINGINOUT_EMAIL_LINK_DOMAIN',
     defaultValue: '',
   );
+  static const String naverLoginClientId = String.fromEnvironment(
+    'RINGINOUT_NAVER_LOGIN_CLIENT_ID',
+    defaultValue: '',
+  );
+  static const String lineLoginChannelId = String.fromEnvironment(
+    'RINGINOUT_LINE_LOGIN_CHANNEL_ID',
+    defaultValue: '',
+  );
+  static const String facebookAppId = String.fromEnvironment(
+    'RINGINOUT_FACEBOOK_APP_ID',
+    defaultValue: '',
+  );
+  static const String oauthCallbackScheme = 'ringinout';
+  static const String naverOAuthRedirectUri = '$serverUrl/naverOAuthCallback';
+  static const String lineOAuthRedirectUri = '$serverUrl/lineOAuthCallback';
 
   static const String _deviceIdKey = 'ringinout_device_id_v1';
   static const String _canonicalAccountIdKey = 'canonical_account_id_v1';
@@ -321,14 +337,121 @@ class AuthService {
     }
   }
 
-  Future<User?> signInWithNaver({bool forceDeviceTransfer = false}) =>
-      throw UnsupportedError('Naver SDK sign-in is not configured yet');
+  Future<User?> signInWithNaver({bool forceDeviceTransfer = false}) async {
+    if (naverLoginClientId.isEmpty) {
+      throw StateError('Naver Login client ID is not configured');
+    }
+    final redirectUri = naverOAuthRedirectUri;
+    final state = const Uuid().v4();
+    final authUri = Uri.https('nid.naver.com', '/oauth2.0/authorize', {
+      'response_type': 'code',
+      'client_id': naverLoginClientId,
+      'redirect_uri': redirectUri,
+      'state': state,
+    });
 
-  Future<User?> signInWithLine({bool forceDeviceTransfer = false}) =>
-      throw UnsupportedError('LINE SDK sign-in is not configured yet');
+    final callbackUrl = await FlutterWebAuth2.authenticate(
+      url: authUri.toString(),
+      callbackUrlScheme: oauthCallbackScheme,
+    );
+    final callback = Uri.parse(callbackUrl);
+    _throwIfOAuthError(callback);
+    if (callback.queryParameters['state'] != state) {
+      throw StateError('Naver OAuth state mismatch');
+    }
+    final code = callback.queryParameters['code'];
+    if (code == null || code.isEmpty) {
+      throw StateError('Naver OAuth returned no code');
+    }
+    final customToken = await _exchangeOAuthCodeForFirebase(
+      endpoint: 'signInWithNaverCode',
+      code: code,
+      redirectUri: redirectUri,
+      state: state,
+    );
+    final credential = await _auth.signInWithCustomToken(customToken);
+    return credential.user;
+  }
+
+  Future<User?> signInWithLine({bool forceDeviceTransfer = false}) async {
+    if (lineLoginChannelId.isEmpty) {
+      throw StateError('LINE Login channel ID is not configured');
+    }
+    final redirectUri = lineOAuthRedirectUri;
+    final state = const Uuid().v4();
+    final authUri = Uri.https('access.line.me', '/oauth2/v2.1/authorize', {
+      'response_type': 'code',
+      'client_id': lineLoginChannelId,
+      'redirect_uri': redirectUri,
+      'state': state,
+      'scope': 'profile openid email',
+      'bot_prompt': 'normal',
+    });
+
+    final callbackUrl = await FlutterWebAuth2.authenticate(
+      url: authUri.toString(),
+      callbackUrlScheme: oauthCallbackScheme,
+    );
+    final callback = Uri.parse(callbackUrl);
+    _throwIfOAuthError(callback);
+    if (callback.queryParameters['state'] != state) {
+      throw StateError('LINE OAuth state mismatch');
+    }
+    final code = callback.queryParameters['code'];
+    if (code == null || code.isEmpty) {
+      throw StateError('LINE OAuth returned no code');
+    }
+    final customToken = await _exchangeOAuthCodeForFirebase(
+      endpoint: 'signInWithLineCode',
+      code: code,
+      redirectUri: redirectUri,
+      state: state,
+    );
+    final credential = await _auth.signInWithCustomToken(customToken);
+    return credential.user;
+  }
 
   Future<User?> signInWithYahoo({bool forceDeviceTransfer = false}) =>
       throw UnsupportedError('Yahoo Japan sign-in is not configured yet');
+
+  Future<User?> signInWithFacebookOAuth({
+    bool forceDeviceTransfer = false,
+  }) async {
+    if (facebookAppId.isEmpty) {
+      return signInWithFacebook(forceDeviceTransfer: forceDeviceTransfer);
+    }
+    final redirectUri = '$oauthCallbackScheme://oauth/facebook';
+    final state = const Uuid().v4();
+    final authUri = Uri.https('www.facebook.com', '/v20.0/dialog/oauth', {
+      'response_type': 'code',
+      'client_id': facebookAppId,
+      'redirect_uri': redirectUri,
+      'state': state,
+      'scope': 'public_profile,email',
+    });
+
+    final callbackUrl = await FlutterWebAuth2.authenticate(
+      url: authUri.toString(),
+      callbackUrlScheme: oauthCallbackScheme,
+    );
+    final callback = Uri.parse(callbackUrl);
+    _throwIfOAuthError(callback);
+    if (callback.queryParameters['state'] != state) {
+      throw StateError('Facebook OAuth state mismatch');
+    }
+    final code = callback.queryParameters['code'];
+    if (code == null || code.isEmpty) {
+      throw StateError('Facebook OAuth returned no code');
+    }
+    final customToken = await _exchangeOAuthCodeForFirebase(
+      endpoint: 'signInWithFacebookCode',
+      code: code,
+      redirectUri: redirectUri,
+      state: state,
+    );
+    final credential = await _auth.signInWithCustomToken(customToken);
+    return credential.user;
+  }
 
   Future<void> sendEmailSignInLink(String email) async {
     final trimmed = email.trim();
@@ -391,7 +514,9 @@ class AuthService {
       case RingAuthProvider.yahoo:
         return signInWithYahoo(forceDeviceTransfer: forceDeviceTransfer);
       case RingAuthProvider.facebook:
-        return signInWithFacebook(forceDeviceTransfer: forceDeviceTransfer);
+        return signInWithFacebookOAuth(
+          forceDeviceTransfer: forceDeviceTransfer,
+        );
       case RingAuthProvider.email:
         throw UnsupportedError('Use sendEmailSignInLink first');
     }
@@ -636,6 +761,58 @@ class AuthService {
       throw Exception('Kakao token exchange returned no custom token');
     }
     return customToken;
+  }
+
+  Future<String> _exchangeOAuthCodeForFirebase({
+    required String endpoint,
+    required String code,
+    required String redirectUri,
+    required String state,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$serverUrl/$endpoint'),
+      headers: await _jsonHeadersWithOptionalAppCheck(),
+      body: jsonEncode({
+        'code': code,
+        'redirectUri': redirectUri,
+        'state': state,
+      }),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('$endpoint failed: ${response.body}');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final customToken = data['customToken']?.toString();
+    if (customToken == null || customToken.isEmpty) {
+      throw Exception('$endpoint returned no custom token');
+    }
+    return customToken;
+  }
+
+  Future<Map<String, String>> _jsonHeadersWithOptionalAppCheck() async {
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    try {
+      final appCheckToken = await FirebaseAppCheck.instance.getToken(false);
+      if (appCheckToken != null && appCheckToken.isNotEmpty) {
+        headers['X-Firebase-AppCheck'] = appCheckToken;
+      }
+    } catch (e) {
+      debugPrint('App Check token unavailable for OAuth sign-in: $e');
+    }
+    return headers;
+  }
+
+  void _throwIfOAuthError(Uri callback) {
+    final error = callback.queryParameters['error'];
+    if (error == null || error.isEmpty) return;
+    final description =
+        callback.queryParameters['error_description'] ??
+        callback.queryParameters['errorMessage'] ??
+        error;
+    throw Exception('OAuth failed: $description');
   }
 
   Future<void> _signOutKakao() async {

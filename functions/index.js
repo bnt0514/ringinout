@@ -16,6 +16,27 @@ const DEVICE_PROVIDER = 'device';
 const ALLOWED_ORIGINS = ['https://ringgo-485705.web.app', 'https://ringgo-485705.firebaseapp.com'];
 const CORE_SECRETS = ['APP_SECRET', 'APP_ENFORCE_APP_CHECK'];
 const coreFunctions = functions.runWith({ secrets: CORE_SECRETS });
+const naverAuthFunctions = functions.runWith({
+    secrets: [
+        ...CORE_SECRETS,
+        'NAVER_LOGIN_CLIENT_ID',
+        'NAVER_LOGIN_CLIENT_SECRET',
+    ],
+});
+const lineAuthFunctions = functions.runWith({
+    secrets: [
+        ...CORE_SECRETS,
+        'LINE_LOGIN_CHANNEL_ID',
+        'LINE_LOGIN_CHANNEL_SECRET',
+    ],
+});
+const facebookAuthFunctions = functions.runWith({
+    secrets: [
+        ...CORE_SECRETS,
+        'FACEBOOK_APP_ID',
+        'FACEBOOK_APP_SECRET',
+    ],
+});
 const naverNcpFunctions = functions.runWith({
     secrets: [
         ...CORE_SECRETS,
@@ -905,6 +926,237 @@ exports.signInWithKakao = coreFunctions.https.onRequest(async (req, res) => {
     } catch (error) {
         console.error('Kakao sign-in failed:', error);
         return res.status(500).json({ error: 'Kakao sign-in failed' });
+    }
+});
+
+function requireOauthCodePayload(req, res) {
+    const code = String(req.body?.code || '').trim();
+    const redirectUri = String(req.body?.redirectUri || req.body?.redirect_uri || '').trim();
+    if (!code || !redirectUri) {
+        res.status(400).json({ error: 'code and redirectUri are required' });
+        return null;
+    }
+    return { code, redirectUri };
+}
+
+async function createSocialCustomToken(providerId, subject, profile = {}) {
+    const normalizedProviderId = normalizeProviderId(providerId);
+    const subjectText = String(subject || '').trim();
+    if (!subjectText) {
+        throw new Error(`${normalizedProviderId}_subject_missing`);
+    }
+    const uid = `${normalizedProviderId}:${subjectText}`;
+    const customToken = await admin.auth().createCustomToken(uid, stripUndefined({
+        provider_id: normalizedProviderId,
+        provider_subject: subjectText,
+        provider_email: profile.email,
+        provider_display_name: profile.displayName,
+    }));
+    return stripUndefined({
+        success: true,
+        customToken,
+        providerId: normalizedProviderId,
+        providerSubject: subjectText,
+        email: profile.email,
+        displayName: profile.displayName,
+    });
+}
+
+async function postForm(url, body) {
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Accept: 'application/json',
+        },
+        body: new URLSearchParams(body),
+    });
+    const data = await response.json().catch(() => ({}));
+    return { response, data };
+}
+
+exports.naverOAuthCallback = coreFunctions.https.onRequest((req, res) => {
+    const params = new URLSearchParams();
+    ['code', 'state', 'error', 'error_description'].forEach((key) => {
+        const value = req.query?.[key];
+        if (typeof value === 'string' && value.trim()) {
+            params.set(key, value);
+        }
+    });
+
+    const query = params.toString();
+    const appCallback = `ringinout://oauth/naver${query ? `?${query}` : ''}`;
+    res.set('Cache-Control', 'no-store');
+    return res.redirect(302, appCallback);
+});
+
+exports.lineOAuthCallback = coreFunctions.https.onRequest((req, res) => {
+    const params = new URLSearchParams();
+    ['code', 'state', 'error', 'error_description'].forEach((key) => {
+        const value = req.query?.[key];
+        if (typeof value === 'string' && value.trim()) {
+            params.set(key, value);
+        }
+    });
+
+    const query = params.toString();
+    const appCallback = `ringinout://oauth/line${query ? `?${query}` : ''}`;
+    res.set('Cache-Control', 'no-store');
+    return res.redirect(302, appCallback);
+});
+
+exports.signInWithNaverCode = naverAuthFunctions.https.onRequest(async (req, res) => {
+    setCors(req, res);
+    if (!requirePost(req, res)) return;
+    if (!(await requireAppCheck(req, res))) return;
+
+    const payload = requireOauthCodePayload(req, res);
+    if (!payload) return;
+
+    try {
+        const clientId = getRequiredConfigValue('naver', 'login_client_id', 'NAVER_LOGIN_CLIENT_ID');
+        const clientSecret = getRequiredConfigValue('naver', 'login_client_secret', 'NAVER_LOGIN_CLIENT_SECRET');
+        const tokenUrl = new URL('https://nid.naver.com/oauth2.0/token');
+        tokenUrl.searchParams.set('grant_type', 'authorization_code');
+        tokenUrl.searchParams.set('client_id', clientId);
+        tokenUrl.searchParams.set('client_secret', clientSecret);
+        tokenUrl.searchParams.set('code', payload.code);
+        tokenUrl.searchParams.set('state', String(req.body?.state || '').trim());
+
+        const tokenResponse = await fetch(tokenUrl, {
+            method: 'GET',
+            headers: { Accept: 'application/json' },
+        });
+        const tokenData = await tokenResponse.json().catch(() => ({}));
+        if (!tokenResponse.ok || !tokenData.access_token) {
+            console.warn('Naver token exchange failed:', tokenResponse.status, tokenData?.error || tokenData?.error_description);
+            return res.status(401).json({ error: 'naver_token_exchange_failed' });
+        }
+
+        const profileResponse = await fetch('https://openapi.naver.com/v1/nid/me', {
+            method: 'GET',
+            headers: {
+                Authorization: `Bearer ${tokenData.access_token}`,
+                Accept: 'application/json',
+            },
+        });
+        const profileData = await profileResponse.json().catch(() => ({}));
+        const naverProfile = profileData.response || {};
+        if (!profileResponse.ok || !naverProfile.id) {
+            console.warn('Naver profile verification failed:', profileResponse.status, profileData?.error || profileData?.message);
+            return res.status(401).json({ error: 'invalid_naver_access_token' });
+        }
+
+        const response = await createSocialCustomToken('naver', naverProfile.id, {
+            email: typeof naverProfile.email === 'string' ? naverProfile.email : undefined,
+            displayName: typeof naverProfile.nickname === 'string'
+                ? naverProfile.nickname
+                : (typeof naverProfile.name === 'string' ? naverProfile.name : undefined),
+        });
+        return res.json(response);
+    } catch (error) {
+        console.error('Naver sign-in failed:', error);
+        return res.status(500).json({ error: 'naver_sign_in_failed' });
+    }
+});
+
+exports.signInWithLineCode = lineAuthFunctions.https.onRequest(async (req, res) => {
+    setCors(req, res);
+    if (!requirePost(req, res)) return;
+    if (!(await requireAppCheck(req, res))) return;
+
+    const payload = requireOauthCodePayload(req, res);
+    if (!payload) return;
+
+    try {
+        const channelId = getRequiredConfigValue('line', 'login_channel_id', 'LINE_LOGIN_CHANNEL_ID');
+        const channelSecret = getRequiredConfigValue('line', 'login_channel_secret', 'LINE_LOGIN_CHANNEL_SECRET');
+        const { response: tokenResponse, data: tokenData } = await postForm(
+            'https://api.line.me/oauth2/v2.1/token',
+            {
+                grant_type: 'authorization_code',
+                code: payload.code,
+                redirect_uri: payload.redirectUri,
+                client_id: channelId,
+                client_secret: channelSecret,
+            },
+        );
+        if (!tokenResponse.ok || !tokenData.access_token) {
+            console.warn('LINE token exchange failed:', tokenResponse.status, tokenData?.error || tokenData?.error_description);
+            return res.status(401).json({ error: 'line_token_exchange_failed' });
+        }
+
+        const profileResponse = await fetch('https://api.line.me/v2/profile', {
+            method: 'GET',
+            headers: {
+                Authorization: `Bearer ${tokenData.access_token}`,
+                Accept: 'application/json',
+            },
+        });
+        const lineProfile = await profileResponse.json().catch(() => ({}));
+        if (!profileResponse.ok || !lineProfile.userId) {
+            console.warn('LINE profile verification failed:', profileResponse.status, lineProfile?.message);
+            return res.status(401).json({ error: 'invalid_line_access_token' });
+        }
+
+        const response = await createSocialCustomToken('line', lineProfile.userId, {
+            displayName: typeof lineProfile.displayName === 'string' ? lineProfile.displayName : undefined,
+        });
+        return res.json(response);
+    } catch (error) {
+        console.error('LINE sign-in failed:', error);
+        return res.status(500).json({ error: 'line_sign_in_failed' });
+    }
+});
+
+exports.signInWithFacebookCode = facebookAuthFunctions.https.onRequest(async (req, res) => {
+    setCors(req, res);
+    if (!requirePost(req, res)) return;
+    if (!(await requireAppCheck(req, res))) return;
+
+    const payload = requireOauthCodePayload(req, res);
+    if (!payload) return;
+
+    try {
+        const appId = getRequiredConfigValue('facebook', 'app_id', 'FACEBOOK_APP_ID');
+        const appSecret = getRequiredConfigValue('facebook', 'app_secret', 'FACEBOOK_APP_SECRET');
+        const tokenUrl = new URL('https://graph.facebook.com/v20.0/oauth/access_token');
+        tokenUrl.searchParams.set('client_id', appId);
+        tokenUrl.searchParams.set('client_secret', appSecret);
+        tokenUrl.searchParams.set('redirect_uri', payload.redirectUri);
+        tokenUrl.searchParams.set('code', payload.code);
+
+        const tokenResponse = await fetch(tokenUrl, {
+            method: 'GET',
+            headers: { Accept: 'application/json' },
+        });
+        const tokenData = await tokenResponse.json().catch(() => ({}));
+        if (!tokenResponse.ok || !tokenData.access_token) {
+            console.warn('Facebook token exchange failed:', tokenResponse.status, tokenData?.error?.message || tokenData?.error);
+            return res.status(401).json({ error: 'facebook_token_exchange_failed' });
+        }
+
+        const profileUrl = new URL('https://graph.facebook.com/v20.0/me');
+        profileUrl.searchParams.set('fields', 'id,name,email');
+        profileUrl.searchParams.set('access_token', tokenData.access_token);
+        const profileResponse = await fetch(profileUrl, {
+            method: 'GET',
+            headers: { Accept: 'application/json' },
+        });
+        const facebookProfile = await profileResponse.json().catch(() => ({}));
+        if (!profileResponse.ok || !facebookProfile.id) {
+            console.warn('Facebook profile verification failed:', profileResponse.status, facebookProfile?.error?.message || facebookProfile?.error);
+            return res.status(401).json({ error: 'invalid_facebook_access_token' });
+        }
+
+        const response = await createSocialCustomToken('facebook', facebookProfile.id, {
+            email: typeof facebookProfile.email === 'string' ? facebookProfile.email : undefined,
+            displayName: typeof facebookProfile.name === 'string' ? facebookProfile.name : undefined,
+        });
+        return res.json(response);
+    } catch (error) {
+        console.error('Facebook sign-in failed:', error);
+        return res.status(500).json({ error: 'facebook_sign_in_failed' });
     }
 });
 

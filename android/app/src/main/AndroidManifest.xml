@@ -70,6 +70,16 @@
             </intent-filter>
         </activity>
 
+        <!-- OAuth callback for Naver / LINE / Facebook web login -->
+        <activity android:name="com.linusu.flutter_web_auth_2.CallbackActivity" android:exported="true" android:taskAffinity="">
+            <intent-filter android:label="flutter_web_auth_2">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="ringinout" />
+            </intent-filter>
+        </activity>
+
         <!-- MainActivity (앱 실행 메인) -->
         <!-- ⚠️ taskAffinity 제거: 기본 패키지명 affinity 사용 → 앱 런처에서 항상 같은 task로 열림 -->
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:theme="@style/LaunchTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" android:hardwareAccelerated="true" android:windowSoftInputMode="adjustResize" android:turnScreenOn="true" android:excludeFromRecents="false">
@@ -84,6 +94,17 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Firebase email magic link callbacks -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="ringgo-485705.web.app" android:pathPrefix="/email-sign-in" />
+                <data android:scheme="https" android:host="ringgo-485705.web.app" android:pathPrefix="/__/auth" />
+                <data android:scheme="https" android:host="ringgo-485705.firebaseapp.com" android:pathPrefix="/email-sign-in" />
+                <data android:scheme="https" android:host="ringgo-485705.firebaseapp.com" android:pathPrefix="/__/auth" />
             </intent-filter>
         </activity>
 

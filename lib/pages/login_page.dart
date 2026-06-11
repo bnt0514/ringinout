@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:app_links/app_links.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -46,10 +49,48 @@ class _LoginPageState extends State<LoginPage> {
   );
 
   final TextEditingController _emailController = TextEditingController();
+  final AppLinks _appLinks = AppLinks();
 
   bool _isLoading = false;
   _MagicLinkFormState _magicLinkState = _MagicLinkFormState.idle;
   String? _magicLinkError;
+  StreamSubscription<Uri>? _linkSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _listenForEmailSignInLinks();
+  }
+
+  void _listenForEmailSignInLinks() {
+    _linkSubscription = _appLinks.uriLinkStream.listen(
+      _handleIncomingLink,
+      onError: (error) {
+        debugPrint('Incoming auth link failed: $error');
+      },
+    );
+  }
+
+  Future<void> _handleIncomingLink(Uri uri) async {
+    if (_isLoading) return;
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final link = uri.toString();
+    if (!authService.isEmailSignInLink(link)) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final user = await authService.signInWithEmailLink(emailLink: link);
+      if (!mounted || user == null) return;
+      await _finishAuthenticatedFlow();
+    } catch (e) {
+      debugPrint('Email link sign-in failed: $e');
+      if (mounted) {
+        _showError(AppLocalizations.of(context).get('login_failed'));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   List<_SignInMethod> _methodsForLocale(Locale locale) {
     if (_showDeveloperLoginOptions()) {
@@ -105,7 +146,7 @@ class _LoginPageState extends State<LoginPage> {
     final country = _countryCodeForSignInOptions(locale);
 
     if (country == 'KR') {
-      return const [
+      return _configuredMethods(const [
         _SignInMethod(
           provider: _SignInProvider.google,
           labelKey: 'login_continue_with_google',
@@ -130,11 +171,11 @@ class _LoginPageState extends State<LoginPage> {
           labelKey: 'login_continue_with_email',
           icon: Icons.email_outlined,
         ),
-      ];
+      ]);
     }
 
     if (country == 'JP') {
-      return const [
+      return _configuredMethods(const [
         _SignInMethod(
           provider: _SignInProvider.google,
           labelKey: 'login_continue_with_google',
@@ -159,11 +200,11 @@ class _LoginPageState extends State<LoginPage> {
           labelKey: 'login_continue_with_email',
           icon: Icons.email_outlined,
         ),
-      ];
+      ]);
     }
 
     if (_linePreferredCountries.contains(country)) {
-      return const [
+      return _configuredMethods(const [
         _SignInMethod(
           provider: _SignInProvider.google,
           labelKey: 'login_continue_with_google',
@@ -188,10 +229,10 @@ class _LoginPageState extends State<LoginPage> {
           labelKey: 'login_continue_with_email',
           icon: Icons.email_outlined,
         ),
-      ];
+      ]);
     }
 
-    return const [
+    return _configuredMethods(const [
       _SignInMethod(
         provider: _SignInProvider.google,
         labelKey: 'login_continue_with_google',
@@ -209,7 +250,28 @@ class _LoginPageState extends State<LoginPage> {
         labelKey: 'login_continue_with_email',
         icon: Icons.email_outlined,
       ),
-    ];
+    ]);
+  }
+
+  List<_SignInMethod> _configuredMethods(List<_SignInMethod> methods) {
+    return methods
+        .where((method) {
+          switch (method.provider) {
+            case _SignInProvider.google:
+            case _SignInProvider.kakao:
+            case _SignInProvider.email:
+              return true;
+            case _SignInProvider.naver:
+              return AuthService.naverLoginClientId.isNotEmpty;
+            case _SignInProvider.line:
+              return AuthService.lineLoginChannelId.isNotEmpty;
+            case _SignInProvider.facebook:
+              return AuthService.facebookAppId.isNotEmpty;
+            case _SignInProvider.yahoo:
+              return false;
+          }
+        })
+        .toList(growable: false);
   }
 
   static const Set<String> _linePreferredCountries = {'TW', 'TH', 'ID'};
@@ -242,7 +304,7 @@ class _LoginPageState extends State<LoginPage> {
       case _SignInProvider.yahoo:
         return authService.signInWithYahoo();
       case _SignInProvider.facebook:
-        return authService.signInWithFacebook();
+        return authService.signInWithFacebookOAuth();
       case _SignInProvider.email:
         throw UnsupportedError('Use _sendMagicLink for email sign-in.');
     }
@@ -499,6 +561,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   void dispose() {
+    _linkSubscription?.cancel();
     _emailController.dispose();
     super.dispose();
   }

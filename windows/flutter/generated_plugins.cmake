@@ -3,7 +3,9 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  app_links
   cloud_firestore
+  desktop_webview_window
   firebase_auth
   firebase_core
   geolocator_windows
@@ -11,6 +13,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   screen_brightness_windows
   speech_to_text_windows
   url_launcher_windows
+  window_to_front
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
