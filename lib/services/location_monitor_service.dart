@@ -89,6 +89,10 @@ class LocationMonitorService {
   final Set<String> _wifiWaitTimersUsingConnectedWifi = {};
   final Map<String, DateTime> _wifiWaitStartedAt = {};
 
+  /// 같은 알람/방향이 여러 이벤트 경로에서 동시에 들어오는 것을 즉시 차단한다.
+  final Map<String, int> _triggerLocksUntilMs = {};
+  static const int _triggerLockDurationMs = 15000;
+
   /// ★ 현재 Wi-Fi 연결 중인 장소 ID 집합
   /// Wi-Fi ENTER 시 add, Wi-Fi EXIT 시 remove
   /// GPS EXIT 판정 시 여기에 포함된 장소는 EXIT 무시 (Wi-Fi 우선)
@@ -276,6 +280,7 @@ class LocationMonitorService {
     _wifiWaitTimers.clear();
     _wifiWaitTimersUsingConnectedWifi.clear();
     _wifiWaitStartedAt.clear();
+    _triggerLocksUntilMs.clear();
     _pendingGpsEntryPlaces.clear();
     _wifiConnectedPlaceIds.clear();
     _alarmPlaceCache.clear();
@@ -728,6 +733,11 @@ class LocationMonitorService {
       // 당일 중복 트리거 방지
       if (alarmId != null &&
           await _hasAlreadyTriggeredToday(alarmId, alarm, alarmName)) {
+        continue;
+      }
+
+      if (alarmId != null &&
+          !_tryAcquireTriggerLock(alarmId, triggerType, alarmName)) {
         continue;
       }
 
@@ -1213,6 +1223,16 @@ class LocationMonitorService {
         continue;
       }
 
+      if (alarmId != null &&
+          alarmId.isNotEmpty &&
+          !_tryAcquireTriggerLock(
+            alarmId,
+            'entry',
+            alarm['name']?.toString(),
+          )) {
+        continue;
+      }
+
       final resolvedMode = AlarmDetectionMode.resolve(alarm, place: placeInfo);
       _log('🚨 [$placeName] ENTRY 알람 트리거! mode=$resolvedMode');
       final triggerAlarmData =
@@ -1281,6 +1301,12 @@ class LocationMonitorService {
 
       if (!await _checkDayCondition(alarm) || !_checkTimeCondition(alarm)) {
         _log('⏭️ [$placeName] 요일/시간 조건 불만족');
+        continue;
+      }
+
+      if (alarmId != null &&
+          alarmId.isNotEmpty &&
+          !_tryAcquireTriggerLock(alarmId, 'exit', alarm['name']?.toString())) {
         continue;
       }
 
@@ -1580,6 +1606,46 @@ class LocationMonitorService {
     }
   }
 
+  bool _tryAcquireTriggerLock(
+    String alarmId,
+    String trigger,
+    String? alarmName,
+  ) {
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    _triggerLocksUntilMs.removeWhere((_, untilMs) => untilMs <= nowMs);
+
+    final key = '$alarmId:$trigger';
+    final lockedUntil = _triggerLocksUntilMs[key] ?? 0;
+    if (lockedUntil > nowMs) {
+      final remaining = ((lockedUntil - nowMs) / 1000).ceil();
+      _log(
+        '🔒 [${alarmName ?? _shortId(alarmId)}] 중복 트리거 락 차단 '
+        '($trigger, $remaining초 남음)',
+      );
+      return false;
+    }
+
+    final lockUntil = nowMs + _triggerLockDurationMs;
+    _triggerLocksUntilMs[key] = lockUntil;
+    unawaited(_writeImmediateTriggerCooldown(alarmId, trigger, lockUntil));
+    return true;
+  }
+
+  Future<void> _writeImmediateTriggerCooldown(
+    String alarmId,
+    String trigger,
+    int cooldownUntilMs,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('cooldown_until_$alarmId', cooldownUntilMs);
+      await prefs.setInt('cooldown_until_${trigger}_$alarmId', cooldownUntilMs);
+      _log('🔒 trigger lock acquired: ${_shortId(alarmId)} ($trigger)');
+    } catch (e) {
+      _log('⚠️ 즉시 중복 락 저장 실패: $e');
+    }
+  }
+
   /// 사용자가 "잠시 멈춤" 버튼으로 N분간 차단해둔 상태인지 확인.
   /// trigger 타입(entry/exit)별로 독립 적용 — 진입 알람만 멈춰둬도 진출은 정상 발동.
   /// SharedPreferences 키:
@@ -1598,9 +1664,7 @@ class LocationMonitorService {
       final pauseUntilMs = prefs.getInt(key) ?? 0;
       if (pauseUntilMs > nowMs) {
         final remaining = (pauseUntilMs - nowMs) ~/ 1000;
-        _log(
-          '⏸️ [${placeName ?? alarmId}] 잠시 멈춤 중 ($trigger, ${remaining}초 남음)',
-        );
+        _log('⏸️ [${placeName ?? alarmId}] 잠시 멈춤 중 ($trigger, $remaining초 남음)');
         return true;
       }
       // 만료된 키 정리 (메모리 청소)

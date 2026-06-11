@@ -119,7 +119,10 @@ class AppLocalizations {
       'wifi_wait_subtitle': '{minutes} min',
       'wifi_wait_dialog_title': 'Wi-Fi wait time',
       'wifi_wait_dialog_message':
-          'When GPS judges that you entered the place radius, the app waits for Wi-Fi connection. If a registered Wi-Fi connects within this time, the alarm rings. If Wi-Fi is not detected, the app rechecks GPS after the time passes and may try a backup alarm.',
+          'When GPS judges that you entered the place radius, the app waits for the registered Wi-Fi. If Wi-Fi is detected and the alarm rings within this time, the timer is cleared. If Wi-Fi is not detected or the Wi-Fi alarm does not fire, the app rechecks GPS at the timeout and tries a backup alarm only when you are still inside the radius.',
+      'wifi_exit_behavior_title': 'Wi-Fi exit alarm note',
+      'wifi_exit_behavior_message':
+          'Wi-Fi exit alarms ring when disconnection from the registered Wi-Fi is confirmed. GPS radius exit is also monitored separately. Wi-Fi wait time is used only for entry-alarm backup and is not applied to exit alarms.',
       'wifi_wait_custom': 'Custom',
       'wifi_wait_custom_title': 'Custom wait time',
       'wifi_wait_custom_hint': '5-60 minutes',
@@ -875,7 +878,7 @@ class AppLocalizations {
       'wifi_currently_connected': 'Currently connected',
       'wifi_previously_saved': 'Previously saved (not detected now)',
       'wifi_candidate_notice':
-          'These Wi-Fi networks may belong to the same router. Select only Wi-Fi networks you own or are allowed to use. A wrong selection may cause missed or unexpected alarms.',
+          'These Wi-Fi networks may belong to the same router. Select them if they are yours. If your phone may auto-connect to another Wi-Fi from the same router, select that too or the alarm may not ring. If a Wi-Fi is missing, connect to it manually and save again.',
       'wifi_suggested_sibling': 'Same router candidate',
       'wifi_guest_like_candidate': 'Guest/extended network candidate',
 
@@ -1009,7 +1012,10 @@ class AppLocalizations {
       'wifi_wait_subtitle': '{minutes}분',
       'wifi_wait_dialog_title': 'Wi-Fi 대기 시간',
       'wifi_wait_dialog_message':
-          'GPS가 장소 반경에 들어왔다고 판단되면 Wi-Fi 연결을 기다립니다. 설정한 시간 안에 등록한 Wi-Fi가 연결되면 알람이 울리고, 연결 감지가 되지 않으면 시간이 지난 뒤 GPS 위치를 다시 확인해 보조 알람을 시도합니다.',
+          'GPS가 장소 반경에 진입했다고 판단하면 등록한 Wi-Fi 연결을 기다립니다. 설정 시간 안에 Wi-Fi가 감지되어 알람이 울리면 타이머는 초기화됩니다. Wi-Fi가 감지되지 않거나 알람이 울리지 않으면, 설정 시간 후 GPS를 다시 확인해 반경 안일 때 보조 알람을 시도합니다.',
+      'wifi_exit_behavior_title': 'Wi-Fi 진출 알람 안내',
+      'wifi_exit_behavior_message':
+          'Wi-Fi 진출 알람은 등록한 Wi-Fi 연결 해제가 확인되면 울립니다. GPS 반경 이탈도 별도로 감지합니다. Wi-Fi 대기 시간은 진입 알람의 보조 대기 시간이며, 진출 알람에는 적용되지 않습니다.',
       'wifi_wait_custom': '사용자 설정',
       'wifi_wait_custom_title': '대기 시간 직접 입력',
       'wifi_wait_custom_hint': '5~60분',
@@ -1719,7 +1725,7 @@ class AppLocalizations {
       'wifi_currently_connected': '현재 연결됨',
       'wifi_previously_saved': '이전에 저장됨 (현재 감지 안 됨)',
       'wifi_candidate_notice':
-          '같은 공유기일 가능성이 높은 Wi-Fi 후보입니다. 본인 또는 사용 권한이 있는 Wi-Fi만 선택하세요. 잘못 선택하면 알람이 울리지 않거나 의도치 않게 동작할 수 있습니다.',
+          '같은 공유기일 가능성이 높은 Wi-Fi 후보입니다. 같은 Wi-Fi가 맞다면 선택하세요. 자동 연결될 수 있는 Wi-Fi를 선택하지 않으면 알람이 울리지 않을 수 있습니다. 후보가 보이지 않으면 해당 Wi-Fi에 직접 연결한 뒤 다시 저장하세요.',
       'wifi_suggested_sibling': '같은 공유기 후보',
       'wifi_guest_like_candidate': '게스트/확장망 후보',
 

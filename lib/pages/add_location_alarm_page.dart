@@ -420,7 +420,8 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
   void _selectDetectionMode(String mode) {
     if (mode == AlarmDetectionMode.wifi && !_selectedPlaceHasWifi) return;
     setState(() => detectionMode = mode);
-    if (mode == AlarmDetectionMode.wifi) {
+    if (mode == AlarmDetectionMode.wifi &&
+        !(triggerOnExit && !triggerOnEntry)) {
       _showWifiWaitTimeoutDialog();
     }
   }
@@ -535,6 +536,9 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
     if (detectionMode != AlarmDetectionMode.wifi || !_selectedPlaceHasWifi) {
       return const SizedBox.shrink();
     }
+    if (triggerOnExit && !triggerOnEntry) {
+      return _buildWifiExitInfoTile();
+    }
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: InkWell(
@@ -578,6 +582,51 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
               const Icon(Icons.chevron_right, color: AppColors.textSecondary),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWifiExitInfoTile() {
+    final l10n = AppLocalizations.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.info_outline, color: AppColors.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.get('wifi_exit_behavior_title'),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    l10n.get('wifi_exit_behavior_message'),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1400,7 +1449,8 @@ class _AddLocationAlarmPageState extends State<AddLocationAlarmPage> {
                             'placeId': selectedPlace?['id']?.toString(),
                             'trigger': triggerOnEntry ? 'entry' : 'exit',
                             'detectionMode': savedDetectionMode,
-                            if (savedDetectionMode == AlarmDetectionMode.wifi)
+                            if (savedDetectionMode == AlarmDetectionMode.wifi &&
+                                triggerOnEntry)
                               'wifiWaitTimeoutMinutes':
                                   WifiAlarmSettings.normalizeWaitMinutes(
                                     wifiWaitTimeoutMinutes,
